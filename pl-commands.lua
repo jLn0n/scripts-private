@@ -15,7 +15,7 @@ local TeamEvent = Workspace.Remote:FindFirstChild("TeamEvent")
 local rad = math.rad
 local TargetHRP
 local killWL = {}
-local oldCharPos, oldTeam, Tplr
+local oldCharPos, Tplr
 local isPlrWl = false
 local sformat = string.format
 local zRot = -360
@@ -69,7 +69,7 @@ local KillFinished = function()
     HRP.CFrame = oldCharPos or CFrame.new(0, 150, 0)
     Humanoid:ChangeState(Enum.HumanoidStateType.Running)
     Camera.CameraSubject = Humanoid
-    TeamEvent:FireServer(oldTeam)
+    TeamEvent:FireServer("Bright orange")
 end
 Player.CharacterAdded:Connect(function(char)
     HRP, Humanoid, TargetHRP = nil, nil, nil
@@ -82,7 +82,7 @@ end)
 RunService:BindToRenderStep("Naem_GOTYABEBEKOH", math.huge, function()
     if HRP and TargetHRP and TargetHRP.CFrame and TargetHRP.Parent.Humanoid.Health ~= 0 then
         HRP.CFrame = TargetHRP.CFrame * CFrame.new(Vector3.new(0, -4, 0)) * CFrame.Angles(rad(90), 0, rad(zRot))
-        Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+        Humanoid:ChangeState(Enum.HumanoidStateType.Ragdoll)
         if zRot == 360 then
             zRot = -360
         else
@@ -116,7 +116,7 @@ Player.Chatted:Connect(function(chat)
                 CreateMessage("Cannot find player.")
             end
         elseif chatBody[2] == "kill" then
-            for _ = 1, 3 do oldCharPos, oldTeam = HRP.CFrame, Player.TeamColor.Name TeamEvent:FireServer("Bright orange") end
+            for _ = 1, 3 do oldCharPos = HRP.CFrame end
             if chatBody[3] == "all" then
                 for _, player in pairs(Players:GetPlayers()) do
                     if player.Name ~= Player.Name then
@@ -182,6 +182,16 @@ Player.Chatted:Connect(function(chat)
                 CreateMessage(sformat("Successfully changed jumppower to %s", tostring(chatBody[3])))
             else
                 CreateMessage("Argument 2 should be a number.")
+            end
+        elseif chatBody[2] == "tp" or chatBody[2] == "teleport" then
+            Tplr = FindPlyrFromString(chatBody[3])
+            if Tplr and Tplr ~= Player.Name then
+                if HRP and Humanoid.Health ~= 0 and Tplr.Character:FindFirstChild("HumanoidRootPart") then
+                    HRP.CFrame = Tplr.Character.HumanoidRootPart.CFrame * CFrame.new(Vector3.new(0, 0, 4))
+                end
+                CreateMessage("Teleported to %s.", Tplr.Name)
+            else
+                CreateMessage("Can't find player.")
             end
         end
     end
