@@ -61,21 +61,21 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     local FakeTorso =  Instance.new("Part")
     FakeTorso.Name = "Torso"
     FakeTorso.Parent = AntiSpawnChar
-    FakeTorso.CanCollide = false
     FakeTorso.Anchored = true
+    FakeTorso.CanCollide = false
+    FakeTorso.Position = Vector3.new(0, 9e9, 0)
 
     local FakeHead  = Instance.new("Part")
     FakeHead.Name = "Head"
     FakeHead.Parent = AntiSpawnChar
     FakeHead.Anchored = true
     FakeHead.CanCollide = false
+    FakeHead.Position = Vector3.new(0, 9e8, 0)
 
     local FakeHumanoid = Instance.new("Humanoid")
     FakeHumanoid.Name = "Humanoid"
     FakeHumanoid.Parent = AntiSpawnChar
 
-    FakeTorso.Position = Vector3.new(0, 9e9, 0)
-    FakeHead.Position = Vector3.new(0, 9e8, 0)
     AntiSpawnChar.Parent = Folder
 
     local RJointAtt = Instance.new("Attachment")
@@ -86,7 +86,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	Humanoid.WalkSpeed = 0
 	Humanoid.JumpPower = 0
     Player.Character = AntiSpawnChar
-    wait(5)
+    wait(Players.RespawnTime)
     Player.Character = Character
     wait(.25)
 
@@ -100,7 +100,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     end
 
     HRP:Destroy()
-    Humanoid:ChangeState("Dead")
+    wait()
+    Character:BreakJoints()
     HRP = FakeHRP
     HRP.Parent = Character
     RJointAtt.Parent = HRP
@@ -118,6 +119,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     AnimateScript.Parent = DummyChar
     AnimateScript.Disabled = false
     Character.Animate:Destroy()
+
+    for _, accessory in ipairs(Character:GetChildren()) do
+        if accessory:IsA("Accessory") then
+            accessory.Parent = DummyChar
+        end
+    end
 
     for _, object in ipairs(DummyChar:GetChildren()) do
 		if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
