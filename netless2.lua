@@ -12,7 +12,6 @@ local HRP, Head, Torso, LeftArm, RightArm, LeftLeg, RightLeg
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
 local OldPos
-local WaitTime = 5
 -- // MAIN
 if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	for _, connection in ipairs(_G.Connections) do
@@ -31,7 +30,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
 	if game.PlaceId == 2041312716 then
-        WaitTime = 10
 		Character:FindFirstChild("FirstPerson"):Destroy()
 		Character:FindFirstChild("Local Ragdoll"):Destroy()
 		Character:FindFirstChild("Controls"):Destroy()
@@ -42,8 +40,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 				RagdollConstraint:Destroy()
 			end
 		end
-		HRP.Anchored = true
-		Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(0, 10000, 0)))
 	end
 
     local Folder = Instance.new("Folder")
@@ -86,11 +82,13 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     RJointAtt.Name = "RootJoint"
     RJointAtt.CFrame = DummyChar.HumanoidRootPart.RootJoint.C0
 
+	HRP.Anchored = true
+	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(0, 10000, 0)))
     Humanoid.Animator:Destroy()
 	Humanoid.WalkSpeed = 0
 	Humanoid.JumpPower = 0
     Player.Character = AntiSpawnChar
-    wait(WaitTime)
+    wait(5)
     Player.Character = Character
     wait(.25)
 
