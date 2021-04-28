@@ -42,6 +42,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 				RagdollConstraint:Destroy()
 			end
 		end
+		HRP.Anchored = true
+		Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(0, 10000, 0)))
 	end
 
     local Folder = Instance.new("Folder")
@@ -101,6 +103,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
         end
     end
 
+	HRP.Anchored = false
     HRP:Destroy()
     wait()
     Character:BreakJoints()
