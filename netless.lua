@@ -14,19 +14,16 @@ _G.Connections = _G.Connections or {}
 _G.Settings = _G.Settings or {}
 local OldPos
 local WaitTime = .1
-local rad = math.rad
-local zRot = -360
 -- // MAIN
 if Humanoid.RigType == Enum.HumanoidRigType.R6 then
-    settings().Physics.AllowSleep = false
-    settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-
 	for _, connection in ipairs(_G.Connections) do
 		connection:Disconnect()
 	end
 	_G.Settings = {
+        WaitTime = _G.Settings.WaitTime or 5,
 		DisableAnimation = _G.Settings.DisableAnimation or false,
-		WaitTime = _G.Settings.WaitTime or 5
+        PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
+        CanFlingPlayers = _G.Settings.CanFlingPlayers or false
 	}
 
 	HRP = Character.HumanoidRootPart
@@ -70,19 +67,21 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     RJointAtt.Name = "RootJoint"
     RJointAtt.CFrame = DummyChar.HumanoidRootPart.RootJoint.C0
 
-    local AngVel = Instance.new("BodyAngularVelocity")
-    AngVel.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    AngVel.AngularVelocity = Vector3.new(1e3, 1e3, 1e3)
+    local AngularVel = Instance.new("BodyAngularVelocity")
+    AngularVel.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    AngularVel.AngularVelocity = Vector3.new(2500, 2500, 2500)
 
+    Character.Animate.Disabled = true
 	Humanoid.Animator:Destroy()
+    HRP.Anchored = true
     Player.Character = AntiSpawnChar
 	wait(WaitTime)
 	Player.Character = Character
 	wait(_G.Settings.WaitTime)
 	Character:BreakJoints()
+    HRP.Anchored = false
     RJointAtt.Parent = HRP
-    AngVel.Parent = HRP
-    HRP.Transparency = .75
+    AngularVel.Parent = HRP
 
 	Folder.Parent = Character
     DummyChar:SetPrimaryPartCFrame(OldPos)
@@ -92,7 +91,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
     DummyChar.Head.face.Texture = ""
     Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
-	Character.Animate.Disabled = true
 	if not _G.Settings.DisableAnimation then
 		local AnimateScript = Character.Animate:Clone()
 		AnimateScript.Parent = DummyChar
@@ -130,28 +128,32 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
 			DummyChar.Humanoid.Jump = true
 		end
-        if zRot == 360 then
-            zRot = -360
-        else
-            zRot += 5
-        end
 	end)
 	
 	_G.Connections[2] = RunService.Stepped:Connect(function()
-		for _, object in ipairs(Character:GetDescendants()) do
-			if object:IsA("BasePart") and object.CanCollide == true then
-				object.CanCollide = false
-			end
-		end
+        if _G.Settings.PlayerCanCollide then
+            for _, object in ipairs(Character:GetChildren()) do
+                if object:IsA("BasePart") and object.CanCollide == true then
+                    object.CanCollide = false
+                end
+            end
+        else
+            for _, object in ipairs(Character:GetDescendants()) do
+                if object:IsA("BasePart") and object.CanCollide == true then
+                    object.CanCollide = false
+                end
+            end
+        end
 	end)
 
 	_G.Connections[3] = RunService.Heartbeat:Connect(function()
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
                 if object.Name == "HumanoidRootPart" then
-                    object.CFrame = CFrame.new(object.Joint.Position) * CFrame.Angles(0, 0, rad(zRot))
+                    object.CFrame = CFrame.new(object.Joint.Position)
                 else
                     object.CFrame = DummyChar[object.Name].CFrame * object.Joint.CFrame
+                    if not _G.Settings.CanFlingPlayers then object.Velocity = Vector3.new(50, 50, 50) end
                 end
 			end
 		end
@@ -159,14 +161,10 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 
     local ResetBindable = Instance.new("BindableEvent")
 	_G.Connections[4] = ResetBindable.Event:Connect(function()
-		if not Workspace:FindFirstChild(Player.Name):FindFirstChild("NETLESS-REANIMATE") then
-			for _, object in ipairs(Character:GetDescendants()) do
-                if object:IsA("Motor6D") then
-                    object:Destroy()
-                end
-            end
+		if not game:GetService("Players").LocalPlayer.Character:FindFirstChild("NETLESS-REANIMATE") then
+		    game:GetService("Players").LocalPlayer.Character:BreakJoints()
 		else
-            Humanoid:Destroy()
+            Character:Destroy()
             for _, connection in ipairs(_G.Connections) do
                 connection:Disconnect()
             end
