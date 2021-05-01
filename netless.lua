@@ -11,13 +11,23 @@ local Humanoid = Character.Humanoid
 local HRP, Head, Torso, LeftArm, RightArm, LeftLeg, RightLeg
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
+_G.Settings = _G.Settings or {}
 local OldPos
+local WaitTime = .1
+local rad = math.rad
+local zRot = -360
 -- // MAIN
-local IsNetworkOwner = loadstring(game:HttpGet("https://raw.githubusercontent.com/OpenGamerTips/Roblox-Scripts/main/NetworkScripts/ownership.lua"))()
-if Humanoid.RigType == Enum.HumanoidRigType.R6 and IsNetworkOwner then
-    for _, connection in ipairs(_G.Connections) do
-        connection:Disconnect()
-    end
+if Humanoid.RigType == Enum.HumanoidRigType.R6 then
+    settings().Physics.AllowSleep = false
+    settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+
+	for _, connection in ipairs(_G.Connections) do
+		connection:Disconnect()
+	end
+	_G.Settings = {
+		DisableAnimation = _G.Settings.DisableAnimation or false,
+		WaitTime = _G.Settings.WaitTime or 5
+	}
 
 	HRP = Character.HumanoidRootPart
 	Head = Character.Head
@@ -27,134 +37,141 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and IsNetworkOwner then
 	LeftLeg = Character["Left Leg"]
 	RightLeg = Character["Right Leg"]
 
-	OldPos = Character:GetPrimaryPartCFrame()
-
-    Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
+    OldPos = Character:GetPrimaryPartCFrame()
+	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
 		Character:FindFirstChild("Local Ragdoll"):Destroy()
 		Character:FindFirstChild("Controls"):Destroy()
-		
+		Character:FindFirstChild("State Handler"):Destroy()
+
 		for _, RagdollConstraint in pairs(Character:GetChildren()) do
 			if RagdollConstraint:IsA("BallSocketConstraint") or RagdollConstraint:IsA("HingeConstraint") then
 				RagdollConstraint:Destroy()
 			end
 		end
+        WaitTime = 5
 	end
 
-	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(0, 10000, 0)))
-	wait(.5)
-	HRP:Destroy()
-	Humanoid.WalkSpeed = 0
-	Humanoid.JumpPower = 0
+    local Folder = Instance.new("Folder")
+    Folder.Name = "NETLESS-REANIMATE"
+    local DummyChar = game:GetObjects("rbxassetid://5904819435")[1]
+    DummyChar.Name = "Dummy"
+    DummyChar.Parent = Folder
+
+    local AntiSpawnChar = Instance.new("Model")
+    local FakeHumanoid = Instance.new("Humanoid")
+    FakeHumanoid.Name = "Humanoid"
+    FakeHumanoid.Parent = AntiSpawnChar
+    AntiSpawnChar.Parent = Folder
+
+    local RJointAtt = Instance.new("Attachment")
+    RJointAtt.Name = "RootJoint"
+    RJointAtt.CFrame = DummyChar.HumanoidRootPart.RootJoint.C0
+
+    local AngVel = Instance.new("BodyAngularVelocity")
+    AngVel.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    AngVel.AngularVelocity = Vector3.new(1e3, 1e3, 1e3)
+
 	Humanoid.Animator:Destroy()
+    Player.Character = AntiSpawnChar
+	wait(WaitTime)
+	Player.Character = Character
+	wait(_G.Settings.WaitTime)
+	Character:BreakJoints()
+    RJointAtt.Parent = HRP
+    AngVel.Parent = HRP
+    HRP.Transparency = .75
 
-	local AntiSpawnChar = Instance.new("Model")
-	local FHumanoid = Instance.new("Humanoid")
-
-	FHumanoid.Parent = AntiSpawnChar
-	AntiSpawnChar.Parent = Workspace.Terrain
-	Player.Character = AntiSpawnChar
-
-	local Folder = Instance.new("Folder")
-	Folder.Name = "FakeChar"
 	Folder.Parent = Character
-	local FakeChar = game:GetObjects("rbxassetid://5904819435")[1]
-	FakeChar.Name = "FakeChar"
-	FakeChar.Parent = Folder
+    DummyChar:SetPrimaryPartCFrame(OldPos)
+    DummyChar.HumanoidRootPart.Anchored = false
+    DummyChar.Humanoid.MaxHealth = math.huge
+    DummyChar.Humanoid.Health = math.huge
+    DummyChar.Head.face.Texture = ""
+    Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
-	for _, object in ipairs(Torso:GetChildren()) do
-		if object:IsA("Motor6D") then
+	Character.Animate.Disabled = true
+	if not _G.Settings.DisableAnimation then
+		local AnimateScript = Character.Animate:Clone()
+		AnimateScript.Parent = DummyChar
+		AnimateScript.Disabled = false
+	end
+    Character.Animate:Destroy()
+
+	for _, object in ipairs(Character:GetChildren()) do
+		if object:IsA("BasePart") then
 			local Attachment = Instance.new("Attachment")
-			Attachment.Name = object.Name
-			Attachment.Parent = Torso
-			Attachment.CFrame = object.C0
-			object:Destroy()
+			Attachment.Name = "Joint"
+			Attachment.Parent = object
 		end
 	end
 
-	local RJointAtt = Instance.new("Attachment")
-	RJointAtt.Name = "RootJoint"
-	RJointAtt.Parent = Torso
-	RJointAtt.CFrame = FakeChar.HumanoidRootPart.RootJoint.C0
-
-	FakeChar.HumanoidRootPart.Anchored = false
-	FakeChar:SetPrimaryPartCFrame(OldPos)
-	FakeChar.Humanoid.HipHeight += .1
-	Workspace.CurrentCamera.CameraSubject = FakeChar.Humanoid
-	Humanoid.Health = 0
-
-	FakeChar.Humanoid.MaxHealth = math.huge
-	FakeChar.Humanoid.Health = math.huge
-	FakeChar.Head.face.Texture = ""
-	
-	for _, object in ipairs(FakeChar:GetChildren()) do
-		if object:IsA("BasePart") then
+    for _, object in ipairs(DummyChar:GetChildren()) do
+		if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
 			object.Transparency = 1
 		end
 	end
 
-    for _, object in ipairs(Character:GetChildren()) do
-        if object:IsA("Accessory") then
-            object.Parent = FakeChar
-		elseif object:IsA("BodyColors") or object:IsA("CharacterMesh") then
-			object = object:Clone()
-			object.Parent = FakeChar
-        end
-    end
+    _G.Connections[1] = RunService.Heartbeat:Connect(function()
+        DummyChar.Humanoid:Move(Humanoid.MoveDirection)
 
-	_G.Connections[1] = RunService.RenderStepped:Connect(function()
-		FakeChar.Humanoid:Move(FHumanoid.MoveDirection)
-
-		for _, object in ipairs(Character:GetDescendants()) do
+		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
-				object.CanCollide = false
-				object.LocalTransparencyModifier = FakeChar.Head.LocalTransparencyModifier
+				object.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			end
 		end
 
-		for _, object in ipairs(FakeChar:GetDescendants()) do
-			if object:IsA("BasePart") then
-				object.CanCollide = false
-			end
-		end
-
-		for _, motor6d in ipairs(FakeChar.Torso:GetChildren()) do
-			if motor6d:IsA("Motor6D") then
-				if motor6d.C0 ~= Torso[motor6d.Name].CFrame then
-					motor6d.C0 = Torso[motor6d.Name].CFrame
-				end
-			end
-		end
-		
-		if FakeChar.HumanoidRootPart.RootJoint.C0 ~= Character.Torso.RootJoint.CFrame then
-			FakeChar.HumanoidRootPart.RootJoint.C0 = Character.Torso.RootJoint.CFrame
+		if DummyChar.HumanoidRootPart.RootJoint.C0 ~= HRP.RootJoint.CFrame then
+			DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.CFrame
 		end
 
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
-			FakeChar.Humanoid.Jump = true
+			DummyChar.Humanoid.Jump = true
 		end
+        if zRot == 360 then
+            zRot = -360
+        else
+            zRot += 5
+        end
 	end)
 	
-	_G.Connections[2] = RunService.Heartbeat:Connect(function()
-		for _, object in ipairs(Character:GetChildren()) do
-			if object:IsA("BasePart") then
-				object.CFrame = FakeChar[object.Name].CFrame
+	_G.Connections[2] = RunService.Stepped:Connect(function()
+		for _, object in ipairs(Character:GetDescendants()) do
+			if object:IsA("BasePart") and object.CanCollide == true then
+				object.CanCollide = false
 			end
 		end
 	end)
 
-	local ResetBEvent = Instance.new("BindableEvent")
-	_G.Connections[3] = ResetBEvent.Event:Connect(function()
-		Player.Character = Character
-		Player.Character:Destroy()
-		AntiSpawnChar:Destroy()
-		for _, connection in ipairs(_G.Connections) do
-			connection:Disconnect()
+	_G.Connections[3] = RunService.Heartbeat:Connect(function()
+		for _, object in ipairs(Character:GetChildren()) do
+			if object:IsA("BasePart") then
+                if object.Name == "HumanoidRootPart" then
+                    object.CFrame = CFrame.new(object.Joint.Position) * CFrame.Angles(0, 0, rad(zRot))
+                else
+                    object.CFrame = DummyChar[object.Name].CFrame * object.Joint.CFrame
+                end
+			end
 		end
-		_G.Connections = {}
-		ResetBEvent:Destroy()
 	end)
-	StarterGui:SetCore("ResetButtonCallback", ResetBEvent)
+
+    local ResetBindable = Instance.new("BindableEvent")
+	_G.Connections[4] = ResetBindable.Event:Connect(function()
+		if not Workspace:FindFirstChild(Player.Name):FindFirstChild("NETLESS-REANIMATE") then
+			for _, object in ipairs(Character:GetDescendants()) do
+                if object:IsA("Motor6D") then
+                    object:Destroy()
+                end
+            end
+		else
+            Humanoid:Destroy()
+            for _, connection in ipairs(_G.Connections) do
+                connection:Disconnect()
+            end
+            _G.Connections = {}
+		end
+	end)
+	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
 end
