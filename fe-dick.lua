@@ -6,7 +6,7 @@ local Character = Player.Character
 -- // VARIABLES
 local HatsProp = {
     ["Head"] = {
-        ["Position"] = Vector3.new(0, .25, 0),
+        ["Position"] = Vector3.new(0, 2, 0),
         ["Orientation"] = Vector3.new()
     },
     ["Torso"] = {
@@ -14,23 +14,25 @@ local HatsProp = {
         ["Orientation"] = Vector3.new()
     },
     ["Left Arm"] = {
-        ["Position"] = Vector3.new(1.5, 0.55, 0),
+        ["Position"] = Vector3.new(1.5, 2.5, 0),
         ["Orientation"] = Vector3.new()
     },
     ["Right Arm"] = {
-        ["Position"] = Vector3.new(-1.5, -1.25, 0),
+        ["Position"] = Vector3.new(-1.5, 0.7, 0),
         ["Orientation"] = Vector3.new()
     },
     ["Left Leg"] = {
-        ["Position"] = Vector3.new(0, -0.5, 0),
-        ["Orientation"] = Vector3.new(0, 0, 90)
+        ["Position"] = Vector3.new(0.5, 0.85, 0),
+        ["Orientation"] = Vector3.new(0, 0, 0)
     },
     ["Right Leg"] = {
-        ["Position"] = Vector3.new(0, -0.5, 0),
+        ["Position"] = Vector3.new(-0.5, -0.5, 0),
         ["Orientation"] = Vector3.new(0, 0, 90)
     },
 }
 -- // MAIN
+_G.Settings.RemoveAccessories = true
+_G.Settings.DisableAnimations = true
 for _, object in ipairs(Character:GetChildren()) do
     if object:IsA("BasePart") then
         object.Joint.Position = HatsProp[object.Name].Position
