@@ -8,13 +8,19 @@ local UIS = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
-local HRP, Head, Torso, LeftArm, RightArm, LeftLeg, RightLeg
+local HRP = Character.HumanoidRootPart
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
 _G.Settings = _G.Settings or {}
 local OldPos
 local WaitTime = .1
 -- // MAIN
+local CreateAntiGrav = function(object, multiplier)
+	multiplier = multiplier or .1
+	local BodyForce = Instance.new("BodyForce")
+	BodyForce.Force = Vector3.new(0, Workspace.Gravity * object:GetMass() * multiplier, 0)
+	BodyForce.Parent = object
+end
 if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	for _, connection in ipairs(_G.Connections) do
 		connection:Disconnect()
@@ -22,19 +28,11 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 
 	_G.Settings = {
 		WaitTime = _G.Settings.WaitTime or 5,
-		DisableAnimations = _G.Settings.DisableAnimations or false,
-		PlayerCanCollide = _G.Settings.PlayerCanCollide or false,
+		DisableAnimations = _G.Settings.DisableAnimations or true,
+		PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
 		RemoveAccessories = _G.Settings.RemoveAccessories or false,
-		EnableCharacterFling = _G.Settings.EnableCharacterFling or false,
+		HRPFling = _G.Settings.HRPFling or false,
 	}
-
-	HRP = Character.HumanoidRootPart
-	Head = Character.Head
-	Torso = Character.Torso
-	LeftArm = Character["Left Arm"]
-	RightArm = Character["Right Arm"]
-	LeftLeg = Character["Left Leg"]
-	RightLeg = Character["Right Leg"]
 
 	OldPos = Character:GetPrimaryPartCFrame()
 	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
@@ -78,6 +76,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	Character:BreakJoints()
 	RJointAtt.Parent = HRP
 
+	for _, object in ipairs(HRP:GetChildren()) do
+		if not object:IsA("Attachment") then
+			object:Destroy()
+		end
+	end
+
 	Folder.Parent = Character
 	DummyChar:SetPrimaryPartCFrame(OldPos)
 	DummyChar.HumanoidRootPart.Anchored = false
@@ -86,7 +90,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	DummyChar.Head.face.Texture = ""
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
-	if not _G.Settings.DisableAnimation then
+	if not _G.Settings.DisableAnimations then
 		local AnimateScript = Character.Animate:Clone()
 		AnimateScript.Parent = DummyChar
 		AnimateScript.Disabled = false
@@ -98,6 +102,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 			local Attachment = Instance.new("Attachment")
 			Attachment.Name = "Joint"
 			Attachment.Parent = object
+
+			CreateAntiGrav(object)
 		elseif object:IsA("Accessory") then
 			if not _G.Settings.RemoveAccessories then
 				local Clone = object:Clone()
@@ -106,6 +112,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 
 				local Attachment = Instance.new("Attachment")
 				Attachment.Parent = object.Handle
+
+				CreateAntiGrav(object.Handle, 10)
 			else
 				object:Destroy()
 			end
@@ -156,19 +164,19 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
 				if object.Name == "HumanoidRootPart" then
-					object.CFrame = CFrame.new(object.Joint.Position)
-					object.Velocity = Vector3.new(10e8, 10e8, 10e8)
+					object.CFrame = DummyChar[object.Name].CFrame * CFrame.new(object.Joint.Position)
+					if _G.Settings.HRPFling then
+						object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
+					else
+						object.Velocity = Vector3.new(40, 40, 40)
+					end
 				else
 					object.CFrame = DummyChar[object.Name].CFrame * object.Joint.CFrame
-					if not _G.Settings.EnableCharacterFling then
-						object.Velocity = Vector3.new(50, 50, 50)
-					else
-						object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
-					end
+					object.Velocity = Vector3.new(40, 40, 40)
 				end
 			elseif object:IsA("Accessory") then
 				object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Attachment.CFrame
-				object.Handle.Velocity = Vector3.new(50, 50, 50)
+				object.Handle.Velocity = Vector3.new(40, 40, 40)
 			end
 		end
 	end)
