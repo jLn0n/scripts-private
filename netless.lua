@@ -21,14 +21,14 @@ local CreateAntiGrav = function(object, multiplier)
 	BodyForce.Force = Vector3.new(0, Workspace.Gravity * object:GetMass() * multiplier, 0)
 	BodyForce.Parent = object
 end
-if Humanoid.RigType == Enum.HumanoidRigType.R6 then
+if Humanoid.RigType == Enum.HumanoidRigType.R6 and not _G.REANIMATE_RUNNING then
 	for _, connection in ipairs(_G.Connections) do
 		connection:Disconnect()
 	end
 
 	_G.Settings = {
 		WaitTime = _G.Settings.WaitTime or 5,
-		DisableAnimations = _G.Settings.DisableAnimations or true,
+		DisableAnimations = _G.Settings.DisableAnimations or false,
 		PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
 		RemoveAccessories = _G.Settings.RemoveAccessories or false,
 		HRPFling = _G.Settings.HRPFling or false,
@@ -113,7 +113,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 				local Attachment = Instance.new("Attachment")
 				Attachment.Parent = object.Handle
 
-				CreateAntiGrav(object.Handle, 10)
+				CreateAntiGrav(object.Handle, 2)
 			else
 				object:Destroy()
 			end
@@ -168,15 +168,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 					if _G.Settings.HRPFling then
 						object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
 					else
-						object.Velocity = Vector3.new(40, 40, 40)
+						object.Velocity = Vector3.new(0, 40, 0)
 					end
 				else
 					object.CFrame = DummyChar[object.Name].CFrame * object.Joint.CFrame
-					object.Velocity = Vector3.new(40, 40, 40)
+					object.Velocity = Vector3.new(0, 40, 0)
 				end
 			elseif object:IsA("Accessory") then
 				object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Attachment.CFrame
-				object.Handle.Velocity = Vector3.new(40, 40, 40)
+				object.Handle.Velocity = Vector3.new(0, 40, 0)
 			end
 		end
 	end)
@@ -192,7 +192,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 				connection:Disconnect()
 			end
 			_G.Connections = {}
+            _G.REANIMATE_RUNNING = false
 		end
 	end)
 	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
+    _G.REANIMATE_RUNNING = true
 end
