@@ -27,7 +27,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not _G.REANIMATE_RUNNING then
 	end
 
 	_G.Settings = {
-		WaitTime = _G.Settings.WaitTime or 5,
 		DisableAnimations = _G.Settings.DisableAnimations or false,
 		PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
 		RemoveAccessories = _G.Settings.RemoveAccessories or false,
@@ -48,6 +47,13 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not _G.REANIMATE_RUNNING then
 				RagdollConstraint:Destroy()
 			end
 		end
+
+        for _, ClickDetector in ipairs(Workspace.NewerMap.Obstacles.Cannons:GetDescendants()) do
+            if ClickDetector:IsA("ClickDetector") then
+                ClickDetector:Destroy()
+            end
+        end
+
 		WaitTime = 5
 	end
 
@@ -72,7 +78,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not _G.REANIMATE_RUNNING then
 	Player.Character = AntiSpawnChar
 	wait(WaitTime)
 	Player.Character = Character
-	wait(_G.Settings.WaitTime)
+	wait(5)
 	Character:BreakJoints()
 	RJointAtt.Parent = HRP
 
@@ -113,7 +119,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not _G.REANIMATE_RUNNING then
 				local Attachment = Instance.new("Attachment")
 				Attachment.Parent = object.Handle
 
-				CreateAntiGrav(object.Handle, 2)
+				CreateAntiGrav(object.Handle, 5)
 			else
 				object:Destroy()
 			end
