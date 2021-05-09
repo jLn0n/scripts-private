@@ -13,7 +13,7 @@ local HRP = Character.HumanoidRootPart
 _G.Connections = _G.Connections or {}
 _G.Settings = _G.Settings or {}
 local OldPos
-local WaitTime = .1
+local WaitTime = .15
 local MotorNames = {
 	["Head"] = "Neck",
 	["Left Arm"] = "Left Shoulder",
@@ -29,7 +29,7 @@ local CreateAntiGrav = function(object, multiplier)
 	BodyForce.Force = Vector3.new(0, Workspace.Gravity * object:GetMass() * multiplier, 0)
 	BodyForce.Parent = object
 end
-if Humanoid.RigType == Enum.HumanoidRigType.R6 then
+if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
 	settings().Physics.AllowSleep = false
 
 	for _, connection in ipairs(_G.Connections) do
@@ -40,6 +40,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 		PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
 		RemoveAccessories = _G.Settings.RemoveAccessories or false,
 		HRPFling = _G.Settings.HRPFling or false,
+        WaitTime = _G.Settings.WaitTime or 5
 	}
 
 	OldPos = Character:GetPrimaryPartCFrame()
@@ -69,7 +70,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	end
 
 	local Folder = Instance.new("Folder")
-	Folder.Name = "NETLESS-REANIMATE"
+	Folder.Name = "REANIMATE"
 	local DummyChar = game:GetObjects("rbxassetid://5904819435")[1]
 	DummyChar.Name = "Dummy"
 	DummyChar.Parent = Folder
@@ -85,7 +86,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 	Player.Character = AntiSpawnChar
 	wait(WaitTime)
 	Player.Character = Character
-	wait(5)
+	wait(_G.Settings.WaitTime)
 	Character:BreakJoints()
 	AntiSpawnChar:Destroy()
 
@@ -103,7 +104,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 
 	for _, object in ipairs(Character:GetChildren()) do
 		if object:IsA("BasePart") then
-			if object.Name ~= "Torso" then
+			if MotorNames[object.Name] then
 				local motor = Instance.new("Motor6D")
 				motor.Name = MotorNames[object.Name]
 				if object.Name ~= "HumanoidRootPart" then
@@ -128,8 +129,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 				local Clone = object:Clone()
 				Clone.Handle.Transparency = 1
 				Clone.Parent = DummyChar
-
-				CreateAntiGrav(object.Handle, 5)
 			else
 				object:Destroy()
 			end
@@ -194,7 +193,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 					object.Velocity = Vector3.new(0, 40, 0)
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame
-					object.Handle.Velocity = Vector3.new(0, 40, 0)
 				end
 			end
 		end
@@ -216,4 +214,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 then
 		_G.Connections = {}
 	end)
 	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
+    StarterGui:SetCore("SendNotification", {
+        Title = "REANIMATE",
+        Text = "Loaded!\nYou can now use fe scripts.\n",
+        Cooldown = 1
+    })
 end
