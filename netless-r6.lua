@@ -9,6 +9,7 @@ local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
+local ResetBindable = Instance.new("BindableEvent")
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
 _G.Settings = _G.Settings or {}
@@ -23,30 +24,17 @@ local MotorNames = {
 	["HumanoidRootPart"] = "RootJoint",
 }
 -- // MAIN
-local CreateAntiGrav = function(object, multiplier)
-	multiplier = multiplier or .1
-	local BodyForce = Instance.new("BodyForce")
-	BodyForce.Force = Vector3.new(0, Workspace.Gravity * object:GetMass() * multiplier, 0)
-	BodyForce.Parent = object
-end
+_G.Settings = {
+	PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
+	RemoveAccessories = _G.Settings.RemoveAccessories or false,
+	HRPFling = _G.Settings.HRPFling or false,
+	WaitTime = _G.Settings.WaitTime or 5,
+	R15ToR6 = true
+}
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
-	settings().Physics.AllowSleep = false
-
 	for _, connection in ipairs(_G.Connections) do
 		connection:Disconnect()
 	end
-
-	_G.Settings = {
-		PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
-		RemoveAccessories = _G.Settings.RemoveAccessories or false,
-		HRPFling = _G.Settings.HRPFling or false,
-        WaitTime = _G.Settings.WaitTime or 5
-	}
-
-	OldPos = Character:GetPrimaryPartCFrame()
-	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
-
-	local Torso = Character.Torso
 
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
@@ -69,6 +57,11 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		WaitTime = 5
 	end
 
+	OldPos = Character:GetPrimaryPartCFrame()
+	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
+
+	local Torso = Character.Torso
+
 	local Folder = Instance.new("Folder")
 	Folder.Name = "REANIMATE"
 	local DummyChar = game:GetObjects("rbxassetid://5904819435")[1]
@@ -80,6 +73,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	FakeHumanoid.Name = "Humanoid"
 	FakeHumanoid.Parent = AntiSpawnChar
 	AntiSpawnChar.Parent = Folder
+
+	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
+		if gui:IsA("ScreenGui") then
+			gui.ResetOnSpawn = false
+		end
+	end
 
 	Character.Animate:Destroy()
 	Humanoid.Animator:Destroy()
@@ -99,7 +98,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
 	for _, object in ipairs(HRP:GetChildren()) do
-		object:Destroy()
+		if object:IsA("Sound") then object:Destroy() end
 	end
 
 	for _, object in ipairs(Character:GetChildren()) do
@@ -117,13 +116,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 					motor.Parent = HRP
 				end
 			end
-			if object.Name ~= "HumanoidRootPart" then
-				local OffsetAtt = Instance.new("Attachment")
-				OffsetAtt.Name = "Offset"
-				OffsetAtt.Parent = object
-			end
-
-			CreateAntiGrav(object)
+			local OffsetAtt = Instance.new("Attachment")
+			OffsetAtt.Name = "Offset"
+			OffsetAtt.Parent = object
 		elseif object:IsA("Accessory") then
 			if not _G.Settings.RemoveAccessories then
 				local Clone = object:Clone()
@@ -136,14 +131,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	end
 
 	for _, object in ipairs(DummyChar:GetChildren()) do
-		if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+		if object:IsA("BasePart") then
 			object.Transparency = 1
 		end
 	end
 
 	_G.Connections[1] = RunService.Heartbeat:Connect(function()
-		DummyChar.Humanoid:Move(Humanoid.MoveDirection)
-
 		for _, object in ipairs(Character:GetDescendants()) do
 			if object:IsA("BasePart") then
 				object.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
@@ -160,6 +153,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
 		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
 
+		DummyChar.Humanoid:Move(Humanoid.MoveDirection)
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
 			DummyChar.Humanoid.Jump = true
 		end
@@ -185,20 +179,23 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if DummyChar:FindFirstChild(object.Name) then
 				if object:IsA("BasePart") then
-					if object.Name == "HumanoidRootPart" then
-						object.CFrame = DummyChar[object.Name].CFrame
-					else
-						object.CFrame = DummyChar[object.Name].CFrame * object["Offset"].CFrame
+					object.CFrame = DummyChar[object.Name].CFrame * object["Offset"].CFrame
+					if object.Name ~= "HumanoidRootPart" then
+						object.Velocity = Vector3.new(0, 40, 0)
 					end
-					object.Velocity = Vector3.new(0, 40, 0)
+					if object.Name == "HumanoidRootPart" and _G.Settings.HRPFling then
+						object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
+					elseif object.Name == "HumanoidRootPart" and not _G.Settings.HRPFling then
+						object.Velocity = Vector3.new(0, 40, 0)
+					end
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame
+					object.Handle.Velocity = Vector3.new(0, 40, 0)
 				end
 			end
 		end
 	end)
 
-	local ResetBindable = Instance.new("BindableEvent")
 	if _G.PlayerResetConnection then _G.PlayerResetConnection:Disconnect() end
 	_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
 		if Character.Parent ~= nil then
@@ -207,16 +204,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		else
 			Player.Character:BreakJoints()
 		end
-
 		for _, connection in ipairs(_G.Connections) do
 			connection:Disconnect()
 		end
 		_G.Connections = {}
 	end)
 	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
-    StarterGui:SetCore("SendNotification", {
-        Title = "REANIMATE",
-        Text = "Loaded!\nYou can now use fe scripts.\n",
-        Cooldown = 1
-    })
+	StarterGui:SetCore("SendNotification", {
+		Title = "REANIMATE",
+		Text = "Loaded!\nYou can now use fe scripts.\n",
+		Cooldown = 1
+	})
 end
