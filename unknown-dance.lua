@@ -5,7 +5,10 @@ local UIS = game:GetService("UserInputService")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 local Character = Player.Character
+local Humanoid = Character.Humanoid
+local Humanoid2 = Character.REANIMATE.Dummy.Humanoid
 local HRP = Character.HumanoidRootPart
+local HRPOffset = HRP.Offset
 local Torso = Character.Torso
 local Neck = Torso.Neck
 local LeftShoulder = Torso["Left Shoulder"]
@@ -13,14 +16,17 @@ local RightShoulder = Torso["Right Shoulder"]
 local LeftHip = Torso["Left Hip"]
 local RightHip = Torso["Right Hip"]
 local RootJoint = HRP.RootJoint
+local sound = Instance.new("Sound", Torso)
 -- // VARIABLES
 local anglespeed, angle, yeet = 1, 0, 0
 local danceState, playingDance = 0, false
 local humanoidState = "idle"
-local sound
+local isAttacking = false
 local rad, sin, abs, cos, random = math.rad, math.sin, math.abs, math.cos, math.random
-local oldHRP_Position = HRP.Position
 -- // MAIN
+sound.Volume = math.huge
+sound.Looped = true
+
 Neck.C0 = CFrame.new(0,1,0)
 Neck.C1 = CFrame.new(0,-0.5,0)
 LeftShoulder.C0 = CFrame.new(-1,0.5,0)
@@ -43,16 +49,6 @@ local newLerpTo = function(motor)
 	}
 end
 
-local PlaySong = function(id)
-	if Torso:FindFirstChild("Sound") then Torso.Sound:Destroy() end
-	sound = Instance.new("Sound")
-	sound.Parent = Torso
-	sound.Volume = math.huge
-	sound.Looped = true
-	sound.SoundId = "rbxassetid://" .. id
-	sound:Play()
-end
-
 local LerpTo = {
 	Neck = newLerpTo(Neck);
 	LeftArm = newLerpTo(LeftShoulder);
@@ -62,107 +58,146 @@ local LerpTo = {
 	RootJoint = newLerpTo(RootJoint);
 }
 
+local ResetMotors = function()
+	for _ = 1, 3 do
+		for _, object in pairs(LerpTo) do
+			object.To = object.Cache
+		end
+	end
+end
+
+local PlaySong = function(id)
+	sound.SoundId = "rbxassetid://" .. id
+	sound:Play()
+end
+
 local OnNewInput = function(key)
 	if key == "q" and danceState == 0 then
 		PlaySong("353562314")
 		playingDance = true
 		danceState = 1
+		ResetMotors()
 	elseif key == "e" and danceState == 0 then
 		PlaySong('130795320')
 		playingDance = true
 		danceState = 2
+		ResetMotors()
 	elseif key == "r" and danceState == 0 then
 		PlaySong('145763936')
 		playingDance = true
 		danceState = 3
+		ResetMotors()
 	elseif key == "t" and danceState == 0 then
 		PlaySong('156906204')
 		playingDance = true
 		danceState = 4
+		ResetMotors()
 	elseif key == "y" and danceState == 0 then
 		PlaySong("186713206")
 		playingDance = true
 		danceState = 5
+		ResetMotors()
 	elseif key == "f" and danceState == 0 then
 		PlaySong("915875843")
 		playingDance = true
 		danceState = 6
+		ResetMotors()
 	elseif key == "g" and danceState == 0 then
 		PlaySong("151305600")
 		playingDance = true
 		danceState = 7
+		ResetMotors()
 	elseif key == "h" and danceState == 0 then
 		PlaySong("178856837")
 		playingDance = true
 		danceState = 8
+		ResetMotors()
 	elseif key == "j" and danceState == 0 then
 		PlaySong("156461074")
 		playingDance = true
 		danceState = 9
+		ResetMotors()
 	elseif key == "z" and danceState == 0 then
 		PlaySong("140853918")
 		playingDance = true
 		danceState = 10
+		ResetMotors()
 	elseif key == "x" and danceState == 0 then
 		PlaySong("162893085")
 		playingDance = true
 		danceState = 11
+		ResetMotors()
 	elseif key == "c" and danceState == 0 then
-		PlaySong("379503677")
+		PlaySong("791374350")
 		playingDance = true
+		isAttacking = true
 		danceState = 12
+		ResetMotors()
 	elseif key == "v" and danceState == 0 then
 		PlaySong("147464680")
 		playingDance = true
 		danceState = 13
+		ResetMotors()
 	elseif key == "b" and danceState == 0 then
 		PlaySong("172895447")
 		playingDance = true
-		danceState = 14
+		danceState = 2
+		ResetMotors()
 	elseif key == "n" and danceState == 0 then
 		PlaySong("221710008")
 		playingDance = true
-		danceState = 15
+		danceState = 14
+		ResetMotors()
 	elseif key == "m" and danceState == 0 then
 		PlaySong("203426516")
 		playingDance = true
-		danceState = 16
+		danceState = 15
+		ResetMotors()
 	elseif key == "u" and danceState == 0 then
 		PlaySong("3357632161")
 		playingDance = true
-		danceState = 17
+		danceState = 16
+		ResetMotors()
 	elseif key == "k" and danceState == 0 then
 		PlaySong("146048136")
 		playingDance = true
-		danceState = 18
+		danceState = 17
+		ResetMotors()
 	elseif key == "p" and danceState == 0 then
 		PlaySong("183596502")
 		playingDance = true
-		danceState = 19
+		danceState = 18
+		ResetMotors()
 	elseif key == "l" and danceState == 0 then
 		PlaySong("162853958")
 		playingDance = true
-		danceState = 20
+		danceState = 19
+		ResetMotors()
 	elseif key == "semicolon" and danceState == 0 then
 		PlaySong("229824592")
 		playingDance = true
-		danceState = 21
+		danceState = 20
+		ResetMotors()
 	elseif key == "leftbracket" and danceState == 0 then
 		PlaySong("147876501")
 		playingDance = true
-		danceState = 22
+		danceState = 21
+		ResetMotors()
 	elseif key == "rightbracket" and danceState == 0 then
 		PlaySong("329600722")
 		playingDance = true
-		danceState = 23
+		danceState = 22
+		ResetMotors()
 	elseif key == "zero" and danceState == 0 then
 		PlaySong("182409344")
 		playingDance = true
-		danceState = 24
+		danceState = 23
+		ResetMotors()
 	elseif key == "q" or key == "e" or key == "r" or key == "t" or key == "y" or key == "f" or key == "g" or key == "h" or key == "j" or key == "z" or key == "x" or key == "c" or key == "v" or key == "b" or key == "n" or key == "m" or key == "u" or key == "k" or key == "p" or key == "l" or key == "semicolon" or key == "leftbracket" or key == "rightbracket" or key == "zero" and danceState > 0 then
 		sound:Stop()
 		danceState = 0
 		playingDance = false
+		isAttacking = false
 	end
 end
 
@@ -173,38 +208,44 @@ _G.Connections[#_G.Connections] = UIS.InputBegan:Connect(function(input)
 end)
 
 _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
-	angle = (angle % 100) + anglespeed/10
+	angle = (angle % 100) + anglespeed / 10
 	for _, object in pairs(LerpTo) do
 		object.Motor.C0 = object.Motor.C0:Lerp(object.To, object.Speed)
 	end
-	humanoidState = string.lower(Character["REANIMATE"].Dummy.Humanoid:GetState().Name)
+	if isAttacking then
+		_G.Settings.HRPFling = true
+		HRPOffset.Position = Vector3.new(0, .75 + sin(angle) * .25, -sin(angle) * 3.5)
+	else
+		_G.Settings.HRPFling = false
+		HRPOffset.Position = Vector3.new()
+	end
+	humanoidState = string.lower(Humanoid2:GetState().Name)
 	if danceState == 0 and not playingDance then
-		if humanoidState == "running" and oldHRP_Position == HRP.Position then
-			anglespeed = 1/3
+		if humanoidState == "running" and Humanoid.MoveDirection == Vector3.new() then
+			anglespeed = 1 / 4
 			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(sin(angle) * .05 ,0 ,0)
-			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.Angles(0, 0, abs(sin(angle)) * .2)
-			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.Angles(0, 0,-abs(sin(angle)) * .2)
-			LerpTo.RightLeg.To = LerpTo.RightLeg.Cache * CFrame.Angles(0, 0, abs(sin(angle)) * .125)
+			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.Angles(0, 0, abs(sin(angle)) * .15)
+			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.Angles(0, 0,-abs(sin(angle)) * .15)
+			LerpTo.RightLeg.To = LerpTo.RightLeg.Cache * CFrame.Angles(0, 0, abs(sin(angle)) * .1025)
 			LerpTo.LeftLeg.To = LerpTo.LeftLeg.Cache * CFrame.Angles(0, 0, -abs(sin(angle)) * .125)
-			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache * CFrame.new() * CFrame.Angles(0, 0, 0)
+			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache * CFrame.Angles(0, 0, -sin(angle) * .1)
 		elseif humanoidState == "running" then
-			anglespeed = 1.3
-			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(0, 0, sin(angle) * .05)
+			anglespeed = 1.25
+			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(0, 0, sin(angle) * .15)
 			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.Angles(sin(angle) * .8, 0, 0)
 			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.Angles(-sin(angle) * .8, 0, 0)
 			LerpTo.RightLeg.To = LerpTo.RightLeg.Cache * CFrame.Angles(-sin(angle) * .8, 0, 0)
 			LerpTo.LeftLeg.To = LerpTo.LeftLeg.Cache * CFrame.Angles(sin(angle) * .8, 0, 0)
-			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache * CFrame.new() * CFrame.Angles(0, 0, 0)
+			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache
 		elseif humanoidState == "freefall" or humanoidState == "climbing" then
-			anglespeed = 2
+			anglespeed = 1.25
 			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(-rad(15), 0, sin(angle) * .05)
 			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.new(Vector3.new(0, 1.375, -.15)) * CFrame.Angles(-rad(10), sin(angle) * .25, 0)
 			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.new(Vector3.new(0, 1.375, -.15)) * CFrame.Angles(-rad(10), -sin(angle) * .25, 0)
 			LerpTo.RightLeg.To = LerpTo.RightLeg.Cache * CFrame.Angles(0, -sin(angle) * .225, rad(8))
 			LerpTo.LeftLeg.To = LerpTo.LeftLeg.Cache * CFrame.Angles(0, -sin(angle) * .225, -rad(8))
-			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache * CFrame.new() * CFrame.Angles(0, 0, 0)
+			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache
 		end
-		oldHRP_Position = HRP.Position
 	elseif playingDance then
 		if danceState == 1 then
 			anglespeed = 3
@@ -263,12 +304,11 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 			LerpTo.LeftLeg.To = LerpTo.LeftLeg.Cache * CFrame.new(random(-5,5),random(-5,5),random(-5,5))*CFrame.Angles(random(-5,5),random(-5,5),random(-5,5))
 		elseif danceState == 8 then -- roleo dance :D
 			anglespeed = 4
-			LerpTo.RightArm.To = LerpTo.RightArm.Cache*CFrame.Angles(-rad(180),0,sin(angle)*.3)
 			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache*CFrame.Angles(rad(180),0,sin(angle)*.3)
-		elseif danceState == 9 then -- XD lol mast3r ba!t!ng dance :)
+			LerpTo.RightArm.To = LerpTo.RightArm.Cache*CFrame.Angles(-rad(180),0,sin(angle)*.3)
+		elseif danceState == 9 then -- XD lol masturbaiting dance :)
 			anglespeed = 6
-			LerpTo.RightArm.To = LerpTo.RightArm.Cache*CFrame.Angles(rad(90)+sin(angle)*1,0,rad(-45))
-			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache*CFrame.Angles(rad(90)+sin(angle)*1,0,rad(45))
+			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.new(Vector3.new(0, 0, -.25)) * CFrame.Angles(rad(75) + sin(angle) * 1, 0, rad(-45))
 		elseif danceState == 10 then --but scratch :D
 			anglespeed = 5
 			LerpTo.RightArm.To = LerpTo.RightArm.Cache*CFrame.Angles(rad(-25),0,rad(-25))*CFrame.new(0,sin(angle)*.5,0)
@@ -347,7 +387,7 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 			LerpTo.LeftLeg.To=LerpTo.LeftLeg.Cache*CFrame.Angles(-sin(angle)*1,0,0)
 		elseif danceState == 22 then
 			anglespeed = 5
-			LerpTo.RootJoint.To=LerpTo.RootJoint.Cache*CFrame.Angles(0,cos(1, 360)*angle,0)
+			LerpTo.RootJoint.To=LerpTo.RootJoint.Cache*CFrame.Angles(0,cos(1, 360) * angle,0)
 			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.Angles(rad(180),0,0)
 			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.Angles(rad(180),0,0)
 		elseif danceState == 23 then
