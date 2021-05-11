@@ -23,6 +23,7 @@ local MotorNames = {
 	["Right Leg"] = "Right Hip",
 	["HumanoidRootPart"] = "RootJoint",
 }
+local random = math.random
 -- // MAIN
 _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
@@ -124,6 +125,10 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				local Clone = object:Clone()
 				Clone.Handle.Transparency = 1
 				Clone.Parent = DummyChar
+
+				local OffsetAtt = Instance.new("Attachment")
+				OffsetAtt.Name = "Offset"
+				OffsetAtt.Parent = object.Handle
 			else
 				object:Destroy()
 			end
@@ -166,7 +171,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 					object.CanCollide = false
 				end
 			end
-		elseif not _G.Settings.PlayerCanCollide then
+		else
 			for _, object in ipairs(Character:GetDescendants()) do
 				if object:IsA("BasePart") and object.CanCollide == true then
 					object.CanCollide = false
@@ -179,17 +184,20 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if DummyChar:FindFirstChild(object.Name) then
 				if object:IsA("BasePart") then
-					object.CFrame = DummyChar[object.Name].CFrame * object["Offset"].CFrame
+					object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 					if object.Name ~= "HumanoidRootPart" then
 						object.Velocity = Vector3.new(0, 40, 0)
-					end
-					if object.Name == "HumanoidRootPart" and _G.Settings.HRPFling then
-						object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
-					elseif object.Name == "HumanoidRootPart" and not _G.Settings.HRPFling then
-						object.Velocity = Vector3.new(0, 40, 0)
+					else
+						if _G.Settings.HRPFling then
+							object.Offset.Orientation = Vector3.new(random(-360, 360), random(-360, 360), random(-360, 360))
+							object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
+						else
+							object.Offset.Orientation = Vector3.new()
+							object.Velocity = Vector3.new(0, 40, 0)
+						end
 					end
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
-					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame
+					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
 					object.Handle.Velocity = Vector3.new(0, 40, 0)
 				end
 			end
