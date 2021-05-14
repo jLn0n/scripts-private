@@ -1,13 +1,16 @@
 -- // SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 local Character = Player.Character
+local Character2 = Character.REANIMATE.Dummy
 local Humanoid = Character.Humanoid
-local Humanoid2 = Character.REANIMATE.Dummy.Humanoid
+local Humanoid2 = Character2.Humanoid
 local HRP = Character.HumanoidRootPart
+local HRP2 = Character2.HumanoidRootPart
 local HRPOffset = HRP.Offset
 local Torso = Character.Torso
 local Neck = Torso.Neck
@@ -22,8 +25,13 @@ local anglespeed, angle, yeet = 1, 0, 0
 local danceState, playingDance = 0, false
 local humanoidState = "idle"
 local isAttacking = false
-local rad, sin, abs, cos, random = math.rad, math.sin, math.abs, math.cos, math.random
+local attackRayParams = RaycastParams.new()
+local rayResult, targetPlayer
+local rad, sin, abs, cos, floor, random = math.rad, math.sin, math.abs, math.cos, math.floor, math.random
 -- // MAIN
+attackRayParams.FilterDescendantsInstances = {Character}
+attackRayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
 sound.Volume = math.huge
 sound.Looped = true
 
@@ -197,7 +205,7 @@ local OnNewInput = function(key)
 		sound:Stop()
 		danceState = 0
 		playingDance = false
-		if isAttacking then HRPOffset.Position = Vector3.new() end
+		if isAttacking then for _ = 1, 2 do HRPOffset.CFrame = CFrame.new() end end
 		isAttacking = false
 	end
 end
@@ -215,7 +223,26 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 	end
 	if isAttacking then
 		_G.Settings.HRPFling = true
-		HRPOffset.Position = Vector3.new(0, .75 + sin(angle) * .25, -sin(angle) * 5)
+		rayResult = Workspace:Raycast(HRP2.Position, HRP2.CFrame.LookVector * 10, attackRayParams)
+		if rayResult and not targetPlayer then
+			local hitPart = rayResult.Instance
+			if hitPart.Parent:IsA("Model") then
+				targetPlayer = Players:GetPlayerFromCharacter(hitPart.Parent)
+			elseif hitPart.Parent:IsA("Accessory") or hitPart.Parent:IsA("Tool") then
+				targetPlayer = Players:GetPlayerFromCharacter(hitPart.Parent.Parent)
+			end
+		end
+		if targetPlayer then
+			local targetCharacter = targetPlayer.Character
+			if targetCharacter:FindFirstChild("HumanoidRootPart") then
+				if floor((HRP.Position - HRP2.Position).magnitude) < 50 then targetPlayer = nil end
+				HRPOffset.CFrame = targetCharacter.HumanoidRootPart.CFrame
+			else
+				targetPlayer = nil
+			end
+		else
+			HRPOffset.CFrame = HRP2.CFrame
+		end
 	else
 		_G.Settings.HRPFling = false
 	end
@@ -239,9 +266,9 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache
 		elseif humanoidState == "freefall" or humanoidState == "climbing" then
 			anglespeed = 1.25
-			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(-rad(15), 0, sin(angle) * .05)
-			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.new(Vector3.new(0, 1.375, -.15)) * CFrame.Angles(-rad(10), sin(angle) * .25, 0)
-			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.new(Vector3.new(0, 1.375, -.15)) * CFrame.Angles(-rad(10), -sin(angle) * .25, 0)
+			LerpTo.Neck.To = LerpTo.Neck.Cache * CFrame.Angles(-rad(5), 0, sin(angle) * .05)
+			LerpTo.RightArm.To = LerpTo.RightArm.Cache * CFrame.Angles(-rad(180), sin(angle) * .25, 0)
+			LerpTo.LeftArm.To = LerpTo.LeftArm.Cache * CFrame.Angles(-rad(180), -sin(angle) * .25, 0)
 			LerpTo.RightLeg.To = LerpTo.RightLeg.Cache * CFrame.Angles(0, -sin(angle) * .225, rad(8))
 			LerpTo.LeftLeg.To = LerpTo.LeftLeg.Cache * CFrame.Angles(0, -sin(angle) * .225, -rad(8))
 			LerpTo.RootJoint.To = LerpTo.RootJoint.Cache
