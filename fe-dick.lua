@@ -35,7 +35,7 @@ _G.Settings.RemoveAccessories = true
 _G.Settings.DisableAnimations = true
 for _, object in ipairs(Character:GetChildren()) do
     if object:IsA("BasePart") then
-        object.Joint.Position = HatsProp[object.Name].Position
-        object.Joint.Orientation = HatsProp[object.Name].Orientation
+        object.Offset.Position = HatsProp[object.Name].Position
+        object.Offset.Orientation = HatsProp[object.Name].Orientation
     end
 end
