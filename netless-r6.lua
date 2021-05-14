@@ -30,7 +30,6 @@ _G.Settings = {
 	RemoveAccessories = _G.Settings.RemoveAccessories or false,
 	HRPFling = _G.Settings.HRPFling or false,
 	WaitTime = _G.Settings.WaitTime or 5,
-	R15ToR6 = true
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
 	for _, connection in ipairs(_G.Connections) do
@@ -69,11 +68,10 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	DummyChar.Name = "Dummy"
 	DummyChar.Parent = Folder
 
-	local AntiSpawnChar = Instance.new("Model")
+	local PHolderChar = Instance.new("Model")
 	local FakeHumanoid = Instance.new("Humanoid")
 	FakeHumanoid.Name = "Humanoid"
-	FakeHumanoid.Parent = AntiSpawnChar
-	AntiSpawnChar.Parent = Folder
+	FakeHumanoid.Parent = PHolderChar
 
 	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
 		if gui:IsA("ScreenGui") then
@@ -81,14 +79,13 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 	end
 
-	Character.Animate:Destroy()
 	Humanoid.Animator:Destroy()
-	Player.Character = AntiSpawnChar
+	Player.Character = PHolderChar
 	wait(WaitTime)
 	Player.Character = Character
 	wait(_G.Settings.WaitTime)
 	Character:BreakJoints()
-	AntiSpawnChar:Destroy()
+	PHolderChar:Destroy()
 
 	Folder.Parent = Character
 	DummyChar:SetPrimaryPartCFrame(OldPos)
@@ -97,6 +94,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	DummyChar.Humanoid.Health = math.huge
 	DummyChar.Head.face.Texture = ""
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+	HRP.Transparency = .5
 
 	for _, object in ipairs(HRP:GetChildren()) do
 		if object:IsA("Sound") then object:Destroy() end
@@ -148,15 +146,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 			end
 		end
 
+		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
+		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
+
 		for _, motor in ipairs(Torso:GetChildren()) do
 			if motor:IsA("Motor6D") then
 				DummyChar.Torso[motor.Name].C0 = motor.C0
 				DummyChar.Torso[motor.Name].C1 = motor.C1
 			end
 		end
-
-		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
-		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
 
 		DummyChar.Humanoid:Move(Humanoid.MoveDirection)
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
@@ -184,15 +182,16 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if DummyChar:FindFirstChild(object.Name) then
 				if object:IsA("BasePart") then
-					object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 					if object.Name ~= "HumanoidRootPart" then
+						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 						object.Velocity = Vector3.new(0, 40, 0)
 					else
 						if _G.Settings.HRPFling then
-							object.Offset.Orientation = Vector3.new(random(-360, 360), random(-360, 360), random(-360, 360))
-							object.Velocity = Vector3.new(-10e8, -10e8, -10e8)
+							object.CFrame = CFrame.new(object.Offset.Position)
+							object.Orientation = Vector3.new(random(-360, 360), random(-360, 360), random(-360, 360))
+							object.Velocity = Vector3.new(0 -10e8, 0)
 						else
-							object.Offset.Orientation = Vector3.new()
+							object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 							object.Velocity = Vector3.new(0, 40, 0)
 						end
 					end
@@ -220,7 +219,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
 	StarterGui:SetCore("SendNotification", {
 		Title = "REANIMATE",
-		Text = "Loaded!\nYou can now use fe scripts.\n",
+		Text = "Loaded!\nYou can now use FE scripts.\n",
 		Cooldown = 1
 	})
 end
