@@ -176,6 +176,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				end
 			end
 		end
+        for _, object in ipairs(Character:GetChildren()) do
+            if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+                object.Velocity = Vector3.new(0, 40, 0)
+                object.RotVelocity = Vector3.new()
+            elseif object:IsA("Accessory") then
+                object.Handle.Velocity = Vector3.new(0, 40, 0)
+                object.Handle.RotVelocity = Vector3.new()
+            end
+        end
 	end)
 
 	_G.Connections[3] = RunService.Heartbeat:Connect(function()
@@ -184,7 +193,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				if object:IsA("BasePart") then
 					if object.Name ~= "HumanoidRootPart" then
 						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
-						object.Velocity = Vector3.new(0, 40, 0)
 					else
 						if _G.Settings.HRPFling then
 							object.CFrame = CFrame.new(object.Offset.Position)
@@ -197,7 +205,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 					end
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
-					object.Handle.Velocity = Vector3.new(0, 40, 0)
 				end
 			end
 		end
