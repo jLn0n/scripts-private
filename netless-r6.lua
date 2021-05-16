@@ -9,7 +9,6 @@ local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
-local ResetBindable = Instance.new("BindableEvent")
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
 _G.Settings = _G.Settings or {}
@@ -29,31 +28,24 @@ _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
 	RemoveAccessories = _G.Settings.RemoveAccessories or false,
 	HRPFling = _G.Settings.HRPFling or false,
-	WaitTime = _G.Settings.WaitTime or 5,
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
-	for _, connection in ipairs(_G.Connections) do
-		connection:Disconnect()
-	end
-
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
 		Character:FindFirstChild("Local Ragdoll"):Destroy()
 		Character:FindFirstChild("Controls"):Destroy()
 		Character:FindFirstChild("State Handler"):Destroy()
-
 		for _, RagdollConstraint in pairs(Character:GetChildren()) do
 			if RagdollConstraint:IsA("BallSocketConstraint") or RagdollConstraint:IsA("HingeConstraint") then
 				RagdollConstraint:Destroy()
 			end
 		end
-
-		for _, ClickDetector in ipairs(Workspace.NewerMap.Obstacles.Cannons:GetDescendants()) do
-			if ClickDetector:IsA("ClickDetector") then
+		for _, ClickDetector in ipairs(Workspace.NewerMap:GetDescendants()) do
+			if ClickDetector:IsA("ClickDetector") and ClickDetector.Parent.Name == "Cannon" then
 				ClickDetector:Destroy()
 			end
 		end
-
 		WaitTime = 5
 	end
 
@@ -68,10 +60,10 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	DummyChar.Name = "Dummy"
 	DummyChar.Parent = Folder
 
-	local PHolderChar = Instance.new("Model")
+	local FakeChar = Instance.new("Model")
 	local FakeHumanoid = Instance.new("Humanoid")
 	FakeHumanoid.Name = "Humanoid"
-	FakeHumanoid.Parent = PHolderChar
+	FakeHumanoid.Parent = FakeChar
 
 	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
 		if gui:IsA("ScreenGui") then
@@ -79,22 +71,17 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 	end
 
-	Humanoid.Animator:Destroy()
-	Player.Character = PHolderChar
+	Character.Animate:Destroy()
+	Player.Character = FakeChar
 	wait(WaitTime)
 	Player.Character = Character
-	wait(_G.Settings.WaitTime)
+	wait(5)
 	Character:BreakJoints()
-	PHolderChar:Destroy()
 
 	Folder.Parent = Character
 	DummyChar:SetPrimaryPartCFrame(OldPos)
-	DummyChar.HumanoidRootPart.Anchored = false
-	DummyChar.Humanoid.MaxHealth = math.huge
-	DummyChar.Humanoid.Health = math.huge
-	DummyChar.Head.face.Texture = ""
+	DummyChar.Head.face:Destroy()
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
-	HRP.Transparency = .5
 
 	for _, object in ipairs(HRP:GetChildren()) do
 		if object:IsA("Sound") then object:Destroy() end
@@ -123,7 +110,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				local Clone = object:Clone()
 				Clone.Handle.Transparency = 1
 				Clone.Parent = DummyChar
-
 				local OffsetAtt = Instance.new("Attachment")
 				OffsetAtt.Name = "Offset"
 				OffsetAtt.Parent = object.Handle
@@ -139,15 +125,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 	end
 
-	_G.Connections[1] = RunService.Heartbeat:Connect(function()
+	_G.Connections[1] = RunService.Stepped:Connect(function()
 		for _, object in ipairs(Character:GetDescendants()) do
 			if object:IsA("BasePart") then
 				object.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			end
 		end
-
-		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
-		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
 
 		for _, motor in ipairs(Torso:GetChildren()) do
 			if motor:IsA("Motor6D") then
@@ -155,6 +138,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				DummyChar.Torso[motor.Name].C1 = motor.C1
 			end
 		end
+
+		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
+		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
 
 		DummyChar.Humanoid:Move(Humanoid.MoveDirection)
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
@@ -176,15 +162,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				end
 			end
 		end
-        for _, object in ipairs(Character:GetChildren()) do
-            if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
-                object.Velocity = Vector3.new(0, 40, 0)
-                object.RotVelocity = Vector3.new()
-            elseif object:IsA("Accessory") then
-                object.Handle.Velocity = Vector3.new(0, 40, 0)
-                object.Handle.RotVelocity = Vector3.new()
-            end
-        end
+		for _, object in ipairs(Character:GetChildren()) do
+			if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+				object.Velocity = Vector3.new(0, 40, 0)
+				object.RotVelocity = Vector3.new()
+			elseif object:IsA("Accessory") then
+				object.Handle.Velocity = Vector3.new(0, 40, 0)
+				object.Handle.RotVelocity = Vector3.new()
+			end
+		end
 	end)
 
 	_G.Connections[3] = RunService.Heartbeat:Connect(function()
@@ -195,10 +181,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 					else
 						if _G.Settings.HRPFling then
+							object.Transparency = .5
 							object.CFrame = CFrame.new(object.Offset.Position)
-							object.Orientation = Vector3.new(random(-360, 360), random(-360, 360), random(-360, 360))
-							object.Velocity = Vector3.new(0 -10e8, 0)
+							object.Orientation = Vector3.new(random(-180, 180), random(-180, 180), random(-180, 180))
+							object.Velocity = Vector3.new(0, -10e8, 0)
 						else
+							object.Transparency = 1
 							object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 							object.Velocity = Vector3.new(0, 40, 0)
 						end
@@ -210,20 +198,23 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 	end)
 
-	if _G.PlayerResetConnection then _G.PlayerResetConnection:Disconnect() end
-	_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
-		if Character.Parent ~= nil then
-			Player.Character = Character
-			Character:Destroy()
-		else
-			Player.Character:BreakJoints()
-		end
-		for _, connection in ipairs(_G.Connections) do
-			connection:Disconnect()
-		end
-		_G.Connections = {}
-	end)
-	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
+	if not _G.PlayerResetConnection then
+		local ResetBindable = Instance.new("BindableEvent")
+		_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
+			if Player.Character:FindFirstChild("REANIMATE") then
+				Player.Character:Destroy()
+				Player.Character = FakeChar
+				FakeChar:Destroy()
+			else
+				Player.Character:BreakJoints()
+			end
+			for _, connection in ipairs(_G.Connections) do
+				connection:Disconnect()
+			end
+			_G.Connections = {}
+		end)
+		StarterGui:SetCore("ResetButtonCallback", ResetBindable)
+	end
 	StarterGui:SetCore("SendNotification", {
 		Title = "REANIMATE",
 		Text = "Loaded!\nYou can now use FE scripts.\n",
