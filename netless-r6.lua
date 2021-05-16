@@ -30,7 +30,7 @@ _G.Settings = {
 	HRPFling = _G.Settings.HRPFling or false,
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
-	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
 		Character:FindFirstChild("Local Ragdoll"):Destroy()
@@ -52,18 +52,12 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	OldPos = Character:GetPrimaryPartCFrame()
 	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
-	local Torso = Character.Torso
-
 	local Folder = Instance.new("Folder")
 	Folder.Name = "REANIMATE"
 	local DummyChar = game:GetObjects("rbxassetid://5904819435")[1]
-	DummyChar.Name = "Dummy"
-	DummyChar.Parent = Folder
-
-	local FakeChar = Instance.new("Model")
-	local FakeHumanoid = Instance.new("Humanoid")
-	FakeHumanoid.Name = "Humanoid"
-	FakeHumanoid.Parent = FakeChar
+	DummyChar.Name = "Dummy"; DummyChar.Parent = Folder
+	local FakeChar = DummyChar:Clone()
+	local Torso = Character.Torso
 
 	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
 		if gui:IsA("ScreenGui") then
@@ -71,7 +65,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 	end
 
-	Character.Animate:Destroy()
 	Player.Character = FakeChar
 	wait(WaitTime)
 	Player.Character = Character
@@ -79,7 +72,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	Character:BreakJoints()
 
 	Folder.Parent = Character
-	DummyChar:SetPrimaryPartCFrame(OldPos)
+	Character.PrimaryPart = DummyChar.PrimaryPart
+	Character:SetPrimaryPartCFrame(OldPos)
 	DummyChar.Head.face:Destroy()
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
@@ -201,16 +195,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	if not _G.PlayerResetConnection then
 		local ResetBindable = Instance.new("BindableEvent")
 		_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
+			for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 			if Player.Character:FindFirstChild("REANIMATE") then
 				Player.Character:Destroy()
 				Player.Character = FakeChar
+				Player.CharacterAdded:Wait()
+				FakeChar:Destroy()
 			else
 				Player.Character:BreakJoints()
 			end
-			for _, connection in ipairs(_G.Connections) do
-				connection:Disconnect()
-			end
-			_G.Connections = {}
 		end)
 		StarterGui:SetCore("ResetButtonCallback", ResetBindable)
 	end
