@@ -204,7 +204,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 			if Player.Character:FindFirstChild("REANIMATE") then
 				Player.Character:Destroy()
 				Player.Character = FakeChar
-				FakeChar:Destroy()
 			else
 				Player.Character:BreakJoints()
 			end
