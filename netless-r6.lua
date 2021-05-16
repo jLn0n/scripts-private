@@ -30,6 +30,9 @@ _G.Settings = {
 	HRPFling = _G.Settings.HRPFling or false,
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
+	settings().Physics.AllowSleep = false
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
