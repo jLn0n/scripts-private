@@ -53,7 +53,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	end
 
 	OldPos = Character:GetPrimaryPartCFrame()
-	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
 	local Folder = Instance.new("Folder")
 	Folder.Name = "REANIMATE"
@@ -80,10 +79,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	DummyChar.Head.face:Destroy()
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
-	for _, object in ipairs(HRP:GetChildren()) do
-		if object:IsA("Sound") then object:Destroy() end
-	end
-
+	for _, sound in ipairs(HRP:GetChildren()) do if sound:IsA("Sound") then sound:Destroy() end end
 	for _, object in ipairs(Character:GetChildren()) do
 		if object:IsA("BasePart") then
 			if MotorNames[object.Name] then
