@@ -53,6 +53,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	end
 
 	OldPos = Character:GetPrimaryPartCFrame()
+	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
 	local Folder = Instance.new("Folder")
 	Folder.Name = "REANIMATE"
