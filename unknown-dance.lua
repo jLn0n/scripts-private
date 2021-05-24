@@ -247,6 +247,7 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 		_G.Settings.HRPFling = false
 	end
 	humanoidState = string.lower(Humanoid2:GetState().Name)
+	if humanoidState == "runningnophysics" then humanoidState = "running" end
 	if danceState == 0 and not playingDance then
 		if humanoidState == "running" and Humanoid.MoveDirection == Vector3.new() then
 			anglespeed = 1 / 4
