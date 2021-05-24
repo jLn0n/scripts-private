@@ -22,7 +22,7 @@ local MotorNames = {
 	["Right Leg"] = "Right Hip",
 	["HumanoidRootPart"] = "RootJoint",
 }
-local random = math.random
+local random, rad = math.random, math.rad
 -- // MAIN
 _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
@@ -57,27 +57,21 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 
 	local Folder = Instance.new("Folder")
 	Folder.Name = "REANIMATE"
-	local DummyChar = game:GetObjects("rbxassetid://5904819435")[1]
+	local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
 	DummyChar.Name = "Dummy"; DummyChar.Parent = Folder
 	local FakeChar = DummyChar:Clone()
 	local Torso = Character.Torso
+	local RArm = Character["Right Arm"]
 
-	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
-		if gui:IsA("ScreenGui") then
-			gui.ResetOnSpawn = false
-		end
-	end
-
+	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do if gui:IsA("ScreenGui") then gui.ResetOnSpawn = false end end
 	Player.Character = FakeChar
 	wait(WaitTime)
 	Player.Character = Character
 	wait(5)
 	Character:BreakJoints()
-
 	Folder.Parent = Character
 	Character.PrimaryPart = DummyChar.PrimaryPart
 	Character:SetPrimaryPartCFrame(OldPos)
-	DummyChar.Head.face:Destroy()
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 
 	for _, sound in ipairs(HRP:GetChildren()) do if sound:IsA("Sound") then sound:Destroy() end end
@@ -121,7 +115,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 
 	_G.Connections[1] = RunService.Stepped:Connect(function()
 		for _, object in ipairs(Character:GetDescendants()) do
-			if object:IsA("BasePart") then
+			if object:IsA("BasePart") and not object.Parent:IsA("Tool") then
 				object.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			end
 		end
@@ -136,7 +130,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		DummyChar.HumanoidRootPart.RootJoint.C0 = HRP.RootJoint.C0
 		DummyChar.HumanoidRootPart.RootJoint.C1 = HRP.RootJoint.C1
 
-		DummyChar.Humanoid:Move(Humanoid.MoveDirection)
+		DummyChar.Humanoid:Move(Humanoid.MoveDirection, false)
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
 			DummyChar.Humanoid.Jump = true
 		end
@@ -158,9 +152,11 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+				object.Massless = true
 				object.Velocity = Vector3.new(0, 40, 0)
 				object.RotVelocity = Vector3.new()
-			elseif object:IsA("Accessory") then
+			elseif object:IsA("Accessory") or object:IsA("Tool") then
+				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
 				object.Handle.RotVelocity = Vector3.new()
 			end
@@ -188,6 +184,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
 				end
+			end
+			if object:IsA("Tool") then
+				object.Handle.CFrame = RArm.CFrame * RArm.RightGripAttachment.CFrame * object.Grip:inverse() * CFrame.fromEulerAnglesXYZ(rad(90), -rad(90), 0)
 			end
 		end
 	end)
