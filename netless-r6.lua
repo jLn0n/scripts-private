@@ -151,9 +151,22 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 			end
 		end
 		for _, object in ipairs(Character:GetChildren()) do
-			if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
-				object.Velocity = Vector3.new(0, 40, 0)
-				object.RotVelocity = Vector3.new()
+			if object:IsA("BasePart") then
+				if object.Name ~= "HumanoidRootPart" then
+					object.Velocity = Vector3.new(0, 40, 0)
+					object.RotVelocity = Vector3.new()
+				else
+					if _G.Settings.HRPFling then
+						object.Transparency = .5
+						object.CFrame = CFrame.new(object.Offset.Position)
+						object.Orientation = Vector3.new(0, random(-360, 360), 0)
+						object.Velocity = Vector3.new(0, -10e8, 0)
+					else
+						object.Transparency = 1
+						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
+						object.Velocity = Vector3.new(0, 40, 0)
+					end
+				end
 			elseif object:IsA("Accessory") or object:IsA("Tool") and object.Handle then
 				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
@@ -168,17 +181,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 				if object:IsA("BasePart") then
 					if object.Name ~= "HumanoidRootPart" then
 						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
-					else
-						if _G.Settings.HRPFling then
-							object.Transparency = .5
-							object.CFrame = CFrame.new(object.Offset.Position)
-							object.Orientation = Vector3.new(random(-180, 180), random(-180, 180), random(-180, 180))
-							object.Velocity = Vector3.new(0, -10e8, 0)
-						else
-							object.Transparency = 1
-							object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
-							object.Velocity = Vector3.new(0, 40, 0)
-						end
 					end
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
