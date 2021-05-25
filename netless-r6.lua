@@ -22,7 +22,7 @@ local MotorNames = {
 	["Right Leg"] = "Right Hip",
 	["HumanoidRootPart"] = "RootJoint",
 }
-local random, rad = math.random, math.rad
+local random = math.random
 -- // MAIN
 _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true,
@@ -39,7 +39,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		Character:FindFirstChild("Local Ragdoll"):Destroy()
 		Character:FindFirstChild("Controls"):Destroy()
 		Character:FindFirstChild("State Handler"):Destroy()
-		for _, RagdollConstraint in pairs(Character:GetChildren()) do
+		for _, RagdollConstraint in ipairs(Character:GetChildren()) do
 			if RagdollConstraint:IsA("BallSocketConstraint") or RagdollConstraint:IsA("HingeConstraint") then
 				RagdollConstraint:Destroy()
 			end
@@ -152,10 +152,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		end
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
-				object.Massless = true
 				object.Velocity = Vector3.new(0, 40, 0)
 				object.RotVelocity = Vector3.new()
-			elseif object:IsA("Accessory") or object:IsA("Tool") then
+			elseif object:IsA("Accessory") or object:IsA("Tool") and object.Handle then
 				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
 				object.Handle.RotVelocity = Vector3.new()
@@ -185,8 +184,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
 				end
 			end
-			if object:IsA("Tool") then
-				object.Handle.CFrame = RArm.CFrame * RArm.RightGripAttachment.CFrame * object.Grip:inverse() * CFrame.fromEulerAnglesXYZ(rad(90), -rad(90), 0)
+			if object:IsA("Tool") and object.Handle then
+				object.Handle.CFrame = RArm.CFrame * CFrame.new(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0) * object.Grip:inverse()
 			end
 		end
 	end)
