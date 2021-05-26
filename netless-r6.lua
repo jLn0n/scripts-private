@@ -32,7 +32,7 @@ _G.Settings = {
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild("REANIMATE") then
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-
+	
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
@@ -60,6 +60,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
 	DummyChar.Name = "Dummy"; DummyChar.Parent = Folder
 	local FakeChar = DummyChar:Clone()
+	local Head = Character.Head
 	local Torso = Character.Torso
 	local RArm = Character["Right Arm"]
 
@@ -69,6 +70,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	Player.Character = Character
 	wait(5)
 	Character:BreakJoints()
+	Humanoid.BreakJointsOnDeath = false
 	Folder.Parent = Character
 	Character.PrimaryPart = DummyChar.PrimaryPart
 	Character:SetPrimaryPartCFrame(OldPos)
@@ -153,13 +155,14 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
 				if object.Name ~= "HumanoidRootPart" then
+					object.Massless = true
 					object.Velocity = Vector3.new(0, 40, 0)
 					object.RotVelocity = Vector3.new()
 				else
 					if _G.Settings.HRPFling then
 						object.Transparency = .5
 						object.CFrame = CFrame.new(object.Offset.Position)
-						object.Orientation = Vector3.new(0, random(-360, 360), 0)
+						object.Orientation = Vector3.new(0, random(-180, 180), 0)
 						object.Velocity = Vector3.new(0, -10e8, 0)
 					else
 						object.Transparency = 1
@@ -183,10 +186,11 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 						object.CFrame = DummyChar[object.Name].CFrame * object.Offset.CFrame
 					end
 				elseif object:IsA("Accessory") and Character:FindFirstChild(object.Name) then
-					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * object.Handle.Offset.CFrame
+					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * CFrame.new(Head.Offset.Position) * object.Handle.Offset.CFrame
 				end
 			end
 			if object:IsA("Tool") and object.Handle then
+				if RArm:FindFirstChild("RightGrip") then RArm.RightGrip:Destroy() end
 				object.Handle.CFrame = RArm.CFrame * CFrame.new(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0) * object.Grip:inverse()
 			end
 		end
