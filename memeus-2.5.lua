@@ -26,10 +26,8 @@ local FavIDs = {
 
 local RunService = game:GetService("RunService")
 local Player = game:GetService("Players").LocalPlayer
-local Character = Player.Character
-local Char2 = Character.REANIMATE.Dummy
+local Character = workspace[Player.UserId]
 local Humanoid = Character.Humanoid
-local Humanoid2 = Char2.Humanoid
 local ra = Character["Right Arm"]
 local la = Character["Left Arm"]
 local rl = Character["Right Leg"]
@@ -178,15 +176,14 @@ ok.Color = ColorSequence.new(BrickColor.new("Institutional white").Color)
 -------------------------------------------------------
 --Start Kyu's shitty stuff--
 -------------------------------------------------------
-function ragdoll()
-	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
+local function ragdoll()
 	for _, object in ipairs(Character:GetDescendants()) do
-		if object:IsA("Motor6D") and (object.Parent == Torso or object.Parent == root) then
+		if object:IsA("Motor6D") then
 			local socket = Instance.new("BallSocketConstraint")
 			local a1 = Instance.new("Attachment")
 			local a2 = Instance.new("Attachment")
-			a1.Parent = Character[Char2[object.Parent.Name][object.Name].Part0.Name]
-			a2.Parent = Character[Char2[object.Parent.Name][object.Name].Part1.Name]
+			a1.Parent = object.Part0
+			a2.Parent = object.Part1
 			socket.Parent = object.Parent
 			socket.Attachment0 = a1
 			socket.Attachment1 = a2
@@ -196,6 +193,7 @@ function ragdoll()
 			socket.TwistLimitsEnabled = true
 		end
 	end
+    Character:BreakJoints()
 end
 -------------------------------------------------------
 --End Kyu's shitty stuff--
@@ -2072,11 +2070,10 @@ local change = 1
 local val = 0
 local toim = 0
 local idleanim = 0.4
-Humanoid.Animator.Parent = nil
 while true do
 	wait()
 	sine = sine + change
-	local humState = string.lower(Humanoid2:GetState().Name)
+	local humState = string.lower(Humanoid:GetState().Name)
 	local torvel = (root.Velocity * Vector3.new(1, 0, 1)).magnitude
 	local velderp = root.Velocity.y
 	local hitfloor, posfloor = rayCast(root.Position, CFrame.new(root.Position, root.Position - Vector3.new(0, 1, 0)).lookVector, 4, Character)
@@ -2105,7 +2102,7 @@ while true do
 				LH.C0=clerp(LH.C0, CF(-1,-.4-0.1 * Cos(sine / 20), -.6) * LHCF * angles(Rad(-5), Rad(-0), Rad(20)), 0.15)
 				RH.C0=clerp(RH.C0, CF(1,-.3-0.1 * Cos(sine / 20), -.6) * angles(Rad(0), Rad(90), Rad(-20)), .3)
 			end
-		elseif humState == "running" and Humanoid2.MoveDirection == Vector3.new() then
+		elseif humState == "running" and Humanoid.MoveDirection == Vector3.new() then
 			change = 1
 			if attack == false then
 				rootj.C0 = clerp(rootj.C0, RootCF * CF(0, 0, -0.1 + 0.1 * Cos(sine / 20)) * angles(Rad(0), Rad(0), Rad(0)), 0.15)
