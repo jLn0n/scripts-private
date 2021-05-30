@@ -1,6 +1,6 @@
 local Player = game:GetService("Players").LocalPlayer
 local Figure = Player.Character
-local Figure2 = Figure.REANIMATE.Dummy
+local Figure2 = workspace[Player.UserId]
 local Torso = Figure2:WaitForChild("Torso")
 local RightShoulder = Torso:WaitForChild("Right Shoulder")
 local LeftShoulder = Torso:WaitForChild("Left Shoulder")
