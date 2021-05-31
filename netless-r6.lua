@@ -101,7 +101,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
-				object.Massless = false
+				object.Massless = true
 				object.Velocity = Vector3.new(0, 40, 0)
 				object.RotVelocity = Vector3.new(0, 25, 0)
 			elseif object:IsA("Accessory") or object:IsA("Tool") and object:FindFirstChild("Handle") then
