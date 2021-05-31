@@ -18,11 +18,11 @@ local WaitTime = .15
 _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true
 }
+if Workspace:FindFirstChild(tostring(Player.UserId)) then Workspace[Player.UserId]:Destroy() end
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(Player.UserId) then
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 
-	if Workspace:FindFirstChild(tostring(Player.UserId)) ~= nil then Workspace[Player.UserId]:Destroy() end
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
@@ -47,6 +47,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 	DummyChar.Name = Player.UserId
 
 	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do if gui:IsA("ScreenGui") then gui.ResetOnSpawn = false end end
+	HRP.Anchored = true
 	Player.Character = FakeChar
 	wait(WaitTime)
 	Player.Character = Character
@@ -59,6 +60,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 	Character.Head.face.Parent = DummyChar.Head
 	DummyChar:SetPrimaryPartCFrame(OldPos)
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+	HRP.Anchored = false
 
 	for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 	for _, object in ipairs(Character:GetChildren()) do
@@ -99,13 +101,13 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
-				object.Massless = true
+				object.Massless = false
 				object.Velocity = Vector3.new(0, 40, 0)
-				object.RotVelocity = Vector3.new()
-			elseif object:IsA("Accessory") or object:IsA("Tool") and object.Handle then
+				object.RotVelocity = Vector3.new(0, 25, 0)
+			elseif object:IsA("Accessory") or object:IsA("Tool") and object:FindFirstChild("Handle") then
 				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
-				object.Handle.RotVelocity = Vector3.new()
+				object.Handle.RotVelocity = Vector3.new(0, 25, 0)
 			end
 		end
 
@@ -124,7 +126,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * CFrame.new(DummyChar.Head.Offset.Position) * DummyChar[object.Name].Handle.Offset.CFrame
 				end
 			end
-			if object:IsA("Tool") and object.Handle then
+			if object:IsA("Tool") and object:FindFirstChild("Handle") then
 				object.Handle.CFrame = RArm.CFrame * CFrame.new(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0) * object.Grip:inverse()
 			end
 		end
