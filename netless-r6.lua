@@ -40,23 +40,23 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 	OldPos = Character:GetPrimaryPartCFrame()
 	Workspace.FallenPartsDestroyHeight = 0 / 1 / 0
 
-	local RArm = Character["Right Arm"]
 	local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
-	local FakeChar = DummyChar:Clone()
 	local Humanoid2 = DummyChar.Humanoid
+	local RArm = Character["Right Arm"]
 	DummyChar.Name = Player.UserId
 
 	for _, gui in ipairs(Player.PlayerGui:GetChildren()) do if gui:IsA("ScreenGui") then gui.ResetOnSpawn = false end end
 	HRP.Anchored = true
-	Player.Character = FakeChar
+	Player.Character = DummyChar
 	wait(WaitTime)
 	Player.Character = Character
 	wait(5)
 	Character:BreakJoints()
+	Humanoid.BreakJointsOnDeath = false
 	Character.Animate.Disabled = true
 	Character.Animate.Parent = DummyChar
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-	DummyChar.Parent = Workspace
+	DummyChar.Parent = Character
 	Character.Head.face.Parent = DummyChar.Head
 	DummyChar:SetPrimaryPartCFrame(OldPos)
 	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
@@ -85,7 +85,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 			end
 		end
 
-		for _, object in ipairs(Character:GetDescendants()) do
+		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
 				object.CanCollide = false
 			end
@@ -103,11 +103,11 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 			if object:IsA("BasePart") then
 				object.Massless = true
 				object.Velocity = Vector3.new(0, 40, 0)
-				object.RotVelocity = Vector3.new(0, 25, 0)
+				object.RotVelocity = Vector3.new()
 			elseif object:IsA("Accessory") or object:IsA("Tool") and object:FindFirstChild("Handle") then
 				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
-				object.Handle.RotVelocity = Vector3.new(0, 25, 0)
+				object.Handle.RotVelocity = Vector3.new()
 			end
 		end
 
@@ -117,7 +117,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 		end
 	end)
 
-	_G.Connections[2] = RunService.Heartbeat:Connect(function()
+	_G.Connections[2] = RunService.Heartbeat:Connect(function()	
 		for _, object in ipairs(Character:GetChildren()) do
 			if DummyChar:FindFirstChild(object.Name) then
 				if object:IsA("BasePart") then
@@ -137,9 +137,8 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Workspace:FindFirstChild(
 		_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
 			for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 			if Workspace:FindFirstChild(Player.UserId) then
-				Workspace[Player.UserId]:Destroy()
-				Player.Character:BreakJoints()
-				Player.Character = FakeChar
+				Player.Character:Destroy()
+				Player.Character = nil
 			else
 				Player.Character:BreakJoints()
 			end
