@@ -93,7 +93,7 @@ local Effects = {}
 -------------------------------------------------------
 -- MAIN --
 -------------------------------------------------------
-function CameraEnshaking(Length, Intensity) --Took Straight from StarGlitcher!
+local function CameraEnshaking(Length, Intensity) --Took Straight from StarGlitcher!
 	coroutine.resume(coroutine.create(function()
 		local intensity = 1 * Intensity
 		local rotM = 0.01 * Intensity
@@ -177,6 +177,7 @@ ok.Color = ColorSequence.new(BrickColor.new("Institutional white").Color)
 --Start Kyu's shitty stuff--
 -------------------------------------------------------
 local function ragdoll()
+    Humanoid.BreakJointsOnDeath = false
 	for _, object in ipairs(Character:GetDescendants()) do
 		if object:IsA("Motor6D") then
 			local socket = Instance.new("BallSocketConstraint")
@@ -191,9 +192,10 @@ local function ragdoll()
 			a2.CFrame = object.C1
 			socket.LimitsEnabled = true
 			socket.TwistLimitsEnabled = true
+            object:Destroy()
 		end
 	end
-    Character:BreakJoints()
+    Humanoid:ChangeState("Dead")
 end
 -------------------------------------------------------
 --End Kyu's shitty stuff--
@@ -215,7 +217,6 @@ local function rayCast(Position, Direction, Range, Ignore)
 end
 local RbxUtility = loadstring(game:HttpGet("https://raw.githubusercontent.com/Roblox/Core-Scripts/master/CoreScriptsRoot/Libraries/RbxUtility.lua", true))()
 local Create = RbxUtility.Create
-
 -------------------------------------------------------
 --End Important Functions--
 -------------------------------------------------------
@@ -2130,11 +2131,6 @@ while true do
 				local Thing = Effects[e]
 				if Thing ~= nil then
 					local Part = Thing[1]
-					local Mode = Thing[2]
-					local Delay = Thing[3]
-					local IncX = Thing[4]
-					local IncY = Thing[5]
-					local IncZ = Thing[6]
 					if 1 >= Thing[1].Transparency then
 						if Thing[2] == "Block1" then
 							Thing[1].CFrame = Thing[1].CFrame * CFrame.fromEulerAnglesXYZ(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
