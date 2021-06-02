@@ -2,7 +2,7 @@
 local Players = game:GetService("Players")
 -- // OBJECTS
 local Player = Players.LocalPlayer
-local Character = Player.Character
+local Character = Player.Character[Player.UserId]
 -- // VARIABLES
 local HatsProp = {
     ["Head"] = {
@@ -31,7 +31,6 @@ local HatsProp = {
     },
 }
 -- // MAIN
-_G.Settings.RemoveAccessories = true
 for _, object in ipairs(Character:GetChildren()) do
     if object:IsA("BasePart") then
         object.Offset.Position = HatsProp[object.Name].Position
