@@ -48,7 +48,7 @@ local StandoAnimKeybinds = {
 	[Enum.KeyCode.E] = "Barrage",
 	[Enum.KeyCode.G] = "Menancing",
 }
-local rad, sin = math.rad, math.sin
+local rad, sin, random = math.rad, math.sin, math.random
 local anim, animSpeed = 0, 0
 local StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
 -- // MAIN
@@ -125,8 +125,6 @@ if not Character:FindFirstChild("StandoCharacter") then
 				if StandoStates.Enabled then
 					StandoStates.AnimState = "Idle"
 					StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
-				else
-					StandoCFrame = CFrame.new(Vector3.new(0, 250, 0))
 				end
 			end
 			if StandoStates.Enabled and StandoStates.CanChangeAnim then
@@ -149,7 +147,8 @@ if not Character:FindFirstChild("StandoCharacter") then
 
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		settings().Physics.AllowSleep = false
-		settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+		settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+		settings().Physics.ThrottleAdjustTime = -math.huge
 
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
@@ -200,6 +199,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 				Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.new(Vector3.new(0, 0, -sin(anim) * .025)) * CFrame.Angles(0, 0, rad(7.5))
 			end
 		else
+			StandoCFrame = CFrame.new(Vector3.new(0, 1000 + random(1, 10), 0))
 			for _, motor in pairs(Motors) do
 				motor.CFrame = motor.Cache
 			end
