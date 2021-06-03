@@ -120,12 +120,12 @@ if not Character:FindFirstChild("StandoCharacter") then
 
 	_G.Connections[#_G.Connections + 1] = UIS.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard and not UIS:GetFocusedTextBox() then
-			if input.KeyCode == Enum.KeyCode.Q then
+			if input.KeyCode == Enum.KeyCode.Q and StandoStates.AnimState == "Idle" then
 				StandoStates.Enabled = not StandoStates.Enabled
 				if StandoStates.Enabled then
+					StandoStates.AnimState = "Idle"
 					StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
 				else
-					StandoStates.AnimState = "Idle"
 					StandoCFrame = CFrame.new(Vector3.new(0, 250, 0))
 				end
 			end
