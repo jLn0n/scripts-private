@@ -98,7 +98,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 		Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, rad(90))
 		Motors.RJoint.CFrame = Motors.RJoint.Cache
 		wait()
-		for _ = 1, 16 do
+		for _ = 1, 12 do
 			Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(-3.5, .5, 0)) * CFrame.Angles(rad(90), 0, -rad(40))
 			wait(.075)
 			Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(3.5, .5, 0)) * CFrame.Angles(rad(90), 0, rad(40))
