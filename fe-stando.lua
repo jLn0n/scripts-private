@@ -2,7 +2,7 @@
 	Info:
 	Hey im jLn0n aka. JohnLennonPlayz im not the original creator of the all known leaked fe script, I made this
 	script on 6/2/2021 because the leaked FE stand script is patched by roblox and decided to write it from scratch,
-	it has simple functions and still improving it. Read things below to guide you using the script.
+	it has simple functions and still improving it. Read things that I've writted below to guide you using the script.
 
 	Hats Needed:
 	https://www.roblox.com/catalog/617605556 (you can use any hats and offset the head with _G.HeadOffset)
@@ -16,6 +16,8 @@
 	Controls:
 	Q - Summon / Unsummon stand
 	E - Barrage
+	R - HeavyPunch
+	F - Time Stop
 	G - Stand Idle Menance thingy
 --]]
 -- // SERVICES
@@ -42,11 +44,14 @@ local HatParts = {
 local StandoStates = {
 	["Enabled"] = true,
 	["AnimState"] = "Idle",
-	["CanChangeAnim"] = true
+	["IsTimeStopMode"] = false,
+	["CanUpdateStates"] = true,
 }
 local StandoAnimKeybinds = {
 	[Enum.KeyCode.E] = "Barrage",
+	[Enum.KeyCode.F] = "TimeStop",
 	[Enum.KeyCode.G] = "Menancing",
+	[Enum.KeyCode.R] = "HeavyPunch",
 }
 local rad, sin, random = math.rad, math.sin, math.random
 local anim, animSpeed = 0, 0
@@ -57,8 +62,8 @@ if not Character:FindFirstChild("StandoCharacter") then
 	local initMotor = function(motor)
 		return {
 			Object = motor, -- The weld that will lerp
-			CFrame = motor.C0, -- Where it will lerp to; a CFrame
-			Cache = motor.C0, -- Cache of original position; it helps when making anim keyframes
+			CFrame = motor.Transform, -- Where it will lerp to; a CFrame
+			Cache = motor.Transform, -- Cache of original position; it helps when making anim keyframes
 		}
 	end
 
@@ -83,19 +88,17 @@ if not Character:FindFirstChild("StandoCharacter") then
 		end
 	end
 
-	local BarrageAnim = function()
+	local Barrage = function()
 		StandoStates.AnimState = "Barrage"
-		StandoStates.CanChangeAnim = false
+		StandoStates.CanUpdateStates = false
 		StandoCFrame = CFrame.new(Vector3.new(0, .25, -1.75))
 		Humanoid.WalkSpeed = 2.5
 		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(rad(7.5), 0, 0)
-		Motors.RH.CFrame = Motors.RH.Cache * CFrame.Angles(0, 0, -rad(10))
-		Motors.LH.CFrame = Motors.LH.Cache * CFrame.Angles(0, 0, -rad(3.5))
 		Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, -rad(90))
 		Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, rad(90))
 		Motors.RJoint.CFrame = Motors.RJoint.Cache
 		wait()
-		for _ = 1, 12 do
+		for _ = 1, 16 do
 			Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(-3.5, .5, 0)) * CFrame.Angles(rad(90), 0, -rad(40))
 			wait(.075)
 			Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(3.5, .5, 0)) * CFrame.Angles(rad(90), 0, rad(40))
@@ -105,9 +108,57 @@ if not Character:FindFirstChild("StandoCharacter") then
 			wait(.025)
 		end
 		StandoStates.AnimState = "Idle"
-		StandoStates.CanChangeAnim = true
+		StandoStates.CanUpdateStates = true
 		StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
 		Humanoid.WalkSpeed = 16
+	end
+
+	local HeavyPunch = function()
+		StandoStates.AnimState = "HeavyPunch"
+		StandoStates.CanUpdateStates = false
+		StandoCFrame = CFrame.new(Vector3.new(0, .25, -2.5))
+		Humanoid.WalkSpeed = 2.25
+		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(0, 0, -rad(20))
+		Motors.LS.CFrame = Motors.LS.Cache * CFrame.Angles(-rad(3.5), 0, 0)
+		Motors.RS.CFrame = Motors.RS.Cache * CFrame.Angles(-rad(25), 0, rad(15))
+		Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.Angles(0, 0, -rad(30))
+		wait(.4)
+		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(0, 0, rad(20))
+		Motors.LS.CFrame = Motors.LS.Cache * CFrame.Angles(-rad(3.5), 0, 0)
+		Motors.RS.CFrame = Motors.RS.Cache * CFrame.Angles(-rad(10), rad(25), rad(115))
+		Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.Angles(0, 0, rad(25))
+		wait(.5)
+		StandoStates.AnimState = "Idle"
+		StandoStates.CanUpdateStates = true
+		StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
+		Humanoid.WalkSpeed = 16
+	end
+
+	local TimeStop = function()
+		StandoStates.AnimState = "TimeStop"
+		StandoStates.CanUpdateStates = false
+		StandoCFrame = CFrame.new(Vector3.new(0, .25, -1.75))
+		for _, animObj in pairs(Humanoid:GetPlayingAnimationTracks()) do animObj:Stop() end
+		HRP.Anchored = true
+		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(rad(40), 0, 0)
+		Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, -rad(45))
+		Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, rad(45))
+		Motors.RJoint.CFrame = Motors.RJoint.Cache
+		wait(.55)
+		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(-rad(40), 0, 0)
+		Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, -rad(135))
+		Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, rad(135))
+		Motors.RJoint.CFrame = Motors.RJoint.Cache
+		wait(.5)
+		StandoStates.IsTimeStopMode = true
+		HRP.Anchored = false
+		settings():GetService("NetworkSettings").IncomingReplicationLag = 1500
+		StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
+		StandoStates.AnimState = "Idle"
+		wait(7.75)
+		StandoStates.CanUpdateStates = true
+		StandoStates.IsTimeStopMode = false
+		settings():GetService("NetworkSettings").IncomingReplicationLag = 0
 	end
 
 	local MenanceAnim = function()
@@ -120,19 +171,23 @@ if not Character:FindFirstChild("StandoCharacter") then
 
 	_G.Connections[#_G.Connections + 1] = UIS.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard and not UIS:GetFocusedTextBox() then
-			if input.KeyCode == Enum.KeyCode.Q and StandoStates.AnimState == "Idle" then
+			if input.KeyCode == Enum.KeyCode.Q and StandoStates.CanUpdateStates and StandoStates.AnimState == "Idle" then
 				StandoStates.Enabled = not StandoStates.Enabled
 				if StandoStates.Enabled then
 					StandoStates.AnimState = "Idle"
 					StandoCFrame = CFrame.new(Vector3.new(-1.25, 1.5, 2.5))
 				end
 			end
-			if StandoStates.Enabled and StandoStates.CanChangeAnim then
+			if StandoStates.Enabled and (StandoStates.CanUpdateStates or StandoStates.IsTimeStopMode) then
 				if StandoStates.AnimState == "Idle" and StandoAnimKeybinds[input.KeyCode] and StandoStates.AnimState ~= StandoAnimKeybinds[input.KeyCode] then
 					if StandoAnimKeybinds[input.KeyCode] == "Barrage" then
-						BarrageAnim()
+						Barrage()
+					elseif StandoAnimKeybinds[input.KeyCode] == "HeavyPunch" then
+						HeavyPunch()
 					elseif StandoAnimKeybinds[input.KeyCode] == "Menancing" then
 						MenanceAnim()
+					elseif StandoAnimKeybinds[input.KeyCode] == "TimeStop" and not StandoStates.IsTimeStopMode then
+						TimeStop()
 					end
 				elseif StandoStates.AnimState ~= "Idle" and StandoAnimKeybinds[input.KeyCode] then
 					StandoStates.AnimState = "Idle"
@@ -186,7 +241,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		anim = (anim % 100) + animSpeed / 10
 		for _, motor in pairs(Motors) do
-			motor.Object.C0 = motor.Object.C0:Lerp(motor.CFrame, .25)
+			motor.Object.Transform = motor.Object.Transform:Lerp(motor.CFrame, .2)
 		end
 		if StandoStates.Enabled then
 			if StandoStates.AnimState == "Idle" then
@@ -196,7 +251,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 				Motors.LH.CFrame = Motors.LH.Cache * CFrame.Angles(0, 0, -rad(3.5))
 				Motors.RS.CFrame = Motors.RS.Cache * CFrame.Angles(-rad(3.5), 0, 0)
 				Motors.RH.CFrame = Motors.RH.Cache * CFrame.Angles(0, 0, -rad(10))
-				Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.new(Vector3.new(0, 0, -sin(anim) * .025)) * CFrame.Angles(0, 0, rad(7.5))
+				Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.new(Vector3.new(0, 0, -sin(anim) * .05)) * CFrame.Angles(0, 0, rad(7.5))
 			end
 		else
 			StandoCFrame = CFrame.new(Vector3.new(0, 1000 + random(1, 10), 0))
@@ -209,7 +264,6 @@ if not Character:FindFirstChild("StandoCharacter") then
 	_G.Connections[#_G.Connections + 1] = Humanoid.Died:Connect(function()
 		for _, connection in ipairs(_G.Connections) do
 			connection:Disconnect()
-		end
-		_G.Connections = {}
+		end _G.Connections = {}
 	end)
 end
