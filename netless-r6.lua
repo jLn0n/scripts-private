@@ -19,9 +19,6 @@ _G.Settings = {
 	PlayerCanCollide = _G.Settings.PlayerCanCollide or true
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(Player.UserId) then
-	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	if game.PlaceId == 2041312716 then
 		Character:FindFirstChild("FirstPerson"):Destroy()
@@ -75,6 +72,10 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	end
 
 	_G.Connections[1] = RunService.Stepped:Connect(function()
+		settings().Physics.AllowSleep = false
+		settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+		settings().Physics.ThrottleAdjustTime = -math.huge
+
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
 				object.Massless = true
