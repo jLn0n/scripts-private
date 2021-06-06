@@ -1,11 +1,11 @@
 --[[
 	Info:
-	Hey im jLn0n aka. JohnLennonPlayz im not the original creator of the all known leaked fe script, I made this
-	script on 6/2/2021 because the leaked FE stand script is patched by roblox and decided to write it from scratch,
-	it has simple functions and still improving it. Read things that I've writted below to guide you using the script.
+	Hey im jLn0n, not the original creator of the all known leaked fe script, I made this script on 6/2/2021 because
+	the leaked FE stand script is patched by roblox and decided to write it from scratch, it has simple functions and
+	still improving it. Read things that I've writted below to guide you using the script.
 
 	Hats Needed:
-	https://www.roblox.com/catalog/617605556 (you can use any hats and offset the head with _G.HeadOffset)
+	https://www.roblox.com/catalog/617605556 (you can use any hats and offset the head with HeadOffset variable)
 	https://www.roblox.com/catalog/451220849
 	https://www.roblox.com/catalog/63690008
 	https://www.roblox.com/catalog/48474294 (bundle: https://www.roblox.com/bundles/282)
@@ -34,9 +34,10 @@ local HRP = Character.HumanoidRootPart
 local ChatMakeMsg = RepStorage.DefaultChatSystemChatEvents.SayMessageRequest
 -- // VARIABLES
 _G.Connections = _G.Connections or {}
-_G.HeadOffset = CFrame.new(Vector3.new(0, .1, .25))
+local HeadName = "MediHood" -- you can find the name of ur desired head by using dex or viewing it with btroblox (chrome extension)
+local HeadOffset = CFrame.new(Vector3.new(0, .1, .25))
 local HatParts = {
-	["Head"] = Character:FindFirstChild("MediHood"),
+	["Head"] = Character:FindFirstChild(HeadName),
 	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
 	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
 	["Right Arm"] = Character:FindFirstChild("Hat1"),
@@ -113,8 +114,8 @@ if not Character:FindFirstChild("StandoCharacter") then
 		Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, rad(90))
 		Motors.RJoint.CFrame = Motors.RJoint.Cache
 		wait()
-		createMessage("ORA ORA ORA ORA ORA ORA ORA ORA ORA ORA ORA ORA")
-		for _ = 1, 12 do
+		createMessage("ORA! (x12)")
+		for _ = 1, 14 do
 			Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(-3.5, .5, 0)) * CFrame.Angles(rad(90), 0, -rad(40))
 			wait(.075)
 			Motors.RS.CFrame = Motors.RS.Cache * CFrame.new(Vector3.new(3.5, .5, 0)) * CFrame.Angles(rad(90), 0, rad(40))
@@ -157,7 +158,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 		StandoCFrame = CFrame.new(Vector3.new(0, .25, -1.75))
 		HRP.Anchored = true
 		ColorCE.Enabled = true
-		createMessage("ZAAAAA WARUDOOOOO")
+		createMessage("ZA WARUDOOOOO!")
 		for _, animObj in pairs(Humanoid:GetPlayingAnimationTracks()) do animObj:Stop() end
 		Motors.Neck.CFrame = Motors.Neck.Cache * CFrame.Angles(rad(40), 0, 0)
 		Motors.LS.CFrame = Motors.LS.Cache * CFrame.new(Vector3.new(0, .5, .5)) * CFrame.Angles(rad(90), 0, -rad(45))
@@ -264,7 +265,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 				elseif PartName == "Torso2" then
 					object.Handle.CFrame = StandoCharacter.Torso.CFrame * CFrame.new(Vector3.new(-.5, 0, 0)) * CFrame.Angles(rad(90), 0, 0)
 				elseif PartName == "Head" then
-					object.Handle.CFrame = StandoCharacter.Head.CFrame * _G.HeadOffset
+					object.Handle.CFrame = StandoCharacter.Head.CFrame * HeadOffset
 				else
 					object.Handle.CFrame = StandoCharacter[PartName].CFrame * CFrame.Angles(rad(90), 0, 0)
 				end
@@ -275,7 +276,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		anim = (anim % 100) + animSpeed / 10
 		for _, motor in pairs(Motors) do
-			motor.Object.Transform = motor.Object.Transform:Lerp(motor.CFrame, .2)
+			motor.Object.Transform = motor.Object.Transform:lerp(motor.CFrame, .2)
 		end
 		if StandoStates.Enabled then
 			if StandoStates.ModeState == "Idle" then
@@ -288,7 +289,7 @@ if not Character:FindFirstChild("StandoCharacter") then
 				Motors.RJoint.CFrame = Motors.RJoint.Cache * CFrame.new(Vector3.new(0, 0, -sin(anim) * .05)) * CFrame.Angles(0, 0, rad(7.5))
 			end
 		else
-			StandoCFrame = CFrame.new(Vector3.new(1000 + random(1, 100), 1000 + random(1, 100), 1000 + random(1, 100)))
+			StandoCFrame = CFrame.new(Vector3.new(1000, 1000 + random(1, 100), 1000))
 			for _, motor in pairs(Motors) do motor.CFrame = motor.Cache end
 		end
 	end)
