@@ -2,33 +2,28 @@
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 -- // INIT
-if CoreGui:FindFirstChild("ScreenGui") then CoreGui:FindFirstChild("ScreenGui"):Destroy() end
+if CoreGui:FindFirstChild("ScreenGui") then CoreGui:FindFirstChild("ScreenGui"):Destroy() _G.CAConnection:Disconnect() end
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kiwi-i/wallys-ui-fork/master/lib.lua", true))()
 local window = library:CreateWindow("Stands Online")
 -- // MAIN
 local GetItems = function(object)
-	if window.flags.autoget and object:IsA("Tool") and object:FindFirstChild("Handle") and not object.Parent:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health ~= 0 then
-		Player.Character.Humanoid:EquipTool(object)
-		for _ = 1, 15 do
-			if object.Parent == workspace then
-				Player.Character.Humanoid:EquipTool(object)
-			else
-				break
-			end
+	if window.flags.gditems and object:IsA("Tool") and not object.Parent:FindFirstChildWhichIsA("Humanoid") and object:FindFirstChild("Handle") and Player.Character.Humanoid.Health ~= 0 then
+		for _ = 1, 5 do
+			Player.Character.Humanoid:EquipTool(object)
 		end
 	end
 end
 local ItemESP = function(object)
-	if window.flags.itemesp and object:IsA("Tool") and object:FindFirstChild("Handle") and not object.Parent:FindFirstChild("Humanoid") and not object:FindFirstChild("BGUI_ESP") then
+	if window.flags.itemesp and object:IsA("Tool") and not object.Parent:FindFirstChildWhichIsA("Humanoid") and object:FindFirstChild("Handle") and not object.Handle:FindFirstChild("BGUI_ESP") then
 		local ESPGUI = Instance.new("BillboardGui")
 		local ItemName = Instance.new("TextLabel")
 		local ItemDistance = Instance.new("TextLabel")
 		ESPGUI.Name = "BGUI_ESP"
-		ESPGUI.Parent = object
-		ESPGUI.Adornee = object.Handle
+		ESPGUI.Parent = object.Handle
 		ESPGUI.Active = true
 		ESPGUI.AlwaysOnTop = true
 		ESPGUI.DistanceLowerLimit = 1
@@ -62,7 +57,7 @@ local ItemESP = function(object)
 		connection = RunService.Heartbeat:Connect(function()
 			DistanceFromItem = math.floor((Player.Character.HumanoidRootPart.Position - object.Handle.Position).magnitude)
 			ItemDistance.Text = string.format("%sm", DistanceFromItem)
-			if DistanceFromItem < 9 or object.Parent:FindFirstChild("Humanoid") then
+			if DistanceFromItem < 9 or not object.Parent:IsA("Workspace") then
 				ESPGUI.Enabled = false
 			else
 				ESPGUI.Enabled = true
@@ -74,27 +69,28 @@ local ItemESP = function(object)
 		end)
 	end
 end
-local connection = workspace.ChildAdded:Connect(function(object)
-	wait()
-	GetItems(object)
-	ItemESP(object)
+_G.CAConnection = Workspace.ChildAdded:Connect(function()
+	for _, object in ipairs(Workspace:GetChildren()) do
+		ItemESP(object)
+		GetItems(object)
+	end
 end)
 window:Section("Made by: jLn0n#1464")
-window:Toggle("AutoGet Items", {flag = "autoget"}, function()
-	if window.flags.autoget then
-		for _, object in ipairs(workspace:GetChildren()) do
+window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
+	if window.flags.gditems then
+		for _, object in ipairs(Workspace:GetChildren()) do
 			GetItems(object)
 		end
 	end
 end)
 window:Toggle("Item ESP", {flag = "itemesp"}, function()
 	if window.flags.itemesp then
-		for _, object in ipairs(workspace:GetChildren()) do
+		for _, object in ipairs(Workspace:GetChildren()) do
 			ItemESP(object)
 		end
 	end
 end)
 window:Button("Destroy GUI", function()
 	CoreGui:WaitForChild("ScreenGui"):Destroy()
-	connection:Disconnect()
+	_G.CAConnection:Disconnect()
 end)
