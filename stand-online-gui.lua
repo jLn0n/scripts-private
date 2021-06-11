@@ -12,9 +12,9 @@ local window = library:CreateWindow("Stands Online")
 -- // MAIN
 local GetItems = function(object)
 	if window.flags.gditems and object:IsA("Tool") and not object.Parent:FindFirstChildWhichIsA("Humanoid") and object:FindFirstChild("Handle") and Player.Character.Humanoid.Health ~= 0 then
-		for _ = 1, 10 do
-			Player.Character.Humanoid:EquipTool(object)
-		end
+		Player.Character.Humanoid:EquipTool(object)
+		wait(.05)
+		Player.Character.Humanoid:UnequipTools()
 	end
 end
 local ItemESP = function(object)
