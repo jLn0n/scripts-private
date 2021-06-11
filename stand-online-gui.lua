@@ -6,13 +6,13 @@ local Workspace = game:GetService("Workspace")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 -- // INIT
-if CoreGui:FindFirstChild("ScreenGui") then CoreGui:FindFirstChild("ScreenGui"):Destroy() _G.CAConnection:Disconnect() end
+if CoreGui:FindFirstChild("ScreenGui") then CoreGui:FindFirstChild("ScreenGui"):Destroy() _G.CAConnection:Disconnect(); _G.CAConnection = nil end
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kiwi-i/wallys-ui-fork/master/lib.lua", true))()
 local window = library:CreateWindow("Stands Online")
 -- // MAIN
 local GetItems = function(object)
 	if window.flags.gditems and object:IsA("Tool") and not object.Parent:FindFirstChildWhichIsA("Humanoid") and object:FindFirstChild("Handle") and Player.Character.Humanoid.Health ~= 0 then
-		for _ = 1, 5 do
+		for _ = 1, 10 do
 			Player.Character.Humanoid:EquipTool(object)
 		end
 	end
@@ -55,16 +55,16 @@ local ItemESP = function(object)
 		ItemDistance.TextStrokeTransparency = 0
 		local DistanceFromItem, connection
 		connection = RunService.Heartbeat:Connect(function()
+			if not window.flags.itemesp or not _G.CAConnection or object.Parent == nil then
+				ESPGUI:Destroy()
+				connection:Disconnect()
+			end
 			DistanceFromItem = math.floor((Player.Character.HumanoidRootPart.Position - object.Handle.Position).magnitude)
 			ItemDistance.Text = string.format("%sm", DistanceFromItem)
 			if DistanceFromItem < 9 or not object.Parent:IsA("Workspace") then
 				ESPGUI.Enabled = false
 			else
 				ESPGUI.Enabled = true
-			end
-			if not window.flags.itemesp or object.Parent == nil then
-				ESPGUI:Destroy()
-				connection:Disconnect()
 			end
 		end)
 	end
@@ -93,4 +93,5 @@ end)
 window:Button("Destroy GUI", function()
 	CoreGui:WaitForChild("ScreenGui"):Destroy()
 	_G.CAConnection:Disconnect()
+	_G.CAConnection = nil
 end)
