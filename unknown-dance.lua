@@ -5,12 +5,9 @@ local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 -- // OBJECTS
 local Player = Players.LocalPlayer
-local Character = Player.Character
-local Character2 = Character.REANIMATE.Dummy
+local Character = Player.Character[Player.UserId]
 local Humanoid = Character.Humanoid
-local Humanoid2 = Character2.Humanoid
 local HRP = Character.HumanoidRootPart
-local HRP2 = Character2.HumanoidRootPart
 local HRPOffset = HRP.Offset
 local Torso = Character.Torso
 local Neck = Torso.Neck
@@ -222,8 +219,8 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 		object.Motor.C0 = object.Motor.C0:Lerp(object.To, object.Speed)
 	end
 	if isAttacking then
-		_G.Settings.HRPFling = true
-		rayResult = Workspace:Raycast(HRP2.Position, HRP2.CFrame.LookVector * 10, attackRayParams)
+		_G.Settings.EnableFling = true
+		rayResult = Workspace:Raycast(HRP.Position, HRP.CFrame.LookVector * 10, attackRayParams)
 		if rayResult and not targetPlayer then
 			local hitPart = rayResult.Instance
 			if hitPart.Parent:IsA("Model") then
@@ -235,18 +232,18 @@ _G.Connections[#_G.Connections] = RunService.Stepped:Connect(function()
 		if targetPlayer then
 			local targetCharacter = targetPlayer.Character
 			if targetCharacter:FindFirstChild("HumanoidRootPart") then
-				if floor((HRP.Position - HRP2.Position).magnitude) < 50 then targetPlayer = nil end
-				HRPOffset.CFrame = targetCharacter.HumanoidRootPart.CFrame
+				if floor((HRP.Position - HRP.Position).magnitude) < 50 then targetPlayer = nil end
+				HRPOffset.CFrame = targetCharacter.HumanoidRootPart.CFrame * CFrame.new(Vector3.new(0, -.75, 0))
 			else
 				targetPlayer = nil
 			end
 		else
-			HRPOffset.CFrame = HRP2.CFrame
+			HRPOffset.CFrame = HRP.CFrame
 		end
 	else
-		_G.Settings.HRPFling = false
+		_G.Settings.EnableFling = false
 	end
-	humanoidState = string.lower(Humanoid2:GetState().Name)
+	humanoidState = string.lower(Humanoid:GetState().Name)
 	if humanoidState == "runningnophysics" then humanoidState = "running" end
 	if danceState == 0 and not playingDance then
 		if humanoidState == "running" and Humanoid.MoveDirection == Vector3.new() then
