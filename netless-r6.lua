@@ -14,9 +14,10 @@ _G.Settings = _G.Settings or {}
 _G.Connections = _G.Connections or {}
 local OldPos
 local WaitTime = .25
+local rad, random = math.rad, math.random
 -- // MAIN
-_G.Settings = {
-	PlayerCanCollide = _G.Settings.PlayerCanCollide or true
+_G.Settings = _G.Settings or {
+	EnableFling = _G.Settings.EnableFling or false
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(Player.UserId) then
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
@@ -27,7 +28,7 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		Character:FindFirstChild("State Handler"):Destroy()
 		for _, constraint in ipairs(Character:GetChildren()) do if constraint:IsA("BallSocketConstraint") or constraint:IsA("HingeConstraint") then constraint:Destroy() end end
 		for _, cannonBtn in ipairs(Workspace.NewerMap:GetDescendants()) do if cannonBtn:IsA("ClickDetector") and cannonBtn.Parent.Name == "Cannon" then cannonBtn:Destroy() end end
-		WaitTime = 5
+		WaitTime += 5
 	end
 
 	OldPos = Character:GetPrimaryPartCFrame()
@@ -79,8 +80,18 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("BasePart") then
 				object.Massless = true
-				object.Velocity = Vector3.new(0, 40, 0)
-				object.RotVelocity = Vector3.new()
+				if object.Name ~= "HumanoidRootPart" then
+					object.Velocity = Vector3.new(0, 40, 0)
+					object.RotVelocity = Vector3.new()
+				else
+					if _G.Settings.EnableFling then
+						object.Velocity = Vector3.new(0, 10e10, 0)
+						object.RotVelocity = Vector3.new()
+					else
+						object.Velocity = Vector3.new(0, 40, 0)
+						object.RotVelocity = Vector3.new()
+					end
+				end
 			elseif object:IsA("Accessory") and object:FindFirstChild("Handle") then
 				object.Handle.Massless = true
 				object.Handle.Velocity = Vector3.new(0, 40, 0)
@@ -100,11 +111,9 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 			end
 		end
 
-		if not _G.Settings.PlayerCanCollide then
-			for _, object in ipairs(DummyChar:GetDescendants()) do
-				if object:IsA("BasePart") then
-					object.CanCollide = false
-				end
+		for _, object in ipairs(DummyChar:GetDescendants()) do
+			if object:IsA("BasePart") then
+				object.CanCollide = false
 			end
 		end
 
@@ -118,7 +127,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 		for _, object in ipairs(Character:GetChildren()) do
 			if DummyChar:FindFirstChild(object.Name) then
 				if object:IsA("BasePart") then
-					object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
+					if object.Name ~= "HumanoidRootPart" then
+						object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
+					else
+						if _G.Settings.EnableFling then
+							object.CFrame = CFrame.new(DummyChar[object.Name].Offset.Position) * CFrame.Angles(rad(random(-180, 180)), rad(random(-180, 180)), rad(random(-180, 180)))
+						else
+							object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
+						end
+					end
 				elseif object:IsA("Accessory") and object:FindFirstChild("Handle") then
 					object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame * CFrame.new(DummyChar.Head.Offset.Position) * DummyChar[object.Name].Handle.Offset.CFrame
 				end
