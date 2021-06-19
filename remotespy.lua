@@ -7,7 +7,6 @@ local Ribbon = Instance.new("ImageLabel")
 local Hide = Instance.new("TextButton")
 local Title = Instance.new("TextLabel")
 local Remotes = Instance.new("ScrollingFrame")
-local Source = Instance.new("ScrollingFrame")
 local ButtonsFrame = Instance.new("Frame")
 local ToClipboard = Instance.new("TextButton")
 local Decompile = Instance.new("TextButton")
@@ -28,15 +27,6 @@ local SBTN = Instance.new("TextButton")
 local Icon_2 = Instance.new("ImageLabel")
 local RemoteName_2 = Instance.new("TextLabel")
 local ID_2 = Instance.new("TextLabel")
-local ScriptLine = Instance.new("Frame")
-local Line = Instance.new("TextLabel")
-local SourceText = Instance.new("TextLabel")
-local Tokens = Instance.new("TextLabel")
-local Strings = Instance.new("TextLabel")
-local Comments = Instance.new("TextLabel")
-local Keywords = Instance.new("TextLabel")
-local Globals = Instance.new("TextLabel")
-local RemoteHighlight = Instance.new("TextLabel")
 local Enabled = Instance.new("TextLabel")
 local FullScreen = Instance.new("TextButton")
 local SetRemotesTab = Instance.new("Frame")
@@ -46,9 +36,15 @@ local Search = Instance.new("TextBox")
 local remotes_fired = 0
 local encrypt_string = false
 local spy_enabled = true
-
-local lua_keywords = {"and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"}
-local global_env = {"game", "workspace", "script", "math", "string", "table", "print", "wait", "BrickColor", "Color3", "next", "pairs", "ipairs", "select", "unpack", "Instance", "Vector2", "Vector3", "CFrame", "Ray", "UDim2", "Enum", "assert", "error", "warn", "tick", "loadstring", "_G", "shared", "getfenv", "setfenv", "newproxy", "setmetatable", "getmetatable", "os", "debug", "pcall", "ypcall", "xpcall", "rawequal", "rawset", "rawget", "tonumber", "tostring", "type", "typeof", "_VERSION", "coroutine", "delay", "require", "spawn", "LoadLibrary", "settings", "stats", "time", "UserSettings", "version", "Axes", "ColorSequence", "Faces", "ColorSequenceKeypoint", "NumberRange", "NumberSequence", "NumberSequenceKeypoint", "gcinfo", "elapsedTime", "collectgarbage", "PhysicalProperties", "Rect", "Region3", "Region3int16", "UDim", "Vector2int16", "Vector3int16"}
+local synHL_Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/lua-syntax-highlighting.lua"))()
+local Source = synHL_Lib.new({
+	Name = "Source",
+	Parent = BG,
+    Size = UDim2.new(1, -280, 1, -90),
+	Position = UDim2.new(0, 270, 0, 80),
+	ZIndex = 1
+})
+local SourceChildren = Source:getChildren()
 
 -- Properties
 
@@ -110,19 +106,6 @@ Remotes.BottomImage = "rbxassetid://148970562"
 Remotes.MidImage = "rbxassetid://148970562"
 Remotes.ScrollBarThickness = 5
 Remotes.TopImage = "rbxassetid://148970562"
-
-Source.Name = "Source"
-Source.Parent = BG
-Source.BackgroundColor3 = Color3.new(0.0784314, 0.0784314, 0.0784314)
-Source.BorderColor3 = Color3.new(0.243137, 0.243137, 0.243137)
-Source.Position = UDim2.new(0, 270, 0, 80)
-Source.Size = UDim2.new(1, -280, 1, -90)
-Source.ZIndex = 2
-Source.BottomImage = "rbxassetid://148970562"
-Source.CanvasSize = UDim2.new(3, 0, 160, 0)
-Source.MidImage = "rbxassetid://148970562"
-Source.ScrollBarThickness = 5
-Source.TopImage = "rbxassetid://148970562"
 
 ButtonsFrame.Name = "ButtonsFrame"
 ButtonsFrame.Parent = BG
@@ -370,124 +353,6 @@ ID_2.Text = "10"
 ID_2.TextColor3 = Color3.new(0.784314, 0.784314, 0.784314)
 ID_2.TextSize = 14
 
-ScriptLine.Name = "ScriptLine"
-ScriptLine.Parent = Storage
-ScriptLine.BackgroundColor3 = Color3.new(1, 1, 1)
-ScriptLine.BackgroundTransparency = 1
-ScriptLine.Size = UDim2.new(1, 0, 0, 17)
-ScriptLine.ZIndex = 2
-
-Line.Name = "Line"
-Line.Parent = ScriptLine
-Line.BackgroundColor3 = Color3.new(0.329412, 0, 0)
-Line.BackgroundTransparency = 1
-Line.BorderSizePixel = 0
-Line.Size = UDim2.new(0, 40, 1, 0)
-Line.ZIndex = 3
-Line.Font = Enum.Font.SourceSansBold
-Line.TextSize = Enum.FontSize.Size18
-Line.Text = ""
-Line.TextColor3 = Color3.new(0.784314, 0.784314, 0.784314)
-Line.TextSize = 17
-
-SourceText.Name = "SourceText"
-SourceText.Parent = ScriptLine
-SourceText.BackgroundColor3 = Color3.new(1, 1, 1)
-SourceText.BackgroundTransparency = 1
-SourceText.Position = UDim2.new(0, 40, 0, 0)
-SourceText.Size = UDim2.new(1, -40, 1, 0)
-SourceText.ZIndex = 3
-SourceText.Font = Enum.Font.Code
-SourceText.TextSize = Enum.FontSize.Size18
-SourceText.Text = ""
-SourceText.TextColor3 = Color3.new(1, 1, 1)
-SourceText.TextSize = 17
-SourceText.TextXAlignment = Enum.TextXAlignment.Left
-
-Tokens.Name = "Tokens"
-Tokens.Parent = ScriptLine
-Tokens.BackgroundColor3 = Color3.new(1, 1, 1)
-Tokens.BackgroundTransparency = 1
-Tokens.Position = UDim2.new(0, 40, 0, 0)
-Tokens.Size = UDim2.new(1, -40, 1, 0)
-Tokens.ZIndex = 3
-Tokens.Font = Enum.Font.Code
-Tokens.TextSize = Enum.FontSize.Size18
-Tokens.Text = ""
-Tokens.TextColor3 = Color3.new(0.392157, 0.392157, 0.392157)
-Tokens.TextSize = 17
-Tokens.TextXAlignment = Enum.TextXAlignment.Left
-
-Strings.Name = "Strings"
-Strings.Parent = ScriptLine
-Strings.BackgroundColor3 = Color3.new(1, 1, 1)
-Strings.BackgroundTransparency = 1
-Strings.Position = UDim2.new(0, 40, 0, 0)
-Strings.Size = UDim2.new(1, -40, 1, 0)
-Strings.ZIndex = 5
-Strings.Font = Enum.Font.Code
-Strings.TextSize = Enum.FontSize.Size18
-Strings.Text = ""
-Strings.TextColor3 = Color3.new(1, 0.615686, 0)
-Strings.TextSize = 17
-Strings.TextXAlignment = Enum.TextXAlignment.Left
-
-Comments.Name = "Comments"
-Comments.Parent = ScriptLine
-Comments.BackgroundColor3 = Color3.new(1, 1, 1)
-Comments.BackgroundTransparency = 1
-Comments.Position = UDim2.new(0, 40, 0, 0)
-Comments.Size = UDim2.new(1, -40, 1, 0)
-Comments.ZIndex = 5
-Comments.Font = Enum.Font.Code
-Comments.TextSize = Enum.FontSize.Size18
-Comments.Text = ""
-Comments.TextColor3 = Color3.fromRGB(60, 200, 60)
-Comments.TextSize = 17
-Comments.TextXAlignment = Enum.TextXAlignment.Left
-
-RemoteHighlight.Name = "RemoteHighlight"
-RemoteHighlight.Parent = ScriptLine
-RemoteHighlight.BackgroundColor3 = Color3.new(1, 1, 1)
-RemoteHighlight.BackgroundTransparency = 1
-RemoteHighlight.Position = UDim2.new(0, 40, 0, 0)
-RemoteHighlight.Size = UDim2.new(1, -40, 1, 0)
-RemoteHighlight.ZIndex = 3
-RemoteHighlight.Font = Enum.Font.Code
-RemoteHighlight.TextSize = Enum.FontSize.Size18
-RemoteHighlight.Text = ""
-RemoteHighlight.TextColor3 = Color3.fromRGB(0, 145, 255)
-RemoteHighlight.TextSize = 17
-RemoteHighlight.TextXAlignment = Enum.TextXAlignment.Left
-
-Keywords.Name = "Keywords"
-Keywords.Parent = ScriptLine
-Keywords.BackgroundColor3 = Color3.new(1, 1, 1)
-Keywords.BackgroundTransparency = 1
-Keywords.Position = UDim2.new(0, 40, 0, 0)
-Keywords.Size = UDim2.new(1, -40, 1, 0)
-Keywords.ZIndex = 3
-Keywords.Font = Enum.Font.Code
-Keywords.TextSize = Enum.FontSize.Size18
-Keywords.Text = ""
-Keywords.TextColor3 = Color3.new(0.231373, 1, 0)
-Keywords.TextSize = 17
-Keywords.TextXAlignment = Enum.TextXAlignment.Left
-
-Globals.Name = "Globals"
-Globals.Parent = ScriptLine
-Globals.BackgroundColor3 = Color3.new(1, 1, 1)
-Globals.BackgroundTransparency = 1
-Globals.Position = UDim2.new(0, 40, 0, 0)
-Globals.Size = UDim2.new(1, -40, 1, 0)
-Globals.ZIndex = 3
-Globals.Font = Enum.Font.Code
-Globals.TextSize = Enum.FontSize.Size18
-Globals.Text = ""
-Globals.TextColor3 = Color3.new(1, 0, 0)
-Globals.TextSize = 17
-Globals.TextXAlignment = Enum.TextXAlignment.Left
-
 Enabled.Name = "Enabled"
 Enabled.Parent = SBTN
 Enabled.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -680,7 +545,7 @@ local hide = function()
 	pos_frame(BG, UDim2.new(0, 100, 0, -27))
 	pos_frame(Title, UDim2.new(0, 0, 0, 0))
 	pos_frame(Remotes, UDim2.new(0, 10, 0, 100))
-	pos_frame(Source, UDim2.new(0, 270, 0, 100))
+	Source:setProperty("Position", UDim2.new(0, 270, 0, 100))
 	SetRemotes.Visible = false
 	SetRemotesTab.Visible = false
 	Source.Visible = true
@@ -694,7 +559,7 @@ local show = function()
 	pos_frame(BG, UDim2.new(.5, 0, .5, 0))
 	pos_frame(Title, UDim2.new(0.5, -100, 0, 0))
 	pos_frame(Remotes, UDim2.new(0, 10, 0, 80))
-	pos_frame(Source, UDim2.new(0, 270, 0, 80))
+	Source:setProperty("Position", UDim2.new(0, 270, 0, 80))
 
 	return "_"
 end
@@ -765,148 +630,9 @@ local onclick_ffunctions = function()
 	filter_functions()
 end
 
-local Highlight = function(string, keywords)
-	local K = {}
-	local S = string
-	local Token =
-	{
-		["="] = true,
-		["."] = true,
-		[","] = true,
-		["("] = true,
-		[")"] = true,
-		["["] = true,
-		["]"] = true,
-		["{"] = true,
-		["}"] = true,
-		[":"] = true,
-		["*"] = true,
-		["/"] = true,
-		["+"] = true,
-		["-"] = true,
-		["%"] = true,
-		[";"] = true,
-		["~"] = true
-	}
-	for _, object in pairs(keywords) do
-		K[object] = true
-	end
-	S = S:gsub(".", function(c)
-		if Token[c] ~= nil then
-			return "\32"
-		else
-			return c
-		end
-	end)
-	S = S:gsub("%S+", function(c)
-		if K[c] ~= nil then
-			return c
-		else
-			return (" "):rep(#c)
-		end
-	end)
-
-	return S
-end
-
-local Tokens = function(string)
-	local Token = {
-		["="] = true,
-		["."] = true,
-		[","] = true,
-		["("] = true,
-		[")"] = true,
-		["["] = true,
-		["]"] = true,
-		["{"] = true,
-		["}"] = true,
-		[":"] = true,
-		["*"] = true,
-		["/"] = true,
-		["+"] = true,
-		["-"] = true,
-		["%"] = true,
-		[";"] = true,
-		["~"] = true
-	}
-	local A = ""
-	string:gsub(".", function(c)
-		if Token[c] ~= nil then
-			A = A .. c
-		elseif c == "\n" then
-			A = A .. "\n"
-		elseif c == "\t" then
-			A = A .. "\t"
-		else
-			A = A .. "\32"
-		end
-	end)
-
-	return A
-end
-
-local strings = function(string)
-	local highlight = ""
-	local quote = false
-	string:gsub(".", function(c)
-		if quote == false and c == "\"" then
-			quote = true
-		elseif quote == true and c == "\"" then
-			quote = false
-		end
-		if quote == false and c == "\"" then
-			highlight = highlight .. "\""
-		elseif c == "\n" then
-			highlight = highlight .. "\n"
-	elseif c == "\t" then
-		highlight = highlight .. "\t"
-		elseif quote == true then
-			highlight = highlight .. c
-		elseif quote == false then
-			highlight = highlight .. "\32"
-		end
-	end)
-
-	return highlight
-end
-
-local comments = function(string)
-	local ret = ""
-	string:gsub("[^\r\n]+", function(c)
-		local comm = false
-		local i = 0
-		c:gsub(".", function(n)
-			i = i + 1
-			if c:sub(i, i + 1) == "--" then
-				comm = true
-			end
-			if comm == true then
-				ret = ret .. n
-			else
-				ret = ret .. "\32"
-			end
-		end)
-		ret = ret
-	end)
-
-	return ret
-end
-
 local copy_source = function()
-	local scriptVar = ""
-	local copy
-	for _, object in pairs(Source:GetChildren()) do
-		scriptVar = scriptVar .. object.SourceText.Text .. "\n"
-	end
-	if Clipboard ~= nil then
-		copy = Clipboard.set
-	elseif Synapse ~= nil then
-		copy = function(str)
-			Synapse:Copy(str)
-		end
-	elseif setclipboard ~= nil then
-		copy = setclipboard
-	end
+	local scriptVar = SourceChildren.TextSource.Holder.Text
+	local copy = (Clipboard and Clipboard.set or Synapse and Synapse.copy or setclipboard)
 	copy(scriptVar)
 end
 
@@ -1024,25 +750,7 @@ local namecall_script = function(object, method, ...)
 end
 
 local dump_script = function(scriptArg)
-	Source:ClearAllChildren()
-	local lines = 0
-	scriptArg:gsub("[^\r\n]+", function(text)
-		lines = lines + 1
-		local tabs = 0
-		text:gsub("%\t", function() tabs = tabs + 1 end)
-		local line = ScriptLine:Clone()
-		line.Parent = Source
-		line.SourceText.Text = text
-		line.Line.Text = lines
-		line.RemoteHighlight.Text = Highlight(text, {"FireServer", "InvokeServer", "invokeServer", "fireServer"})
-		line.Position = UDim2.new(0, tabs * (17 * 2), 0, -17 + #Source:GetChildren() * 17)
-		line.Globals.Text = Highlight(text, global_env)
-		line.Line.Position = UDim2.new(0, 0 - tabs * (17 * 2), 0, 0)
-		line.Strings.Text = strings(text)
-		line.Keywords.Text = Highlight(text, lua_keywords)
-		line.Tokens.Text = Tokens(text)
-		line.Comments.Text = comments(text)
-	end)
+	Source:setProperty("TextSource", scriptArg)
 end
 
 local log_remote = function(tableArg)
