@@ -40,7 +40,7 @@ local synHL_Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/jLn
 local Source = synHL_Lib.new({
 	Name = "Source",
 	Parent = BG,
-    Size = UDim2.new(1, -280, 1, -90),
+	Size = UDim2.new(1, -280, 1, -90),
 	Position = UDim2.new(0, 270, 0, 80),
 	ZIndex = 1
 })
@@ -724,7 +724,7 @@ fill(game)
 
 local setreadonly = setreadonly or make_writeable
 local game_meta = getrawmetatable(game)
-local game_namecall = game_meta.__namecall
+local game_namecall
 local namecall_dump = {}
 local current_rmt = nil
 local g_caller = nil
@@ -806,7 +806,7 @@ Step:Connect(function()
 	end
 end)
 
-local on_namecall = newcclosure(function(object, ...)
+game_namecall = hookfunction(game_meta.__namecall, newcclosure(function(object, ...)
 	local method = getnamecallmethod()
 	local args = {...}
 	if object.Name ~= "CharacterSoundEvent" and method:match("Server") and spy_enabled == true then
@@ -814,5 +814,4 @@ local on_namecall = newcclosure(function(object, ...)
 	end
 
 	return game_namecall(object, ...)
-end)
-game_meta.__namecall = on_namecall
+end))
