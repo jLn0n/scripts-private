@@ -17,6 +17,7 @@ local WaitTime = .25
 local rad, random = math.rad, math.random
 -- // MAIN
 _G.Settings = _G.Settings or {
+	PlrCanCollide = _G.Settings.PlrCanCollide or true,
 	EnableFling = _G.Settings.EnableFling or false
 }
 if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(Player.UserId) then
@@ -53,7 +54,6 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 	Character.Head.face.Parent = DummyChar.Head
 	Character.PrimaryPart = DummyChar.PrimaryPart
 	Character:SetPrimaryPartCFrame(OldPos)
-	Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 	HRP.Anchored = false
 
 	for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
@@ -111,12 +111,15 @@ if Humanoid.RigType == Enum.HumanoidRigType.R6 and not Character:FindFirstChild(
 			end
 		end
 
-		for _, object in ipairs(DummyChar:GetDescendants()) do
-			if object:IsA("BasePart") then
-				object.CanCollide = false
+		if not _G.Settings.PlrCanCollide then
+			for _, object in ipairs(DummyChar:GetDescendants()) do
+				if object:IsA("BasePart") then
+					object.CanCollide = false
+				end
 			end
 		end
 
+		Workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 		Humanoid2:Move(Humanoid.MoveDirection, false)
 		if UIS:IsKeyDown(Enum.KeyCode.Space) and UIS:GetFocusedTextBox() == nil then
 			Humanoid2.Jump = true
