@@ -26,7 +26,7 @@ local FavIDs = {
 
 local RunService = game:GetService("RunService")
 local Player = game:GetService("Players").LocalPlayer
-local Character = workspace[Player.UserId]
+local Character = Player.Character[Player.UserId]
 local Humanoid = Character.Humanoid
 local ra = Character["Right Arm"]
 local la = Character["Left Arm"]
