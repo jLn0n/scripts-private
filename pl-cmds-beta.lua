@@ -193,13 +193,13 @@ Player.Chatted:Connect(function(chat)
 			else
 				CreateMessage("Argument 2 should be a number.")
 			end
-		elseif chatBody[2] == "tp" or chatBody[2] == "teleport" then
+		elseif chatBody[2] == "goto" then
 			Tplr = FindPlyrFromString(chatBody[3])
 			if Tplr and Tplr ~= Player.Name then
 				if HRP and Humanoid.Health ~= 0 and Tplr.Character:FindFirstChild("HumanoidRootPart") then
 					HRP.CFrame = Tplr.Character.HumanoidRootPart.CFrame * CFrame.new(Vector3.new(0, 0, 4))
 				end
-				CreateMessage("Teleported to %s\0.", Tplr.Name)
+				CreateMessage(sformat("Teleported to %s", Tplr.Name))
 			else
 				CreateMessage("Can't find player.")
 			end
