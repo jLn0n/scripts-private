@@ -1,63 +1,51 @@
-local UserInputService = game:GetService("UserInputService")
-local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
-local Folder = Instance.new("Folder", game:GetService("Workspace"))
-local Part = Instance.new("Part", Folder)
-local Attachment1 = Instance.new("Attachment", Part)
-Part.Anchored = true
-Part.CanCollide = false
-Part.Transparency = 1
-local Updated = Mouse.Hit + Vector3.new(0, 5, 0)
-local NetworkAccess = coroutine.create(function()
-	while game:GetService("RunService").RenderStepped:Wait() do
-		settings().Physics.AllowSleep = false
-		settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-		setsimulationradius(1e8, 1e8)
-	end
-end)
-coroutine.resume(NetworkAccess)
-local function ForcePart(v)
-	if v:IsA("Part") and v.Anchored == false and v.Parent:FindFirstChild("Humanoid") == nil and v.Parent:FindFirstChild("Head") == nil and v.Name ~= "Handle" then
-		Mouse.TargetFilter = v
-		for _, x in next, v:GetChildren() do
-			if x:IsA("BodyAngularVelocity") or x:IsA("BodyForce") or x:IsA("BodyGyro") or x:IsA("BodyPosition") or x:IsA("BodyThrust") or x:IsA("BodyVelocity") or x:IsA("RocketPropulsion") then
-				x:Destroy()
+-- // SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+-- // OBJECTS
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local AttHolder = Instance.new("Part", Workspace)
+local Attachment1 = Instance.new("Attachment", AttHolder)
+-- // VARIABLES
+local BlackholePos = Mouse.Hit.Position + Vector3.new(0, 2.5, 0)
+-- // MAIN
+AttHolder.Anchored, AttHolder.CanCollide, AttHolder.Transparency = true, false, .5
+local ForcePart = function(object)
+	if object:IsA("BasePart") and (object.Anchored and object:IsDescendantOf(Workspace.Structure) or not object.Anchored) and not object:IsDescendantOf(Player.Character) then
+		for _, sobject in ipairs(object:GetChildren()) do
+			if sobject:IsA("Attachment") and sobject:IsA("AlignPosition") and sobject:IsA("Torque") and sobject:IsA("BodyMover") or sobject:IsA("RocketPropulsion") then
+				sobject:Destroy()
 			end
 		end
-		if v:FindFirstChild("Attachment") then
-			v:FindFirstChild("Attachment"):Destroy()
-		end
-		if v:FindFirstChild("AlignPosition") then
-			v:FindFirstChild("AlignPosition"):Destroy()
-		end
-		if v:FindFirstChild("Torque") then
-			v:FindFirstChild("Torque"):Destroy()
-		end
-		v.CanCollide = false
-		local Torque = Instance.new("Torque", v)
-		Torque.Torque = Vector3.new(100000, 100000, 100000)
-		local AlignPosition = Instance.new("AlignPosition", v)
-		local Attachment2 = Instance.new("Attachment", v)
-		Torque.Attachment0 = Attachment2
-		AlignPosition.MaxForce = 9999999999999999
-		AlignPosition.MaxVelocity = math.huge
-		AlignPosition.Responsiveness = 200
-		AlignPosition.Attachment0 = Attachment2
-		AlignPosition.Attachment1 = Attachment1
+		local Torque, APos, Attachment0 = Instance.new("Torque", object), Instance.new("AlignPosition", object), Instance.new("Attachment", object)
+		Torque.Attachment0 = Attachment0
+		Torque.Torque = Vector3.new(10e10, 10e10, 10e10)
+		APos.Attachment0, APos.Attachment1 = Attachment0, Attachment1
+		APos.MaxForce = 10e10
+		APos.MaxVelocity = math.huge
+		APos.Responsiveness = 200
 	end
 end
-for _, v in next, game:GetService("Workspace"):GetDescendants() do
-	ForcePart(v)
+
+for _, object in ipairs(Workspace:GetDescendants()) do
+	ForcePart(object)
 end
-game:GetService("Workspace").DescendantAdded:Connect(function(v)
-	ForcePart(v)
+
+Workspace.DescendantAdded:Connect(function(object)
+	ForcePart(object)
 end)
-UserInputService.InputBegan:Connect(function(Key, Chat)
-	if Key.KeyCode == Enum.KeyCode.E and not Chat then
-	   Updated = Mouse.Hit + Vector3.new(0, 5, 0)
+
+UIS.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.E and not UIS:GetFocusedTextBox() then
+		BlackholePos = Mouse.Hit.Position + Vector3.new(0, 2.5, 0)
 	end
 end)
-spawn(function()
-	while game:GetService("RunService").RenderStepped:Wait() do
-		Attachment1.WorldCFrame = Updated
-	end
+
+RunService.RenderStepped:Connect(function()
+	settings().Physics.AllowSleep = false
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	setsimulationradius(1e8, 1e8)
+	AttHolder.Position = BlackholePos
 end)
