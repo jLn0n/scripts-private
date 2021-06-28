@@ -46,6 +46,6 @@ end)
 RunService.RenderStepped:Connect(function()
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-	setsimulationradius(1e8, 1e8)
+	setsimulationradius(1e10, 1e10)
 	AttHolder.Position = BlackholePos
 end)
