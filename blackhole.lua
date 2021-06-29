@@ -48,6 +48,6 @@ RunService.RenderStepped:Connect(function()
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	setsimulationradius(1e10, 1e10)
-    Player.ReplicationFocus = Workspace
+	Player.ReplicationFocus = Workspace
 	AttHolder.Position = BlackholePos
 end)
