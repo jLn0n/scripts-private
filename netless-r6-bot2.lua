@@ -21,15 +21,15 @@ _G.Settings = {
 assert(not Character:FindFirstChild(Player.UserId), [[\n["NETLESS-R6-SEMIBOT.LUA"]: Please reset to be able to run the script again!]])
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["NETLESS-R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
-local BodyParts = {
+local HatParts = {
 	["Head"] = Character:FindFirstChild(_G.Settings.HeadName),
+	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
+	["Right Arm"] = Character:FindFirstChild("Hat1"),
+	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
+	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
 	["Torso"] = Character:FindFirstChild("SeeMonkey"),
 	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
 	["Torso2"] = Character:FindFirstChild("LavanderHair"),
-	["Left Arm"] = Character:FindFirstChild("Left Arm"),
-	["Right Arm"] = Character:FindFirstChild("Right Arm"),
-	["Left Leg"] = Character:FindFirstChild("Left Leg"),
-	["Right Leg"] = Character:FindFirstChild("Right Leg")
 }
 
 local onCharRemoved = function()
@@ -50,7 +50,7 @@ for _, object in ipairs(Character.Torso:GetChildren()) do
 		object:Destroy()
 	end
 end
-for PartName, object in pairs(BodyParts) do
+for PartName, object in pairs(HatParts) do
 	if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 		object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
 		if PartName == "Head" and _G.Settings.RemoveHeadMesh then
@@ -73,7 +73,7 @@ DummyChar:SetPrimaryPartCFrame(OldPos)
 Player.Character = DummyChar
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
-	for PartName, object in next, BodyParts do
+	for PartName, object in pairs(HatParts) do
 		if object then
 			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 				object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
@@ -99,15 +99,10 @@ _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
 	settings().Physics.ThrottleAdjustTime = 0 / 1 / 0
 
-	for _, object in pairs(BodyParts) do
-		if object then
-			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
-				object.Handle.Velocity = Vector3.new(-30, -30, -30)
-				object.Handle.RotVelocity = Vector3.new()
-			elseif object:IsA("BasePart") then
-				object.Velocity = Vector3.new(-30, -30, -30)
-				object.RotVelocity = Vector3.new()
-			end
+	for _, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle")  then
+			object.Handle.Velocity = Vector3.new(-30, -30, -30)
+			object.Handle.RotVelocity = Vector3.new()
 		end
 	end
 
