@@ -2,13 +2,11 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
-local UIS = game:GetService("UserInputService")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
-local HRP2 = HRP:Clone()
 -- // VARIABLES
 _G.Settings = _G.Settings or {}
 _G.Connections = _G.Connections or {}
@@ -21,6 +19,7 @@ _G.Settings = {
 }
 assert(not Character:FindFirstChild(Player.UserId), [[\n["NETLESS-R6-BOT.LUA"]: Please reset to be able to run the script again!]])
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["NETLESS-R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
+
 local HatParts = {
 	["Head"] = Character:FindFirstChild(_G.Settings.HeadName),
 	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
@@ -32,11 +31,21 @@ local HatParts = {
 	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 }
 
+local onCharRemoved = function()
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
+	Player.Character = Player.Character.Parent
+	Player.Character:BreakJoints()
+	Player.Character:Destroy()
+	Player.Character = nil
+end
+
 workspace.FallenPartsDestroyHeight = 0 / 1 / 0
+HRP.Anchored = true
 Character.Parent = nil
 Character.Head.face.Transparency = 1
 HRP.Parent = nil
-HRP2.Parent = Character
+HRP.Parent = Character
+HRP.Anchored = false
 Character.Parent = workspace
 
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
@@ -55,9 +64,9 @@ end
 _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-	settings().Physics.ThrottleAdjustTime = 0 / 1 / 0
+	settings().Physics.ThrottleAdjustTime = 0 / 0
 
-	for _, object in next, HatParts do
+	for _, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.Velocity = Vector3.new(-30, -30, -30)
 			object.Handle.RotVelocity = Vector3.new()
@@ -66,8 +75,8 @@ _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 end)
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
-	for PartName, object in next, HatParts do
-		if object and object:FindFirstChild("Handle") then
+	for PartName, object in pairs(HatParts) do
+		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = Character.Head.LocalTransparencyModifier
 			if PartName == "Head" then
 				object.Handle.CFrame = Character.Head.CFrame * _G.Settings.HeadOffset
@@ -84,17 +93,8 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	end
 end)
 
-if not _G.PlayerResetConnection then
-	local ResetBindable = Instance.new("BindableEvent")
-	_G.PlayerResetConnection = ResetBindable.Event:Connect(function()
-		for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
-		Player.Character = Player.Character.Parent
-		Player.Character:BreakJoints()
-		Player.Character.Parent = nil
-		Player.Character = Player.Character[Player.UserId]
-	end)
-	StarterGui:SetCore("ResetButtonCallback", ResetBindable)
-end
+_G.Connections[#_G.Connections + 1] = Humanoid.Died:Connect(onCharRemoved)
+_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
 
 StarterGui:SetCore("SendNotification", {
 	Title = "REANIMATE",
