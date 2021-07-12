@@ -33,19 +33,16 @@ local HatParts = {
 
 local onCharRemoved = function()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
-	Player.Character = Player.Character.Parent
 	Player.Character:BreakJoints()
 	Player.Character:Destroy()
 	Player.Character = nil
 end
 
 workspace.FallenPartsDestroyHeight = 0 / 1 / 0
-HRP.Anchored = true
 Character.Parent = nil
 Character.Head.face.Transparency = 1
 HRP.Parent = nil
 HRP.Parent = Character
-HRP.Anchored = false
 Character.Parent = workspace
 
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
@@ -60,15 +57,26 @@ for PartName, object in pairs(HatParts) do
 		end
 	end
 end
+for _, object in ipairs(Character:GetChildren()) do
+	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+		local Attachment = Instance.new("Attachment")
+		Attachment.Name = "Offset"
+		Attachment.Parent = object
+		if object.Name == "Head" then
+			Attachment.CFrame = _G.Settings.HeadOffset
+		end
+	end
+end
 
 _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	settings().Physics.ThrottleAdjustTime = -math.huge
 
 	for _, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
-			object.Handle.Velocity = Vector3.new(-30, -30, -30)
+			object.Handle.Massless = true
+			object.Handle.Velocity = Vector3.new(0, -35, 25.05)
 			object.Handle.RotVelocity = Vector3.new()
 		end
 	end
@@ -79,15 +87,15 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = Character.Head.LocalTransparencyModifier
 			if PartName == "Head" then
-				object.Handle.CFrame = Character.Head.CFrame * _G.Settings.HeadOffset
+				object.Handle.CFrame = Character.Head.CFrame * Character.Head.Offset.CFrame
 			elseif PartName == "Torso" then
-				object.Handle.CFrame = Character.Torso.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
 			elseif PartName == "Torso1" then
-				object.Handle.CFrame = Character.Torso.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
 			elseif PartName == "Torso2" then
-				object.Handle.CFrame = Character.Torso.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
 			else
-				object.Handle.CFrame = Character[PartName].CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = Character[PartName].CFrame * Character[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
 			end
 		end
 	end
