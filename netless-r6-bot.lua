@@ -33,20 +33,18 @@ local HatParts = {
 
 local onCharRemoved = function()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
+	Player.Character = Player.Character.Parent
 	Player.Character:BreakJoints()
 	Player.Character:Destroy()
 	Player.Character = nil
 end
 
-workspace.FallenPartsDestroyHeight = 0 / 1 / 0
-Character.Parent = nil
-Character.Head.face.Transparency = 1
-HRP.Parent = nil
-HRP.Parent = Character
-Character.Parent = workspace
+local OldPos = HRP.CFrame
+local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
+DummyChar.Name, DummyChar.Parent = Player.UserId, Character
 
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
-for _, object in ipairs(Character:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
+for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 for PartName, object in pairs(HatParts) do
 	if object and object:FindFirstChild("Handle") then
 		object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
@@ -57,51 +55,62 @@ for PartName, object in pairs(HatParts) do
 		end
 	end
 end
-for _, object in ipairs(Character:GetChildren()) do
+
+for _, object in ipairs(DummyChar:GetChildren()) do
 	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
 		local Attachment = Instance.new("Attachment")
 		Attachment.Name = "Offset"
 		Attachment.Parent = object
-		if object.Name == "Head" then
-			Attachment.CFrame = _G.Settings.HeadOffset
-		end
+		Attachment.CFrame = (object.Name == "Head" and _G.Settings.HeadOffset or CFrame.new())
 	end
 end
 
+workspace.FallenPartsDestroyHeight = 0 / 0
+HRP.Anchored = true
+Character.Animate.Disabled = true
+Character.Animate.Parent = DummyChar
+Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+DummyChar.Parent = Character
+DummyChar.Animate.Disabled = false
+DummyChar.HumanoidRootPart.CFrame = OldPos
+Player.Character = DummyChar
+
 _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-	settings().Physics.ThrottleAdjustTime = -math.huge
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.ThrottleAdjustTime = 0 / 0
 
 	for _, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.Massless = true
-			object.Handle.Velocity = Vector3.new(0, -35, 25.05)
+			object.Handle.Velocity = Vector3.new(0, -30, 40)
 			object.Handle.RotVelocity = Vector3.new()
 		end
 	end
+
+	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(HatParts) do
 		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
-			object.Handle.LocalTransparencyModifier = Character.Head.LocalTransparencyModifier
+			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			if PartName == "Head" then
-				object.Handle.CFrame = Character.Head.CFrame * Character.Head.Offset.CFrame
+				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
 			elseif PartName == "Torso" then
-				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
 			elseif PartName == "Torso1" then
-				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
 			elseif PartName == "Torso2" then
-				object.Handle.CFrame = Character.Torso.CFrame * Character.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
 			else
-				object.Handle.CFrame = Character[PartName].CFrame * Character[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
 			end
 		end
 	end
 end)
 
-_G.Connections[#_G.Connections + 1] = Humanoid.Died:Connect(onCharRemoved)
+_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 _G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
 
 StarterGui:SetCore("SendNotification", {
