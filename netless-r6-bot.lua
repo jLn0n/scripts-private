@@ -33,15 +33,15 @@ local HatParts = {
 
 local onCharRemoved = function()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
-	Player.Character = Player.Character.Parent
+	Player.Character = Player.Character[Player.Name]
 	Player.Character:BreakJoints()
-	Player.Character:Destroy()
+	Player.Character.Parent:Destroy()
 	Player.Character = nil
 end
 
 local OldPos = HRP.CFrame
 local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
-DummyChar.Name, DummyChar.Parent = Player.UserId, Character
+DummyChar.Name = Player.UserId
 
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
@@ -72,24 +72,10 @@ Character.Animate.Parent = DummyChar
 Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 DummyChar.Parent = Character
 DummyChar.Animate.Disabled = false
-DummyChar.HumanoidRootPart.CFrame = OldPos
+DummyChar.HumanoidRootPart.CFrame = OldPos * CFrame.new(Vector3.new(0, 0, -1.5))
 Player.Character = DummyChar
-
-_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
-	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-	settings().Physics.ThrottleAdjustTime = 0 / 0
-
-	for _, object in pairs(HatParts) do
-		if object and object:FindFirstChild("Handle") then
-			object.Handle.Massless = true
-			object.Handle.Velocity = Vector3.new(0, -30, 40)
-			object.Handle.RotVelocity = Vector3.new()
-		end
-	end
-
-	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
-end)
+DummyChar.Parent = workspace
+Character.Parent = DummyChar
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(HatParts) do
@@ -110,9 +96,23 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	end
 end)
 
-_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
-_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
+_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
+	settings().Physics.AllowSleep = false
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.ThrottleAdjustTime = 0 / 0
 
+	for _, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle") then
+			object.Handle.Massless = true
+			object.Handle.Velocity = Vector3.new(0, -35, -40)
+			object.Handle.RotVelocity = Vector3.new()
+		end
+	end
+
+	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+end)
+
+_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 StarterGui:SetCore("SendNotification", {
 	Title = "REANIMATE",
 	Text = "REANIMATE is now ready!\nThanks for using the script!\n",
