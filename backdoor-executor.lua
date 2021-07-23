@@ -1,5 +1,4 @@
 -- // SERVICES
-local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
@@ -150,12 +149,12 @@ local InitTextbox = function()
 	local TextSize = GetTextSize(Textbox)
 	local TextLineSize = GetTextSize(TextLines)
 	-- // TextLines
-	SF_TextLines.Size = UDim2.new(0, (TextLineSize.X + 9), 1, 0)
-	SF_TextLines.CanvasSize = UDim2.new(0, 0, 0, TextLineSize.Y + 5)
+	SF_TextLines.Size = UDim2.new(0, TextLineSize.X + 9, 1, 0)
+	SF_TextLines.CanvasSize = UDim2.new(0, 0, 0, TextLineSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 5 or 0))
 	-- // Textbox
 	SF_Textbox.Position = UDim2.new(0, SF_TextLines.Size.X.Offset, 0, 0)
-	SF_Textbox.Size = UDim2.new(0, TextIDE.Size.X.Offset - SF_TextLines.Size.X.Offset, 0, TextIDE.Size.Y.Offset)
-	SF_Textbox.CanvasSize = UDim2.new(0, TextSize.X + 9, 0, TextSize.Y + 5)
+	SF_Textbox.Size = UDim2.new(1, -SF_TextLines.Size.X.Offset, 1, 0)
+	SF_Textbox.CanvasSize = UDim2.new(0, (TextSize.X > TextIDE.AbsoluteSize.X and TextSize.X + 9 or 0), 0, TextSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 5 or 0))
 end
 
 local SyncTextboxScrolling = function()
@@ -244,17 +243,18 @@ end)
 
 do -- INIT
 	local Tween, Connection
+	GUI.Name = "backdoor-executor"
+	GUI.Parent = game:GetService("CoreGui")
 	MainUI.Visible = true
 	Tween = CreateTween(MainUI, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, 500, 0, 300)
 	})
-	Tween:Play()
 	Connection = Tween.Completed:Connect(function()
 		Topbar.Visible = true
 		ExecutorUI.Visible = true
 		Connection:Disconnect()
 		Tween:Destroy()
 	end)
-	GUI.Parent = CoreGui
 	Draggify(MainUI, Topbar)
+	Tween:Play()
 end
