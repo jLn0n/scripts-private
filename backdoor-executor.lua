@@ -31,7 +31,7 @@ local EventInfo = {
 }
 local CachedPlaces = {
 	[5033592164] = {
-		["Path"] = game.JointsService:GetChildren()[1] and game.JointsService:GetChildren()[1]:GetFullName() or "",
+		["Path"] = game.JointsService:GetChildren()[1] and game.JointsService:GetChildren()[1]:GetFullName(),
 		["Args"] = {"1234567890", "source"}
 	},
 }
@@ -40,8 +40,7 @@ local MSG_TEXT = {
 	["EventPrint"] = "EVENT: %s | TYPE: %s",
 	["OutdatedCacheWarn"] = "The cache of [%s] seems to be outdated."
 }
-local Debounce1 = true
-local AttachDeb = true
+local Debounce1, AttachDeb = true, true
 -- // MAIN
 local CreateTween = function(object, tweenInfo, goal)
 	return TweenService:Create(object, tweenInfo, goal)
@@ -55,11 +54,9 @@ local Draggify = function(frame, button)
 	local updateInput = function(input)
 		local delta = input.Position - dragStart
 		local pos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		TweenService:Create(
-			frame,
-			TweenInfo.new(0),
-			{Position = pos}
-		):Play()
+		CreateTween(frame, TweenInfo.new(0), {
+			Position = pos
+		}):Play()
 	end
 	button.InputBegan:Connect(function(input)
 		if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
@@ -106,9 +103,7 @@ local GetTextSize = function(object)
 end
 
 local GotAttached = function(backdooredEvent)
-	EventInfo.EventSourcePlace = table.find(EventInfo.EventArgs, "source")
-	EventInfo.EventInstance, EventInfo.EventPath = backdooredEvent, backdooredEvent:GetFullName()
-	Textbox.TextEditable = true
+	EventInfo.EventInstance, EventInfo.EventPath, EventInfo.EventSourcePlace = backdooredEvent, backdooredEvent:GetFullName(), table.find(EventInfo.EventArgs, "source")
 	ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	ExecBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	RespawnBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -179,8 +174,8 @@ end
 AttachBtn.MouseButton1Click:Connect(function()
 	if AttachDeb and not EventInfo.EventInstance then
 		AttachDeb = false
-		for cPlaceId, cache in pairs(CachedPlaces) do
-			if game.PlaceId == cPlaceId then
+		for cachedPlaceId, cache in pairs(CachedPlaces) do
+			if game.PlaceId == cachedPlaceId then
 				local succ, res = pcall(StringToInstance, cache.Path)
 				if succ then
 					EventInfo.EventArgs = cache.Args
@@ -232,6 +227,7 @@ UIS.InputBegan:Connect(function(input)
 				MainUI.Position = UDim2.new(.5, 0, .5, 0)
 				Topbar.Visible = false
 				ExecutorUI.Visible = false
+				wait()
 				Tween:Play()
 				Connection = Tween.Completed:Connect(function()
 					MainUI.Visible = false
@@ -242,7 +238,6 @@ UIS.InputBegan:Connect(function(input)
 			Debounce1 = true
 			Connection:Disconnect()
 			Tween:Destroy()
-			Tween, Connection = nil, nil
 		end
 	end
 end)
@@ -250,11 +245,9 @@ end)
 do -- INIT
 	local Tween, Connection
 	MainUI.Visible = true
-	Tween = CreateTween(
-		MainUI,
-		TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{Size = UDim2.new(0, 500, 0, 300)}
-	)
+	Tween = CreateTween(MainUI, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(0, 500, 0, 300)
+	})
 	Tween:Play()
 	Connection = Tween.Completed:Connect(function()
 		Topbar.Visible = true
