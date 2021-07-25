@@ -104,7 +104,7 @@ FindBackdoors = function()
 	for _, Object in ipairs(game:GetDescendants()) do
 		if EventInfo.EventInstance then break end
 		if Object:IsA("RemoteEvent") or Object:IsA("RemoteFunction") then
-			if table.find(GetAncestorsName(Object), "HDAdminClient") or table.find(GetAncestorsName(Object), "Basic Admin Essentials") or Object.Name == "CharacterSoundEvent" or ScannedNameEvents[Object.Name] then continue end
+			if table.find(GetAncestorsName(Object), "HDAdminClient") or table.find(GetAncestorsName(Object), "Basic Admin Essentials") or Object.Name == "CharacterSoundEvent" or Object.Parent.Name == "MouseInfo" or ScannedNameEvents[Object.Name] then continue end
 			print(string.format(MSG_TEXT.EventPrint, Object:GetFullName(), Object.ClassName))
 			if Object:IsA("RemoteEvent") then
 				Object:FireServer(string.format(testSource, Object:GetFullName()))
