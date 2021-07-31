@@ -1,7 +1,7 @@
--- // INIT
-getgenv().__G = {}
-local __G = __G
+-- // INIT (maybe _G detection bypass lol)
+getrenv()._G = {["_G"] = _G}
 -- // SERVICES
+local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -11,21 +11,21 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
-__G.Settings = __G.Settings or {}
-__G.Connections = __G.Connections or {}
+_G.Settings = _G.Settings and _G.Settings or {}
+_G.Connections = _G.Connections or {}
 local rad = math.rad
 -- // MAIN
-__G.Settings = (__G.Settings and __G.Settings or {
-	HeadName = __G.Settings.HeadName or "MediHood",
-	HeadOffset = __G.Settings.HeadOffset or CFrame.new(Vector3.new(0, .125, .25)),
-	RemoveHeadMesh = __G.Settings.RemoveHeadMesh or false,
-	UseBuiltinNetless = __G.Settings.UseBuiltinNetless or true
-})
+_G.Settings = {
+	["HeadName"] = _G.Settings.HeadName or "MediHood",
+	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(Vector3.new(0, .125, .25)),
+	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh or false,
+	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true
+}
 assert(not Character:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
 
 local HatParts = {
-	["Head"] = Character:FindFirstChild(__G.Settings.HeadName),
+	["Head"] = Character:FindFirstChild(_G.Settings.HeadName),
 	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
 	["Right Arm"] = Character:FindFirstChild("Hat1"),
 	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
@@ -36,7 +36,7 @@ local HatParts = {
 }
 
 local onCharRemoved = function()
-	for _, connection in ipairs(__G.Connections) do connection:Disconnect() end __G.Connections = {}
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 	Player.Character = Player.Character[Player.Name]
 	Player.Character:BreakJoints()
 	Player.Character.Parent:Destroy()
@@ -44,15 +44,15 @@ local onCharRemoved = function()
 end
 
 local OldPos = HRP.CFrame
-local DummyChar = game:GetObjects("rbxassetid://6843243348")[1]
+local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348") --game:GetObjects("rbxassetid://6843243348")[1] ("well just found out that InsertService:LoadLocalAsset is faster than the game:GetObjects")
 DummyChar.Name = Player.UserId
 
-for _, connection in ipairs(__G.Connections) do connection:Disconnect() end __G.Connections = {}
+for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 for PartName, object in pairs(HatParts) do
 	if object and object:FindFirstChild("Handle") then
 		object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
-		if PartName == "Head" and __G.Settings.RemoveHeadMesh then
+		if PartName == "Head" and _G.Settings.RemoveHeadMesh then
 			object.Handle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 		elseif PartName ~= "Head" then
 			object.Handle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
@@ -65,7 +65,7 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 		local Attachment = Instance.new("Attachment")
 		Attachment.Name = "Offset"
 		Attachment.Parent = object
-		Attachment.CFrame = (object.Name == "Head" and __G.Settings.HeadOffset or CFrame.new())
+		Attachment.CFrame = (object.Name == "Head" and _G.Settings.HeadOffset or CFrame.new())
 	end
 end
 
@@ -81,9 +81,9 @@ Player.Character = DummyChar
 DummyChar.Parent = workspace
 Character.Parent = DummyChar
 
-__G.Connections[#__G.Connections + 1] = RunService.Heartbeat:Connect(function()
+_G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(HatParts) do
-		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
+		if object and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			if PartName == "Head" then
 				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
@@ -101,23 +101,33 @@ __G.Connections[#__G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
 
-if __G.Settings.UseBuiltinNetless then
+if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 
-	__G.Connections[#__G.Connections + 1] = RunService.Stepped:Connect(function()
+	for _, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle") then
+			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
+			BodyVel.MaxForce, BodyVel.Velocity = Vector3.new(0, -35, 25.05), Vector3.new(0, -35, 25.05)
+			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
+			BodyVel.Parent, BodyAngVel.Parent = object.Handle, object.Handle
+		end
+	end
+
+	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(HatParts) do
 			if object and object:FindFirstChild("Handle") then
+				object.Handle.CanCollide = false
 				object.Handle.Massless = true
-				object.Handle.Velocity = Vector3.new(0, -35, -40)
+				object.Handle.Velocity = Vector3.new(0, -35, 25.05)
 				object.Handle.RotVelocity = Vector3.new()
 			end
 		end
 	end)
 end
 
-__G.Connections[#__G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
+_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 StarterGui:SetCore("SendNotification", {
 	Title = "REANIMATE",
 	Text = "REANIMATE is now ready!\nThanks for using the script!\n",
