@@ -1,5 +1,5 @@
 -- // INIT (maybe _G detection bypass lol)
-getrenv()._G = {["_G"] = _G}
+getgenv()._G = #getgenv()._G == 0 and {["Settings"] = _G.Settings or {}, ["Connections"] = _G.Connections or {}} or getgenv()._G
 -- // SERVICES
 local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
@@ -11,17 +11,15 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
-_G.Settings = _G.Settings and _G.Settings or {}
-_G.Connections = _G.Connections or {}
-local rad = math.rad
--- // MAIN
 _G.Settings = {
 	["HeadName"] = _G.Settings.HeadName or "MediHood",
 	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(Vector3.new(0, .125, .25)),
 	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh or false,
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true
 }
-assert(not Character:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
+local rad = math.rad
+-- // MAIN
+assert(not workspace:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
 
 local HatParts = {
@@ -36,7 +34,7 @@ local HatParts = {
 }
 
 local onCharRemoved = function()
-	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 	Player.Character = Player.Character[Player.Name]
 	Player.Character:BreakJoints()
 	Player.Character.Parent:Destroy()
@@ -44,19 +42,20 @@ local onCharRemoved = function()
 end
 
 local OldPos = HRP.CFrame
-local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348") --game:GetObjects("rbxassetid://6843243348")[1] ("well just found out that InsertService:LoadLocalAsset is faster than the game:GetObjects")
+local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
 DummyChar.Name = Player.UserId
 
-for _, connection in ipairs(_G.Connections) do connection:Disconnect() end _G.Connections = {}
+for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 for PartName, object in pairs(HatParts) do
 	if object and object:FindFirstChild("Handle") then
-		object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
+		local accHandle = object.Handle
 		if PartName == "Head" and _G.Settings.RemoveHeadMesh then
-			object.Handle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 		elseif PartName ~= "Head" then
-			object.Handle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 		end
+		accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 	end
 end
 
@@ -131,5 +130,5 @@ _G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemo
 StarterGui:SetCore("SendNotification", {
 	Title = "REANIMATE",
 	Text = "REANIMATE is now ready!\nThanks for using the script!\n",
-	Cooldown = 1
+	Cooldown = 2.5
 })
