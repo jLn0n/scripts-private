@@ -37,7 +37,7 @@ _G._Settings = {
 	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(),
 	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and true or _G.Settings.RemoveHeadMesh,
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true,
-	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 30)
+	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
 }
 local rad = math.rad
 -- // MAIN
@@ -61,6 +61,7 @@ DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
 	for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
+	DummyChar:Destroy()
 	Player.Character = Character
 	Player.Character:BreakJoints()
 	Player.Character = nil
@@ -68,6 +69,17 @@ end
 
 for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
+for _, object in ipairs(DummyChar:GetChildren()) do
+	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
+		local Attachment = Instance.new("Attachment")
+		Attachment.Name = "Offset"
+		Attachment.Parent = object
+		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset or CFrame.new())
+	end
+end
+
+Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 10e15))
+wait(.15)
 for PartName, object in pairs(HatParts) do
 	if object and object:FindFirstChild("Handle") then
 		local accHandle = object.Handle
@@ -79,23 +91,15 @@ for PartName, object in pairs(HatParts) do
 		accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 	end
 end
-for _, object in ipairs(DummyChar:GetChildren()) do
-	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
-		local Attachment = Instance.new("Attachment")
-		Attachment.Name = "Offset"
-		Attachment.Parent = object
-		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset or CFrame.new())
-	end
-end
-
 HRP.Anchored = true
+Humanoid.BreakJointsOnDeath = false
 workspace.FallenPartsDestroyHeight = 0 / 0
 local Animate = Character.Animate
 Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 Animate.Disabled = true
 Animate.Parent = DummyChar
 Animate.Disabled = false
-DummyChar.HumanoidRootPart.CFrame = OldPos * CFrame.new(Vector3.new(0, 0, -1.5))
+DummyChar.HumanoidRootPart.CFrame = OldPos
 Player.Character, DummyChar.Parent = DummyChar, Character
 
 _G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
@@ -115,6 +119,7 @@ _G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
 			end
 		end
 	end
+	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
 
@@ -135,10 +140,8 @@ if _G._Settings.UseBuiltinNetless then
 	_G._Connections[#_G._Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(HatParts) do
 			if object and object:FindFirstChild("Handle") then
-				object.Handle.CanCollide = false
-				object.Handle.Massless = true
-				object.Handle.Velocity = _G._Settings.Velocity
-				object.Handle.RotVelocity = Vector3.new()
+				object.Handle.CanCollide, object.Handle.Massless = false, true
+				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
 		end
 	end)
