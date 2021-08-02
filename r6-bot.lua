@@ -35,8 +35,8 @@ local HRP = Character.HumanoidRootPart
 -- // VARIABLES
 local rad, CharacterOldPos = math.rad, HRP.CFrame
 -- // MAIN
-assert(not Character.Parent:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
-assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
+assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
+assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
 for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "International Fedora",
@@ -125,8 +125,8 @@ end)
 _G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 
 do -- // BOT REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1, 1) * 10e11))
-	wait(.15)
+	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1, 1) * 10e10))
+	wait(.25)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
 	local Animate = Character.Animate
