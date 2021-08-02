@@ -1,8 +1,8 @@
 -- // INIT (maybe _G detection bypass lol)
 if not getgenv().globalTableProtected then
-	local protectedGlobal = {["_Settings"] = _G.Settings or {}, ["_Connections"] = _G._Connections or {}}
+	local protectedGlobal = {["_Settings"] = _G.Settings or {}, ["_Connections"] = {}}
 	for name, value in pairs(getgenv()._G) do
-		if not protectedGlobal[name] and protectedGlobal[name] ~= getgenv()._G[name] then
+		if name ~= "Settings" and not protectedGlobal[name] and protectedGlobal[name] ~= getgenv()._G[name] then
 			protectedGlobal[name] = value
 		end
 	end
@@ -11,12 +11,13 @@ if not getgenv().globalTableProtected then
 			return index == "Settings" and rawget(self, "_Settings") or rawget(self, index)
 		end,
 		__newindex = function(self, index, value)
-			if index == "Settings" then
+			if index == "Settings" and type(value) == "table" then
 				for name, value2 in pairs(value) do
-					rawset(protectedGlobal._Settings, name, value2)
+					rawset(self._Settings, name, value2)
 				end
+			elseif index ~= "Settings" then
+				rawset(self, index, value)
 			end
-			rawset(self, index, value)
 		end
 	})
 	getgenv()._G, getgenv().globalTableProtected = protectedGlobal, true
@@ -32,6 +33,11 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
+local rad, CharacterOldPos = math.rad, HRP.CFrame
+-- // MAIN
+assert(not Character.Parent:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
+assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
+for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "International Fedora",
 	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(),
@@ -39,11 +45,6 @@ _G._Settings = {
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true,
 	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
 }
-local rad = math.rad
--- // MAIN
-assert(not Character.Parent:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
-assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
-for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 
 local HatParts = {
 	["Head"] = Character:FindFirstChild(_G._Settings.HeadName),
@@ -56,7 +57,6 @@ local HatParts = {
 	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 }
 
-local OldPos = HRP.CFrame
 local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
 DummyChar.Name = Player.UserId
 
@@ -77,28 +77,6 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset or CFrame.new())
 	end
 end
-
-_G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
-_G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
-	for PartName, object in pairs(HatParts) do
-		if object and object:FindFirstChild("Handle") then
-			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
-			if PartName == "Head" then
-				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
-			elseif PartName == "Torso" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
-			elseif PartName == "Torso1" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
-			elseif PartName == "Torso2" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
-			else
-				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
-			end
-		end
-	end
-	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
-	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
-end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
@@ -124,8 +102,30 @@ if _G._Settings.UseBuiltinNetless then
 	end)
 end
 
+_G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
+	for PartName, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle") then
+			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
+			if PartName == "Head" then
+				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
+			elseif PartName == "Torso" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+			elseif PartName == "Torso1" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+			elseif PartName == "Torso2" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+			else
+				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+			end
+		end
+	end
+	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
+	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+end)
+_G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
+
 do -- // BOT REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 10e10))
+	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1, 1) * 10e11))
 	wait(.15)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
@@ -134,7 +134,7 @@ do -- // BOT REANIMATE INITIALIZATION
 	Animate.Disabled = true
 	Animate.Parent = DummyChar
 	Animate.Disabled = false
-	DummyChar.HumanoidRootPart.CFrame = OldPos
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			local accHandle = object.Handle
