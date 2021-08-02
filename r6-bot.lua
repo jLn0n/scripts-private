@@ -43,6 +43,7 @@ local rad = math.rad
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), [[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]])
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, [[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]])
+for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 
 local HatParts = {
 	["Head"] = Character:FindFirstChild(_G._Settings.HeadName),
@@ -67,7 +68,6 @@ local onCharRemoved = function()
 	Player.Character = nil
 end
 
-for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 for _, object in ipairs(DummyChar:GetChildren()) do
 	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
@@ -78,30 +78,7 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 	end
 end
 
-Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 10e15))
-wait(.15)
-for PartName, object in pairs(HatParts) do
-	if object and object:FindFirstChild("Handle") then
-		local accHandle = object.Handle
-		if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
-			accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-		elseif PartName ~= "Head" then
-			accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-		end
-		accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
-	end
-end
-HRP.Anchored = true
-Humanoid.BreakJointsOnDeath = false
-workspace.FallenPartsDestroyHeight = 0 / 0
-local Animate = Character.Animate
-Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-Animate.Disabled = true
-Animate.Parent = DummyChar
-Animate.Disabled = false
-DummyChar.HumanoidRootPart.CFrame = OldPos
-Player.Character, DummyChar.Parent = DummyChar, Character
-
+_G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 _G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
@@ -147,9 +124,32 @@ if _G._Settings.UseBuiltinNetless then
 	end)
 end
 
-_G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
-StarterGui:SetCore("SendNotification", {
-	Title = "REANIMATE",
-	Text = "REANIMATE is now ready!\nThanks for using the script!\n",
-	Cooldown = 2.5
-})
+do -- // BOT REANIMATE INITIALIZATION
+	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 10e10))
+	wait(.15)
+	HRP.Anchored = true
+	Humanoid.BreakJointsOnDeath = false
+	local Animate = Character.Animate
+	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+	Animate.Disabled = true
+	Animate.Parent = DummyChar
+	Animate.Disabled = false
+	DummyChar.HumanoidRootPart.CFrame = OldPos
+	for PartName, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle") then
+			local accHandle = object.Handle
+			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			elseif PartName ~= "Head" then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			end
+			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
+		end
+	end
+	Player.Character, DummyChar.Parent = DummyChar, Character
+	StarterGui:SetCore("SendNotification", {
+		Title = "REANIMATE",
+		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
+		Cooldown = 2.5
+	})
+end
