@@ -33,6 +33,7 @@ local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
+local task_defer = task.defer
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -77,17 +78,9 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 	end
 end
 
-task.defer(function() -- // REANIMATE INITIALIZATION
+task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
-	task.wait(.15)
-	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
-	local Animate = Character.Animate
-	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-	Animate.Disabled = true
-	Animate.Parent = DummyChar
-	Animate.Disabled = false
-	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
+	task.wait(.25)
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			local accHandle = object.Handle
@@ -99,6 +92,14 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
+	HRP.Anchored = true
+	Humanoid.BreakJointsOnDeath = false
+	local Animate = Character.Animate
+	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+	Animate.Disabled = true
+	Animate.Parent = DummyChar
+	Animate.Disabled = false
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	Player.Character, DummyChar.Parent = DummyChar, Character
 	_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
