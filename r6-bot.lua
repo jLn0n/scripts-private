@@ -6,7 +6,7 @@ if not getgenv().globalTableProtected then
 			protectedGlobal[name] = value
 		end
 	end
-	protectedGlobal = setmetatable(protectedGlobal, {
+	getgenv()._G, getgenv().globalTableProtected = setmetatable(protectedGlobal, {
 		__index = function(self, index)
 			return index == "Settings" and rawget(self, "_Settings") or rawget(self, index)
 		end,
@@ -19,8 +19,7 @@ if not getgenv().globalTableProtected then
 				rawset(self, index, value)
 			end
 		end
-	})
-	getgenv()._G, getgenv().globalTableProtected = protectedGlobal, true
+	}), true
 end
 -- // SERVICES
 local InsertService = game:GetService("InsertService")
@@ -33,7 +32,7 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
-local rad, CharacterOldPos = math.rad, HRP.CFrame
+local CharacterOldPos = HRP.CFrame
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -80,7 +79,7 @@ end
 
 task.defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
-	task.wait(.125)
+	task.wait(.15)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
 	local Animate = Character.Animate
@@ -101,6 +100,8 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 		end
 	end
 	Player.Character, DummyChar.Parent = DummyChar, Character
+	_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
+	_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
 	StarterGui:SetCore("SendNotification", {
 		Title = "REANIMATE",
 		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
@@ -139,17 +140,16 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 			if PartName == "Head" then
 				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
 			elseif PartName == "Torso" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			elseif PartName == "Torso1" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, math.rad(90), 0)
 			elseif PartName == "Torso2" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, math.rad(90), 0)
 			else
-				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			end
 		end
 	end
 	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
-_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
