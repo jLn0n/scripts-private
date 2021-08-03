@@ -48,13 +48,13 @@ _G._Settings = {
 
 local HatParts = {
 	["Head"] = Character:FindFirstChild(_G._Settings.HeadName),
+	["Torso"] = Character:FindFirstChild("SeeMonkey"),
+	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
+	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
 	["Right Arm"] = Character:FindFirstChild("Hat1"),
 	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
 	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
-	["Torso"] = Character:FindFirstChild("SeeMonkey"),
-	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
-	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 }
 
 local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
@@ -124,9 +124,9 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 end)
 _G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 
-do -- // BOT REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1, 1) * 10e10))
-	wait(.25)
+do -- // REANIMATE INITIALIZATION
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
+	task.wait(.15)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
 	local Animate = Character.Animate
