@@ -78,6 +78,36 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 	end
 end
 
+task.defer(function() -- // REANIMATE INITIALIZATION
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
+	task.wait(.125)
+	HRP.Anchored = true
+	Humanoid.BreakJointsOnDeath = false
+	local Animate = Character.Animate
+	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+	Animate.Disabled = true
+	Animate.Parent = DummyChar
+	Animate.Disabled = false
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
+	for PartName, object in pairs(HatParts) do
+		if object and object:FindFirstChild("Handle") then
+			local accHandle = object.Handle
+			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			elseif PartName ~= "Head" then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			end
+			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
+		end
+	end
+	Player.Character, DummyChar.Parent = DummyChar, Character
+	StarterGui:SetCore("SendNotification", {
+		Title = "REANIMATE",
+		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
+		Cooldown = 1
+	})
+end)
+
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
@@ -123,33 +153,3 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
 _G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
-
-do -- // REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
-	task.wait(.15)
-	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
-	local Animate = Character.Animate
-	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-	Animate.Disabled = true
-	Animate.Parent = DummyChar
-	Animate.Disabled = false
-	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
-	for PartName, object in pairs(HatParts) do
-		if object and object:FindFirstChild("Handle") then
-			local accHandle = object.Handle
-			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
-				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-			elseif PartName ~= "Head" then
-				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-			end
-			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
-		end
-	end
-	Player.Character, DummyChar.Parent = DummyChar, Character
-	StarterGui:SetCore("SendNotification", {
-		Title = "REANIMATE",
-		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
-		Cooldown = 2.5
-	})
-end
