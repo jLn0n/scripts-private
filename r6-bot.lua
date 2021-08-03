@@ -1,6 +1,6 @@
 -- // INIT (maybe _G detection bypass lol)
 if not getgenv().globalTableProtected then
-	local protectedGlobal = {["_Settings"] = _G.Settings or {}, ["_Connections"] = {}}
+	local protectedGlobal = {["_Settings"] = _G.Settings or {}, ["Connections"] = {}}
 	for name, value in pairs(getgenv()._G) do
 		if name ~= "Settings" and not protectedGlobal[name] and protectedGlobal[name] ~= getgenv()._G[name] then
 			protectedGlobal[name] = value
@@ -37,7 +37,7 @@ local rad, CharacterOldPos = math.rad, HRP.CFrame
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
-for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
+for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "International Fedora",
 	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(),
@@ -61,7 +61,7 @@ local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
 DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
-	for _, connection in ipairs(_G._Connections) do connection:Disconnect() end table.clear(_G._Connections)
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 	DummyChar:Destroy()
 	Player.Character = Character
 	Player.Character:BreakJoints()
@@ -92,7 +92,7 @@ if _G._Settings.UseBuiltinNetless then
 		end
 	end
 
-	_G._Connections[#_G._Connections + 1] = RunService.Stepped:Connect(function()
+	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(HatParts) do
 			if object and object:FindFirstChild("Handle") then
 				object.Handle.CanCollide, object.Handle.Massless = false, true
@@ -102,7 +102,7 @@ if _G._Settings.UseBuiltinNetless then
 	end)
 end
 
-_G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
+_G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
@@ -122,7 +122,7 @@ _G._Connections[#_G._Connections + 1] = RunService.Heartbeat:Connect(function()
 	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
-_G._Connections[#_G._Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
+_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 
 do -- // BOT REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1, 1) * 10e10))
