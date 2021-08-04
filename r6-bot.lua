@@ -81,6 +81,14 @@ end
 task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
 	task.wait(.25)
+	HRP.Anchored = true
+	Humanoid.BreakJointsOnDeath = false
+	local Animate = Character.Animate
+	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+	Animate.Disabled = true
+	Animate.Parent = DummyChar
+	Animate.Disabled = false
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			local accHandle = object.Handle
@@ -92,14 +100,6 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
-	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
-	local Animate = Character.Animate
-	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-	Animate.Disabled = true
-	Animate.Parent = DummyChar
-	Animate.Disabled = false
-	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	Player.Character, DummyChar.Parent = DummyChar, Character
 	_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
