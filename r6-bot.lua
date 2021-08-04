@@ -33,7 +33,7 @@ local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
-local task_defer = task.defer
+local task_defer, getobject = task.defer, InsertService.LoadLocalAsset
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -57,7 +57,7 @@ local HatParts = {
 	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
 }
 
-local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
+local DummyChar = getobject(InsertService, "rbxassetid://6843243348")
 DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
@@ -83,11 +83,12 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 	task.wait(.25)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
-	local Animate = Character.Animate
+	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
 	Animate.Parent = DummyChar
 	Animate.Disabled = false
+	face.Parent, face.Transparency = DummyChar.Head, 1
 	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
