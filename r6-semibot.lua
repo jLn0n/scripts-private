@@ -33,7 +33,8 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // VARIABLES
-local rad, CharacterOldPos = math.rad, HRP.CFrame
+local CharacterOldPos = HRP.CFrame
+local rad, task_defer, getobject = math.rad, task.defer, InsertService.LoadLocalAsset
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-SEMIBOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -54,10 +55,10 @@ local BodyParts = {
 	["Left Arm"] = Character:FindFirstChild("Left Arm"),
 	["Right Arm"] = Character:FindFirstChild("Right Arm"),
 	["Left Leg"] = Character:FindFirstChild("Left Leg"),
-	["Right Leg"] = Character:FindFirstChild("Right Leg")
+	["Right Leg"] = Character:FindFirstChild("Right Leg"),
 }
 
-local DummyChar = InsertService:LoadLocalAsset("rbxassetid://6843243348")
+local DummyChar = getobject(InsertService, "rbxassetid://6843243348")
 DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
@@ -74,9 +75,50 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 		local Attachment = Instance.new("Attachment")
 		Attachment.Name = "Offset"
 		Attachment.Parent = object
-		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset or CFrame.new())
+		Attachment.CFrame =  (object.Name == "Head" and _G._Settings.HeadOffset) and (
+			typeof(_G._Settings.HeadOffset) == "CFrame" and _G._Settings.HeadOffset or
+			typeof(_G._Settings.HeadOffset) == "Vector3" and CFrame.new(_G._Settings.HeadOffset)
+		) or CFrame.new()
 	end
 end
+
+task_defer(function() -- // REANIMATE INITIALIZATION
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
+	task.wait(.25)
+	HRP.Anchored = true
+	Humanoid.BreakJointsOnDeath = false
+	local Animate, face = Character.Animate, Character.Head.face:Clone()
+	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
+	Animate.Disabled = true
+	Animate.Parent = DummyChar
+	Animate.Disabled = false
+	face.Parent, face.Transparency = DummyChar.Head, 1
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
+	for PartName, object in pairs(BodyParts) do
+		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
+			local accHandle = object.Handle
+			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			elseif PartName ~= "Head" then
+				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
+			end
+			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
+		end
+	end
+	for _, object in ipairs(Character.Torso:GetChildren()) do
+		if object:IsA("Motor6D") and object.Name ~= "Neck" then
+			object:Destroy()
+		end
+	end
+	Player.Character, DummyChar.Parent = DummyChar, Character
+	_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
+	_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
+	StarterGui:SetCore("SendNotification", {
+		Title = "REANIMATE",
+		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
+		Cooldown = 1
+	})
+end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
@@ -95,71 +137,33 @@ if _G._Settings.UseBuiltinNetless then
 
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(BodyParts) do
-			if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
-				object.Handle.CanCollide, object.Handle.Massless = false, true
-				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
-			elseif object and object:IsA("BasePart") then
+			if object and object:IsA("BasePart") then
 				object.CanCollide, object.Massless = false, true
 				object.Velocity, object.RotVelocity = _G._Settings.Velocity, Vector3.new()
+			elseif object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
+				object.Handle.CanCollide, object.Handle.Massless = false, true
+				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
 		end
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
-	for PartName, object in next, BodyParts do
-		if object then
-			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
-				if PartName == "Head" then
-					object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
-				elseif PartName == "Torso" then
-					object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
-				elseif PartName == "Torso1" then
-					object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
-				elseif PartName == "Torso2" then
-					object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
-				end
-			elseif object:IsA("BasePart") then
-				object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
+	for PartName, object in pairs(BodyParts) do
+		if object and object:IsA("BasePart") then
+			object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
+		elseif object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
+			if PartName == "Head" then
+				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
+			elseif PartName == "Torso" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+			elseif PartName == "Torso1" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+			elseif PartName == "Torso2" then
+				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
 			end
 		end
 	end
 	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
-_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
-
-do -- // REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(-1, 1, 1) * 10e10)))
-	wait(.25)
-	for _, object in ipairs(Character.Torso:GetChildren()) do
-		if object:IsA("Motor6D") and object.Name ~= "Neck" then
-			object:Destroy()
-		end
-	end
-	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
-	local Animate = Character.Animate
-	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
-	Animate.Disabled = true
-	Animate.Parent = DummyChar
-	Animate.Disabled = false
-	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
-	for PartName, object in pairs(BodyParts) do
-		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
-			local accHandle = object.Handle
-			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
-				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-			elseif PartName ~= "Head" then
-				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-			end
-			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
-		end
-	end
-	Player.Character, DummyChar.Parent = DummyChar, Character
-	StarterGui:SetCore("SendNotification", {
-		Title = "REANIMATE",
-		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
-		Cooldown = 2.5
-	})
-end
