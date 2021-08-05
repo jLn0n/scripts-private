@@ -74,14 +74,17 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 		local Attachment = Instance.new("Attachment")
 		Attachment.Name = "Offset"
 		Attachment.Parent = object
-		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset or CFrame.new())
+		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset) and (
+			typeof(_G._Settings.HeadOffset) == "CFrame" and _G._Settings.HeadOffset or
+			typeof(_G._Settings.HeadOffset) == "Vector3" and CFrame.new(_G._Settings.HeadOffset)
+		) or CFrame.new()
 	end
 end
 
 task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
 	task.wait(.25)
-	HRP.Anchored = true
+	Character.Head.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
