@@ -57,7 +57,6 @@ local BodyParts = {
 	["Right Arm"] = Character:FindFirstChild("Right Arm"),
 	["Left Leg"] = Character:FindFirstChild("Left Leg"),
 	["Right Leg"] = Character:FindFirstChild("Right Leg"),
-	["not a object"] = false,
 }
 
 local DummyChar = getobjects("rbxassetid://6843243348")[1]
@@ -87,7 +86,7 @@ end
 task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
 	task.wait(.25)
-	HRP.Anchored = true
+	Character.Head.Anchored = true
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
@@ -95,11 +94,6 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 	Animate.Disabled = false
 	face.Parent, face.Transparency = DummyChar.Head, 1
 	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
-	for _, object in ipairs(Character.Torso:GetChildren()) do
-		if object:IsA("Motor6D") and object.Name ~= "Neck" then
-			object.Parent = nil
-		end
-	end
 	for PartName, object in pairs(BodyParts) do
 		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			local accHandle = object.Handle
@@ -109,6 +103,11 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
+		end
+	end
+	for _, object in ipairs(Character.Torso:GetChildren()) do
+		if object:IsA("Motor6D") and object.Name ~= "Neck" then
+			object:Destroy()
 		end
 	end
 	Player.Character, DummyChar.Parent = DummyChar, Character
@@ -127,12 +126,11 @@ if _G._Settings.UseBuiltinNetless then
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 
 	for _, object in pairs(BodyParts) do
-		if object then
-			local Parent = object:IsA("BasePart") and object or object.Handle
+		if object and object.ClassName == "Accessory" then
 			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
 			BodyVel.MaxForce, BodyVel.Velocity = _G._Settings.Velocity, _G._Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = Parent, Parent
+			BodyVel.Parent, BodyAngVel.Parent = object.Handle, object.Handle
 		end
 	end
 
