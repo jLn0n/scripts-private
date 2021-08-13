@@ -22,7 +22,6 @@ if not getgenv().globalTableProtected then
 	}), true
 end
 -- // SERVICES
-local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -31,9 +30,11 @@ local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
+-- // LIBRARIES
+local getobjects = loadstring(game:HttpGet("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
-local task_defer, getobject = task.defer, InsertService.LoadLocalAsset
+local task_defer = task.defer
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -57,7 +58,7 @@ local HatParts = {
 	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
 }
 
-local DummyChar = getobject(InsertService, "rbxassetid://6843243348")
+local DummyChar = getobjects("rbxassetid://6843243348")[1]
 DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
