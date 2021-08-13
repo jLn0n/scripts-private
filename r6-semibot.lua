@@ -23,7 +23,6 @@ if not getgenv().globalTableProtected then
 	getgenv()._G, getgenv().globalTableProtected = protectedGlobal, true
 end
 -- // SERVICES
-local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -32,9 +31,11 @@ local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
+-- // LIBRARIES
+local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
-local rad, task_defer, getobject = math.rad, task.defer, InsertService.LoadLocalAsset
+local rad, task_defer = math.rad, task.defer
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-SEMIBOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
@@ -56,9 +57,10 @@ local BodyParts = {
 	["Right Arm"] = Character:FindFirstChild("Right Arm"),
 	["Left Leg"] = Character:FindFirstChild("Left Leg"),
 	["Right Leg"] = Character:FindFirstChild("Right Leg"),
+	["not a object"] = false,
 }
 
-local DummyChar = getobject(InsertService, "rbxassetid://6843243348")
+local DummyChar = getobjects("rbxassetid://6843243348")[1]
 DummyChar.Name = Player.UserId
 
 local onCharRemoved = function()
@@ -86,7 +88,6 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
 	task.wait(.25)
 	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
@@ -94,6 +95,11 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 	Animate.Disabled = false
 	face.Parent, face.Transparency = DummyChar.Head, 1
 	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
+	for _, object in ipairs(Character.Torso:GetChildren()) do
+		if object:IsA("Motor6D") and object.Name ~= "Neck" then
+			object.Parent = nil
+		end
+	end
 	for PartName, object in pairs(BodyParts) do
 		if object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			local accHandle = object.Handle
@@ -103,11 +109,6 @@ task_defer(function() -- // REANIMATE INITIALIZATION
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
-		end
-	end
-	for _, object in ipairs(Character.Torso:GetChildren()) do
-		if object:IsA("Motor6D") and object.Name ~= "Neck" then
-			object:Destroy()
 		end
 	end
 	Player.Character, DummyChar.Parent = DummyChar, Character
@@ -122,7 +123,7 @@ end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 
 	for _, object in pairs(BodyParts) do
@@ -138,10 +139,10 @@ if _G._Settings.UseBuiltinNetless then
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(BodyParts) do
 			if object and object:IsA("BasePart") then
-				object.CanCollide, object.Massless = false, true
+				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			elseif object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
-				object.Handle.CanCollide, object.Handle.Massless = false, true
+				object.Handle.Massless, object.Handle.CanCollide = true, false
 				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
 		end
