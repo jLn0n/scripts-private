@@ -85,9 +85,9 @@ end
 
 task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
-	task.wait(.25)
+	task.wait(.15)
 	Character.Head.Anchored = true
-	local Animate, face = Character.Animate, Character.Head.face:Clone()
+	local Animate, face = Character:FindFirstChild("Animate"), Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
 	Animate.Parent = DummyChar
@@ -122,15 +122,16 @@ end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 
 	for _, object in pairs(BodyParts) do
-		if object and object.ClassName == "Accessory" then
+		if object then
+			local parent = object:IsA("Accessory") and object.Handle or object
 			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
 			BodyVel.MaxForce, BodyVel.Velocity = _G._Settings.Velocity, _G._Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = object.Handle, object.Handle
+			BodyVel.Parent, BodyAngVel.Parent = parent, parent
 		end
 	end
 
@@ -163,6 +164,5 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 			end
 		end
 	end
-	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
 end)
