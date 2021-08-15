@@ -5,6 +5,8 @@ local StarterGui = game:GetService("StarterGui")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+-- // LIBRARIES
+local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // OBJECTS
 local Player = Players.LocalPlayer
 local GUI = game:GetObjects("rbxassetid://7134913833")[1]
@@ -39,37 +41,19 @@ local MSG_TEXT = {
 	["OutdatedCacheWarn"] = "The cache of [%s] on PlaceId '%s' seems to be outdated."
 }
 local Debounce1, AttachDeb = true, true
-local CreateNotification, CreateTween, Draggify, ExecuteLua, GetAncestors, GetAncestorsName, GetTextSize, GotAttached, FindBackdoors, InitLines, InitTextbox, StringToInstance, SyncTextboxScrolling
+local CreateTween, Draggify, ExecuteLua, GetAncestors, GetAncestorsName, GetTextSize, GotAttached, FindBackdoors, InitLines, InitTextbox, SendNotif, StringToInstance, SyncTextboxScrolling
 -- // MAIN
-CreateNotification = function(text)
-	return StarterGui:SetCore("SendNotification", {
-		Title = "backdoor-executor",
-		Text = text,
-		Duration = 5
-	})
-end
-
 CreateTween = function(object, tweenInfo, goal)
 	return TweenService:Create(object, tweenInfo, goal)
 end
 
 Draggify = function(frame, button)
 	local dragToggle = false
-	local dragInput
-	local dragStart
-	local startPos
-	local updateInput = function(input)
-		local delta = input.Position - dragStart
-		local pos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		CreateTween(frame, TweenInfo.new(0), {
-			Position = pos
-		}):Play()
-	end
+	local dragInput, dragStart, startPos
 	button.InputBegan:Connect(function(input)
 		if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+			dragStart, startPos = input.Position, frame.Position
 			dragToggle = true
-			dragStart = input.Position
-			startPos = frame.Position
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					dragToggle = false
@@ -78,13 +62,15 @@ Draggify = function(frame, button)
 		end
 	end)
 	button.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			dragInput = input
 		end
 	end)
 	UIS.InputChanged:Connect(function(input)
 		if input == dragInput and dragToggle then
-			updateInput(input)
+			local delta = input.Position - dragStart
+			local pos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			frame.Position = pos
 		end
 	end)
 end
@@ -101,18 +87,18 @@ ExecuteLua = function(source)
 end
 
 FindBackdoors = function()
-	for _, Object in ipairs(game:GetDescendants()) do
+	for _, object in ipairs(game:GetDescendants()) do
 		if EventInfo.EventInstance then break end
-		if Object:IsA("RemoteEvent") or Object:IsA("RemoteFunction") then
-			if table.find(GetAncestorsName(Object), "HDAdminClient") or table.find(GetAncestorsName(Object), "Basic Admin Essentials") or Object.Name == "CharacterSoundEvent" or Object.Parent.Name == "MouseInfo" or ScannedNameEvents[Object.Name] then continue end
-			print(string.format(MSG_TEXT.EventPrint, Object:GetFullName(), Object.ClassName))
-			if Object:IsA("RemoteEvent") then
-				Object:FireServer(string.format(testSource, Object:GetFullName()))
-			elseif Object:IsA("RemoteFunction") then
-				pcall(coroutine.wrap(function() Object:InvokeServer(string.format(testSource, Object:GetFullName())) end))
+		if object:IsA("RemoteEvent") or object:IsA("RemoteFunction") then
+			if table.find(GetAncestorsName(object), "HDAdminClient") or table.find(GetAncestorsName(object), "Basic Admin Essentials") or object.Name == "CharacterSoundEvent" or object.Parent.Name == "MouseInfo" or ScannedNameEvents[object.Name] then continue end
+			print(string.format(MSG_TEXT.EventPrint, object:GetFullName(), object.ClassName))
+			if object:IsA("RemoteEvent") then
+				object:FireServer(string.format(testSource, object:GetFullName()))
+			elseif object:IsA("RemoteFunction") then
+				pcall(coroutine.wrap(function() object:InvokeServer(string.format(testSource, object:GetFullName())) end))
 			end
-			ScannedNameEvents[Object.Name] = true
-			wait()
+			ScannedNameEvents[object.Name] = true
+			task.wait()
 		end
 	end
 	local valueLOL = workspace:FindFirstChild(game.PlaceId)
@@ -147,7 +133,7 @@ GetTextSize = function(object)
 		object.Text,
 		object.TextSize,
 		object.Font,
-		Vector2.new(object.TextBounds.X, 10e5)
+		Vector2.new(object.TextBounds.X, 1e8)
 	)
 end
 
@@ -161,6 +147,7 @@ GotAttached = function(backdooredEvent)
 	AttachBtn.TextColor3 = Color3.fromRGB(145, 145, 145)
 	print(string.format(MSG_TEXT.AttachedEventPrint, backdooredEvent:GetFullName(), backdooredEvent.ClassName))
 	ExecuteLua("game.Workspace:FindFirstChild(game.PlaceId):Destroy()")
+	SendNotif("Attached!")
 end
 
 InitLines = function()
@@ -188,6 +175,14 @@ InitTextbox = function()
 	SF_Textbox.CanvasSize = UDim2.new(0, (TextSize.X > TextIDE.AbsoluteSize.X and TextSize.X + (TextSize.Y > TextIDE.AbsoluteSize.Y and 2 or 1) or 0), 0, TextSize.Y + (TextSize.X > TextIDE.AbsoluteSize.X and 2 or 1))
 end
 
+SendNotif = function(text)
+	return StarterGui:SetCore("SendNotification", {
+		Title = "backdoor-executor",
+		Text = text,
+		Duration = 5
+	})
+end
+
 StringToInstance = function(pathString)
 	local pathSplit = string.split(pathString, ".")
 	local result = game
@@ -203,7 +198,7 @@ end
 
 AttachBtn.MouseButton1Click:Connect(function()
 	if AttachDeb and not EventInfo.EventInstance then
-		CreateNotification("Press F9 to see the remotes being scanned.")
+		SendNotif("Press F9 to see the remotes being scanned.")
 		AttachDeb = false
 		for cachedPlaceId, cache in pairs(CachedPlaces) do
 			if game.PlaceId == cachedPlaceId then
@@ -220,9 +215,9 @@ AttachBtn.MouseButton1Click:Connect(function()
 		end
 		FindBackdoors()
 		if not EventInfo.EventInstance then
-			CreateNotification("No backdoor(s) here!")
+			SendNotif("No backdoor(s) here!")
 			print("No backdoor(s) here!")
-			wait(.5)
+			task.wait(.5)
 			AttachDeb = true
 		end
 	end
@@ -259,14 +254,14 @@ UIS.InputBegan:Connect(function(input)
 				MainUI.Position = UDim2.new(.5, 0, .5, 0)
 				Topbar.Visible = false
 				ExecutorUI.Visible = false
-				wait()
+				task.wait()
 				Tween:Play()
 				Connection = Tween.Completed:Connect(function()
 					MainUI.Visible = false
 					Debounce1 = false
 				end)
 			end
-			wait(.75)
+			task.wait(.75)
 			Debounce1 = true
 			Connection:Disconnect()
 			Tween:Destroy()
