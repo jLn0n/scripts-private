@@ -16,7 +16,7 @@ end
 game_namecall = hookmetamethod(game, "__namecall", function(self, ...)
 	local args = table.pack(...)
 	local namecallMethod = getnamecallmethod()
-	if (self == game and string.match(string.lower(namecallMethod), "httpget") and not checkcaller()) then
+	if (self == game and string.match(string.lower(namecallMethod), "httpget") and checkcaller()) then
 		local result = httpGetPcall(unpack(args))
 		return result
 	else
