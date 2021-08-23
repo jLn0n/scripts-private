@@ -31,7 +31,7 @@ local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
 -- // LIBRARIES
-local getobjects = loadstring(game:HttpGet("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
+local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
 local task_defer = task.defer
@@ -74,18 +74,18 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
 		local Attachment = Instance.new("Attachment")
 		Attachment.Name = "Offset"
-		Attachment.Parent = object
 		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset) and (
 			typeof(_G._Settings.HeadOffset) == "CFrame" and _G._Settings.HeadOffset or
 			typeof(_G._Settings.HeadOffset) == "Vector3" and CFrame.new(_G._Settings.HeadOffset)
 		) or CFrame.new()
+		Attachment.Parent = object
 	end
 end
 
 task_defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
 	task.wait(.25)
-	Character.Head.Anchored = true
+	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
@@ -117,8 +117,8 @@ end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
 
 	for _, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
@@ -129,7 +129,7 @@ if _G._Settings.UseBuiltinNetless then
 		end
 	end
 
-	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
+	_G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 		for _, object in pairs(HatParts) do
 			if object and object:FindFirstChild("Handle") then
 				object.Handle.CanCollide, object.Handle.Massless = false, true
