@@ -34,15 +34,14 @@ local HRP = Character.HumanoidRootPart
 local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
-local task_defer = task.defer
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 _G._Settings = {
-	["HeadName"] = _G.Settings.HeadName or "International Fedora",
-	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(),
-	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and true or _G.Settings.RemoveHeadMesh,
+	["HeadName"] = _G.Settings.HeadName or "NinjaMaskOfShadows",
+	["HeadOffset"] = _G.Settings.HeadOffset or Vector3.new(0, .2, 0),
+	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh,
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true,
 	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
 }
@@ -82,8 +81,8 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 	end
 end
 
-task_defer(function() -- // REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
+task.defer(function() -- // REANIMATE INITIALIZATION
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 1e5)))
 	task.wait(.25)
 	HRP.Anchored = true
 	Humanoid.BreakJointsOnDeath = false
@@ -118,7 +117,7 @@ end)
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 
 	for _, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
@@ -129,10 +128,10 @@ if _G._Settings.UseBuiltinNetless then
 		end
 	end
 
-	_G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
+	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(HatParts) do
 			if object and object:FindFirstChild("Handle") then
-				object.Handle.CanCollide, object.Handle.Massless = false, true
+				object.Handle.Massless, object.Handle.CanCollide = true, false
 				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
 		end
