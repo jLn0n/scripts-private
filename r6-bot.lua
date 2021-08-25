@@ -35,8 +35,8 @@ local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.c
 -- // VARIABLES
 local CharacterOldPos = HRP.CFrame
 -- // MAIN
-assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again!]]))
-assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
+assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
+assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "NinjaMaskOfShadows",
@@ -52,8 +52,8 @@ local HatParts = {
 	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
 	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 	["Left Arm"] = Character:FindFirstChild("Pal Hair"),
-	["Right Arm"] = Character:FindFirstChild("Hat1"),
 	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
+	["Right Arm"] = Character:FindFirstChild("Hat1"),
 	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
 }
 
@@ -82,10 +82,10 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 end
 
 task.defer(function() -- // REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 1e5)))
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e5)))
 	task.wait(.25)
 	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
+	Humanoid.PlatformStand = true
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
