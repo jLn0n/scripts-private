@@ -41,9 +41,9 @@ assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig only!]]))
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 _G._Settings = {
-	["HeadName"] = _G.Settings.HeadName or "International Fedora",
-	["HeadOffset"] = _G.Settings.HeadOffset or CFrame.new(),
-	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and true or _G.Settings.RemoveHeadMesh,
+	["HeadName"] = _G.Settings.HeadName or "NinjaMaskOfShadows",
+	["HeadOffset"] = _G.Settings.HeadOffset or Vector3.new(0, .2, 0),
+	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh,
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true,
 	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
 }
@@ -54,8 +54,8 @@ local BodyParts = {
 	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
 	["Torso2"] = Character:FindFirstChild("LavanderHair"),
 	["Left Arm"] = Character:FindFirstChild("Left Arm"),
-	["Right Arm"] = Character:FindFirstChild("Right Arm"),
 	["Left Leg"] = Character:FindFirstChild("Left Leg"),
+	["Right Arm"] = Character:FindFirstChild("Right Arm"),
 	["Right Leg"] = Character:FindFirstChild("Right Leg"),
 }
 
@@ -84,9 +84,9 @@ for _, object in ipairs(DummyChar:GetChildren()) do
 end
 
 task_defer(function() -- // REANIMATE INITIALIZATION
-	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e10)))
+	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e5)))
 	task.wait(.15)
-	Character.Head.Anchored = true
+	HRP.Anchored = true
 	local Animate, face = Character:FindFirstChild("Animate"), Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
@@ -122,27 +122,25 @@ end)
 
 if _G._Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 
 	for _, object in pairs(BodyParts) do
+		object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
 		if object then
-			local parent = object:IsA("Accessory") and object.Handle or object
 			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
 			BodyVel.MaxForce, BodyVel.Velocity = _G._Settings.Velocity, _G._Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = parent, parent
+			BodyVel.Parent, BodyAngVel.Parent = object, object
 		end
 	end
 
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		for _, object in pairs(BodyParts) do
-			if object and object:IsA("BasePart") then
+			object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
+			if object then
 				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G._Settings.Velocity, Vector3.new()
-			elseif object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
-				object.Handle.Massless, object.Handle.CanCollide = true, false
-				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
 		end
 	end)
@@ -150,19 +148,22 @@ end
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 	for PartName, object in pairs(BodyParts) do
-		if object and object:IsA("BasePart") then
-			object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
-		elseif object and object:IsA("Accessory") and object:FindFirstChild("Handle") then
+		object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
+		if object then
+			object.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			if PartName == "Head" then
-				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
+				object.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
 			elseif PartName == "Torso" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
+				object.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(rad(90), 0, 0)
 			elseif PartName == "Torso1" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, rad(90), 0)
 			elseif PartName == "Torso2" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+				object.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, rad(90), 0)
+			else
+				object.CFrame = DummyChar[object.Name].CFrame * DummyChar[object.Name].Offset.CFrame
 			end
 		end
 	end
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+	Humanoid:ChangeState("Physics")
 end)
