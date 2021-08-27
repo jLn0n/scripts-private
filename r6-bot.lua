@@ -33,20 +33,19 @@ local HRP = Character.HumanoidRootPart
 -- // LIBRARIES
 local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
-local CharacterOldPos = HRP.CFrame
+local CharacterOldPos = Character:GetPrimaryPartCFrame()
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "NinjaMaskOfShadows",
-	["HeadOffset"] = _G.Settings.HeadOffset or Vector3.new(0, .2, 0),
+	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05),
 	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh,
-	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless or true,
-	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
+	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless,
 }
 
-local HatParts = {
+local HatParts, Accessories = {
 	["Head"] = Character:FindFirstChild(_G._Settings.HeadName),
 	["Torso"] = Character:FindFirstChild("SeeMonkey"),
 	["Torso1"] = Character:FindFirstChild("Robloxclassicred"),
@@ -55,7 +54,7 @@ local HatParts = {
 	["Left Leg"] = Character:FindFirstChild("Pink Hair"),
 	["Right Arm"] = Character:FindFirstChild("Hat1"),
 	["Right Leg"] = Character:FindFirstChild("Kate Hair"),
-}
+}, table.create(0)
 
 local DummyChar = getobjects("rbxassetid://6843243348")[1]
 DummyChar.Name = Player.UserId
@@ -69,18 +68,6 @@ local onCharRemoved = function()
 end
 
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
-for _, object in ipairs(DummyChar:GetChildren()) do
-	if object:IsA("BasePart") and object.Name ~= "HumanoidRootPart" then
-		local Attachment = Instance.new("Attachment")
-		Attachment.Name = "Offset"
-		Attachment.CFrame = (object.Name == "Head" and _G._Settings.HeadOffset) and (
-			typeof(_G._Settings.HeadOffset) == "CFrame" and _G._Settings.HeadOffset or
-			typeof(_G._Settings.HeadOffset) == "Vector3" and CFrame.new(_G._Settings.HeadOffset)
-		) or CFrame.new()
-		Attachment.Parent = object
-	end
-end
-
 task.defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e5)))
 	task.wait(.25)
@@ -92,9 +79,10 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 	Animate.Parent = DummyChar
 	Animate.Disabled = false
 	face.Parent, face.Transparency = DummyChar.Head, 1
-	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
+	DummyChar:SetPrimaryPartCFrame(CharacterOldPos)
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
+			object.Name = string.match(PartName, "Torso") and "Torso" or PartName
 			local accHandle = object.Handle
 			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
@@ -104,23 +92,34 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
+	for _, object in ipairs(Character:GetChildren()) do
+		if object:IsA("Accessory") and not DummyChar:FindFirstChild(object.Name) then
+			local fakeAccessory = object:Clone()
+			local fakeAccHandle, fakeAccWeld = fakeAccessory.Handle, fakeAccessory.Handle:FindFirstChildWhichIsA("Weld")
+			fakeAccHandle.Transparency = 1
+			fakeAccessory.Parent = DummyChar
+			fakeAccWeld.Part1 = DummyChar:FindFirstChild(fakeAccWeld.Part1.Name) or DummyChar.HumanoidRootPart
+			object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
+			table.insert(Accessories, object)
+		end
+	end
 	Player.Character, DummyChar.Parent = DummyChar, Character
 	_G.Connections[#_G.Connections + 1] = DummyChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = Player.CharacterRemoving:Connect(onCharRemoved)
 	StarterGui:SetCore("SendNotification", {
 		Title = "REANIMATE",
 		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
-		Cooldown = 1
+		Cooldown = 2.5
 	})
 end)
 
-if _G._Settings.UseBuiltinNetless then
+if _G._Settings.UseBuiltinNetless then Player:GetPropertyChangedSignal("Character"):Wait()
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
 
-	for _, object in pairs(HatParts) do
-		if object and object:FindFirstChild("Handle") then
+	for _, object in ipairs(Character:GetChildren()) do
+		if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
 			BodyVel.MaxForce, BodyVel.Velocity = _G._Settings.Velocity, _G._Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
@@ -129,8 +128,8 @@ if _G._Settings.UseBuiltinNetless then
 	end
 
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
-		for _, object in pairs(HatParts) do
-			if object and object:FindFirstChild("Handle") then
+		for _, object in ipairs(Character:GetChildren()) do
+			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 				object.Handle.Massless, object.Handle.CanCollide = true, false
 				object.Handle.Velocity, object.Handle.RotVelocity = _G._Settings.Velocity, Vector3.new()
 			end
@@ -143,16 +142,22 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			if PartName == "Head" then
-				object.Handle.CFrame = DummyChar.Head.CFrame * DummyChar.Head.Offset.CFrame
+				object.Handle.CFrame = DummyChar.Head.CFrame
 			elseif PartName == "Torso" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.Angles(math.rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			elseif PartName == "Torso1" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, math.rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, math.rad(90), 0)
 			elseif PartName == "Torso2" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * DummyChar.Torso.Offset.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, math.rad(90), 0)
+				object.Handle.CFrame = DummyChar.Torso.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, math.rad(90), 0)
 			else
-				object.Handle.CFrame = DummyChar[PartName].CFrame * DummyChar[PartName].Offset.CFrame * CFrame.Angles(math.rad(90), 0, 0)
+				object.Handle.CFrame = DummyChar[PartName].CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			end
+		end
+	end
+	for _, object in ipairs(Accessories) do
+		if object and object:FindFirstChild("Handle") then
+			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
+			object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame
 		end
 	end
 	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
