@@ -42,6 +42,7 @@ _G._Settings = {
 	["HeadName"] = _G.Settings.HeadName or "NinjaMaskOfShadows",
 	["Velocity"] = _G.Settings.Velocity or Vector3.new(0, -35, 25.05),
 	["RemoveHeadMesh"] = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh,
+	["EnableCollisions"] = _G.Settings.EnableCollisions == nil or true or _G.Settings.EnableCollisions,
 	["UseBuiltinNetless"] = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless,
 }
 
@@ -84,7 +85,7 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 		if object and object:FindFirstChild("Handle") then
 			object.Name = string.match(PartName, "Torso") and "Torso" or PartName
 			local accHandle = object.Handle
-			if PartName == "Head" and _G._Settings.RemoveHeadMesh == true then
+			if PartName == "Head" and _G._Settings.RemoveHeadMesh then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			elseif PartName ~= "Head" then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
@@ -143,8 +144,6 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
 			if PartName == "Head" then
 				object.Handle.CFrame = DummyChar.Head.CFrame
-			elseif PartName == "Torso" then
-				object.Handle.CFrame = DummyChar.Torso.CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			elseif PartName == "Torso1" then
 				object.Handle.CFrame = DummyChar.Torso.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, math.rad(90), 0)
 			elseif PartName == "Torso2" then
