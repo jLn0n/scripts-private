@@ -41,5 +41,5 @@ _G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
 		motor.Object.Transform = motor.CFrame
 	end
 
-	Motors.GunWeld.CFrame = Motors.RS.CFrame * CFrame.new(Vector3.new(0, 1, 1.25)) * CFrame.Angles(rad(), 0, rad(39.175))
+	Motors.GunWeld.CFrame = Motors.RS.CFrame * CFrame.Angles(0, 0, rad(39.15))
 end)
