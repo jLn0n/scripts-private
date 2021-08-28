@@ -30,6 +30,7 @@ local Player = Players.LocalPlayer
 local Character = Player.Character
 local Humanoid = Character.Humanoid
 local HRP = Character.HumanoidRootPart
+local Collisioner = Character["Left Arm"]
 -- // LIBRARIES
 local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
@@ -73,7 +74,7 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e5)))
 	task.wait(.25)
 	HRP.Anchored = true
-	Humanoid.PlatformStand = true
+	Humanoid.BreakJointsOnDeath = false
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
@@ -81,6 +82,7 @@ task.defer(function() -- // REANIMATE INITIALIZATION
 	Animate.Disabled = false
 	face.Parent, face.Transparency = DummyChar.Head, 1
 	DummyChar:SetPrimaryPartCFrame(CharacterOldPos)
+	Character.Torso["Left Shoulder"]:Destroy()
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Name = string.match(PartName, "Torso") and "Torso" or PartName
@@ -129,6 +131,8 @@ if _G._Settings.UseBuiltinNetless then Player:GetPropertyChangedSignal("Characte
 	end
 
 	_G.Connections[#_G.Connections + 1] = RunService.Stepped:Connect(function()
+		Collisioner.Massless, Collisioner.CanCollide = true, false
+		Collisioner.Velocity, Collisioner.RotVelocity = _G._Settings.Velocity, Vector3.new()
 		for _, object in ipairs(Character:GetChildren()) do
 			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 				object.Handle.Massless, object.Handle.CanCollide = true, false
@@ -139,6 +143,7 @@ if _G._Settings.UseBuiltinNetless then Player:GetPropertyChangedSignal("Characte
 end
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
+	Collisioner.CFrame, Collisioner.Transparency = DummyChar.HumanoidRootPart.CFrame * CFrame.Angles(0, 0, math.rad(90)), 1
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
@@ -159,6 +164,6 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 			object.Handle.CFrame = DummyChar[object.Name].Handle.CFrame
 		end
 	end
-	DummyChar.Humanoid.MaxHealth, DummyChar.Humanoid.Health = Humanoid.MaxHealth, Humanoid.Health
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
+	Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 end)
