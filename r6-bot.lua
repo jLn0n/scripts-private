@@ -34,7 +34,7 @@ local Collisioner = Character["Left Arm"]
 -- // LIBRARIES
 local getobjects = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/libraries/getobjects.lua", true))()
 -- // VARIABLES
-local CharacterOldPos = Character:GetPrimaryPartCFrame()
+local CharacterOldPos = HRP.CFrame
 -- // MAIN
 assert(not Character.Parent:FindFirstChild(Player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
 assert(Humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
@@ -70,19 +70,19 @@ local onCharRemoved = function()
 end
 
 for _, object in ipairs(DummyChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
-task.defer(function() -- // REANIMATE INITIALIZATION
+task.defer(function() -- REANIMATE INITIALIZATION
 	Character:SetPrimaryPartCFrame(CFrame.new((Vector3.new(1, 1, 1) * 10e5)))
 	task.wait(.25)
 	HRP.Anchored = true
-	Humanoid.BreakJointsOnDeath = false
+	Humanoid:SetStateEnabled("Physics", true)
 	local Animate, face = Character.Animate, Character.Head.face:Clone()
 	Humanoid.Animator:Clone().Parent = DummyChar.Humanoid
 	Animate.Disabled = true
 	Animate.Parent = DummyChar
 	Animate.Disabled = false
 	face.Parent, face.Transparency = DummyChar.Head, 1
-	DummyChar:SetPrimaryPartCFrame(CharacterOldPos)
 	Character.Torso["Left Shoulder"]:Destroy()
+	DummyChar.HumanoidRootPart.CFrame = CharacterOldPos
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Name = string.match(PartName, "Torso") and "Torso" or PartName
@@ -143,7 +143,7 @@ if _G._Settings.UseBuiltinNetless then Player:GetPropertyChangedSignal("Characte
 end
 
 _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
-	Collisioner.CFrame, Collisioner.Transparency = DummyChar.HumanoidRootPart.CFrame * CFrame.Angles(0, 0, math.rad(90)), 1
+	Collisioner.CFrame, Collisioner.Transparency = DummyChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, 0, math.rad(90)), 1
 	for PartName, object in pairs(HatParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Handle.LocalTransparencyModifier = DummyChar.Head.LocalTransparencyModifier
@@ -165,5 +165,5 @@ _G.Connections[#_G.Connections + 1] = RunService.Heartbeat:Connect(function()
 		end
 	end
 	workspace.CurrentCamera.CameraSubject = DummyChar.Humanoid
-	Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	Humanoid:ChangeState("Physics")
 end)
