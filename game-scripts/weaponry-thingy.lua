@@ -22,20 +22,18 @@ end
 local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
 	for _, plr in ipairs(players:GetPlayers()) do
-		if plr == player and plr.TeamColor == player.TeamColor and not (plr.Character and plr.Character:FindFirstChild("Head")) then continue end
+		if plr == player and (plr.TeamColor == player.TeamColor) and not (plr.Character and plr.Character:FindFirstChild("Head")) then continue end
 		local p_char = plr.Character
 		if p_char then
 			local p_head = p_char:FindFirstChild("Head")
 			local posVec3, isVisible = camera:WorldToScreenPoint(p_head.Position)
 			if isVisible then
-				local mouseVec2, p_Vec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
-				local distance = (mouseVec2 - p_Vec2).Magnitude
-				if distance < math.huge then
-					table.insert(nearPlrs, {
-						plr = plr,
-						dist = distance
-					})
-				end
+				local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
+				local distance = (mouseVec2 - posVec2).Magnitude
+				table.insert(nearPlrs, {
+					plr = plr,
+					dist = distance
+				})
 			end
 		end
 	end
