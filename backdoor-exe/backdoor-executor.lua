@@ -32,7 +32,7 @@ local eventInfo = {
 	["eventIter"] = 1,
 	["eventFunc"] = nil,
 }
-local config = isfile("bexe-config.lua") and readfile("bexe-config.lua") or game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/misc/backdoor-cache.lua", false)
+local config = isfile("bexe-config.lua") and readfile("bexe-config.lua") or game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 local msg_outputs = {
 	["attached"] = "\n Attached Event: %s\n Type: %s",
 	["printEvent"] = "\n Event: %s\n Type: %s",
@@ -276,9 +276,14 @@ do -- INITIALIZER
 	initDraggify(MainUI, Topbar);initTextbox()
 	tween:Play()
 	if not isfile("bexe-config.lua") then writefile("bexe-config.lua", config) end
-	config = loadstring(config)()
-	if config.configVer <= 2 then
-		config = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/misc/backdoor-cache.lua", false)
+	local succ, result = pcall(function()
+		return loadstring(config)()
+	end)
+	if succ then
+		config = result
+	end
+	if not succ or config.configVer < 2 then
+		config = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 		writefile("bexe-config.lua", config)
 		config = loadstring(config)()
 	end
