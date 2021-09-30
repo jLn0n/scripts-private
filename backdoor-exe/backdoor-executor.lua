@@ -282,7 +282,7 @@ do -- INITIALIZER
 	if succ then
 		config = result
 	end
-	if not succ or config.configVer < 2 then
+	if not succ or (config.configVer and config.configVer < 2) then
 		config = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 		writefile("bexe-config.lua", config)
 		config = loadstring(config)()
