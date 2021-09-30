@@ -279,7 +279,7 @@ do -- INITIALIZER
 	config = loadstring(config)()
 	if config.configVer <= 2 then
 		config = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/misc/backdoor-cache.lua", false)
-		writefile("bexe-config.lua")
+		writefile("bexe-config.lua", config)
 		config = loadstring(config)()
 	end
 end
