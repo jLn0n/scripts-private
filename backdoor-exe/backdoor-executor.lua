@@ -48,7 +48,7 @@ end
 local function checkRemote(inst)
 	local instFullName = inst:GetFullName()
 
-	if inst:FindFirstChild("__FUNCTION") or string.find(instFullName, "MouseInfo") or string.find(instFullName, "HDAdminClient") or string.find(instFullName, "Basic Admin Essentials") or scannedNameEvents[inst.Name] then
+	if (inst:FindFirstChild("__FUNCTION") or inst.Name == "__FUNCTION") or string.find(instFullName, "MouseInfo") or string.find(instFullName, "HDAdminClient") or string.find(instFullName, "Basic Admin Essentials") or scannedNameEvents[inst.Name] then
 		return false
 	end
 	return true
@@ -94,7 +94,7 @@ local function getTextSize(object)
 		object.Text,
 		object.TextSize,
 		object.Font,
-		Vector2.new(object.TextBounds.X, 1e9)
+		Vector2.new(object.TextBounds.X, 1e8)
 	)
 end
 
