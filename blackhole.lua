@@ -2,24 +2,24 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
 -- // OBJECTS
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
-local AttHolder = Instance.new("Part", Workspace)
-local Attachment1 = Instance.new("Attachment", AttHolder)
+local attHolder = Instance.new("Part")
+local Attachment1 = Instance.new("Attachment")
 -- // VARIABLES
 local BlackholePos = Mouse.Hit.Position + Vector3.new(0, 2.5, 0)
 -- // MAIN
-AttHolder.Anchored, AttHolder.CanCollide, AttHolder.Transparency = true, false, .5
-local ForcePart = function(object)
-	if object:IsA("BasePart") and ((game.PlaceId == 189707 and object.Anchored and object:IsDescendantOf(Workspace.Structure)) or not object.Anchored) and not object:IsDescendantOf(Player.Character) then
+attHolder.Anchored, attHolder.CanCollide, attHolder.Transparency = true, false, .5
+attHolder.Parent, Attachment1.Parent = workspace, attHolder
+local function controlPart(object)
+	if object:IsA("BasePart") and ((game.PlaceId == 189707 and object.Anchored and object:IsDescendantOf(workspace.Structure)) or not object.Anchored) and not object:IsDescendantOf(Player.Character) then
 		for _, sobject in ipairs(object:GetChildren()) do
 			if sobject:IsA("Attachment") and sobject:IsA("AlignPosition") and sobject:IsA("Torque") and sobject:IsA("BodyMover") or sobject:IsA("RocketPropulsion") then
 				sobject:Destroy()
 			end
 		end
-        object.CanCollide = false
+		object.CanCollide = false
 		local Torque, APos, Attachment0 = Instance.new("Torque", object), Instance.new("AlignPosition", object), Instance.new("Attachment", object)
 		Torque.Attachment0 = Attachment0
 		Torque.Torque = Vector3.new(1e10, 1e10, 1e10)
@@ -30,12 +30,17 @@ local ForcePart = function(object)
 	end
 end
 
-for _, object in ipairs(Workspace:GetDescendants()) do
-	ForcePart(object)
+local function setsimulationradius(simRad, maxSimRad)
+	sethiddenproperty(Player, "MaxSimulationRadius", maxSimRad)
+	sethiddenproperty(Player, "SimulationRadius", simRad)
 end
 
-Workspace.DescendantAdded:Connect(function(object)
-	ForcePart(object)
+for _, object in ipairs(workspace:GetDescendants()) do
+	controlPart(object)
+end
+
+workspace.DescendantAdded:Connect(function(object)
+	controlPart(object)
 end)
 
 UIS.InputBegan:Connect(function(input)
@@ -48,6 +53,6 @@ RunService.RenderStepped:Connect(function()
 	settings().Physics.AllowSleep = false
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	setsimulationradius(1e10, 1e10)
-	Player.ReplicationFocus = Workspace
-	AttHolder.Position = BlackholePos
+	Player.ReplicationFocus = workspace
+	attHolder.Position = BlackholePos
 end)
