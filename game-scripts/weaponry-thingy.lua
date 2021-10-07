@@ -57,7 +57,7 @@ local config = {
 	},
 	["SilentAim"] = {
 		["Enabled"] = false,
-		["AimPart"] = "head"
+		["AimPart"] = "Head"
 	},
 }
 -- ui init
