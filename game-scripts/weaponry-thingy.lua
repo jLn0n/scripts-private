@@ -1,3 +1,19 @@
+-- config
+local config = {
+	["AlwaysAuto"] = false,
+	["InfAmmo"] = false,
+	["NoRecoil"] = false,
+	["NoSpread"] = false,
+	["MultipleBullets"] = {
+		["Enabled"] = false,
+		["AmmoCount"] = 1
+	},
+	["SilentAim"] = {
+		["Enabled"] = false,
+		["AimPart"] = "Head",
+		["VisibleCheck"] = false,
+	},
+}
 -- services
 local guiService = game:GetService("GuiService")
 local players = game:GetService("Players")
@@ -22,19 +38,24 @@ local function checkPlr(plrArg)
 	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
 	return plrArg ~= player and (plrArg.Team ~= player.Team) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
+local function isPlrVisible(plrArg)
+	return true
+end
 local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_char = plr.Character
-		if checkPlr(plr) and p_char then
+		if p_char and checkPlr(plr) and (config.SilentAim.VisibleCheck and isPlrVisible(plr) or true) then
 			local p_dPart = p_char:FindFirstChild("HumanoidRootPart")
 			local posVec3, _unused = camera:WorldToScreenPoint(p_dPart.Position)
 			local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 			local distance = (mouseVec2 - posVec2).Magnitude
-			table.insert(nearPlrs, {
-				plr = plr,
-				dist = distance
-			})
+			if distance <= 250 then
+				table.insert(nearPlrs, {
+					plr = plr,
+					dist = distance
+				})
+			end
 		end
 	end
 	table.sort(nearPlrs, function(x, y)
@@ -45,21 +66,6 @@ end
 -- variables
 local clientFwUpvals = getsenv(getClientFramework()).CheckIsToolValid
 local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
--- config
-local config = {
-	["AlwaysAuto"] = false,
-	["InfAmmo"] = false,
-	["NoRecoil"] = false,
-	["NoSpread"] = false,
-	["MultipleBullets"] = {
-		["Enabled"] = false,
-		["AmmoCount"] = 1
-	},
-	["SilentAim"] = {
-		["Enabled"] = false,
-		["AimPart"] = "Head"
-	},
-}
 -- ui init
 local mainUI = ui_library:CreateWindow({
 	["Name"] = "Weaponry Fucker",
@@ -117,7 +123,7 @@ weaponMods:AddSlider({
 	["Flag"] = "wMods_mulBulletsSlider",
 	["Percision"] = 1,
 	["Min"] = 1,
-	["Max"] = 25,
+	["Max"] = 50,
 	["Callback"] = function(value)
 		config.MultipleBullets.AmmoCount = value
 	end
@@ -140,8 +146,7 @@ silentAim:AddDropdown({
 		"Head",
 		"HumanoidRootPart"
 	},
-	["Filter"] = {[0] = true},
-	["Value"] = "Head",
+	["Value"] = "Head (Default)",
 	["Callback"] = function(value)
 		config.SilentAim.AimPart = value
 	end
@@ -154,7 +159,7 @@ runService.RenderStepped:Connect(function()
 			if config.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
 			if config.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
 			if config.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
-			if config.MultipleBullets.Enabled then weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.AmmoCount end -- multiple bullets
+			weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.Enabled and config.MultipleBullets.AmmoCount or 1 -- multiple bullets
 		end
 	end
 end)
