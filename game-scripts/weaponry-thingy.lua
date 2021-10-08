@@ -21,6 +21,7 @@ local runService = game:GetService("RunService")
 local repStorage = game:GetService("ReplicatedStorage")
 -- objects
 local camera = workspace.CurrentCamera
+local hitboxes = workspace.Hitboxes
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
@@ -39,7 +40,14 @@ local function checkPlr(plrArg)
 	return plrArg ~= player and (plrArg.Team ~= player.Team) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(posVec3, ...)
-	return #camera:GetPartsObscuringTarget({posVec3}, {camera, player.Character, ...}) == 0
+	return #camera:GetPartsObscuringTarget({posVec3}, {camera, player.Character, hitboxes, ...}) == 0
+end
+local function getAimPart(hitboxFolder)
+	for _, hitbox in ipairs(hitboxFolder:GetChildren()) do
+		if string.find(hitbox.Name, config.SilentAim.AimPart) then
+			return hitbox
+		end
+	end
 end
 local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
@@ -69,7 +77,7 @@ local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Sour
 -- ui init
 local mainUI = ui_library:CreateWindow({
 	["Name"] = "Weaponry Fucker",
-	["DefaultTheme"] = [[{"__Designer.Background.UseBackgroundImage":true,"__Designer.Colors.unhoveredOptionBottom":"232323","__Designer.Colors.otherElementText":"817F81","__Designer.Colors.elementText":"939193","__Designer.Colors.hoveredOptionBottom":"2D2D2D","__Designer.Colors.hoveredOptionTop":"414141","__Designer.Colors.section":"B0AFB0","__Designer.Colors.bottomGradient":"1D1D1D","__Designer.Background.ImageTransparency":100,"__Designer.Colors.innerBorder":"493F49","__Designer.Colors.outerBorder":"0F0F0F","__Designer.Colors.sectionBackground":"232222","__Designer.Settings.ShowHideKey":"Enum.KeyCode.RightShift","__Designer.Colors.unhoveredOptionTop":"323232","__Designer.Colors.selectedOption":"373737","__Designer.Colors.background":"282828","__Designer.Background.ImageAssetID":"rbxassetid://4427304036","__Designer.Files.WorkspaceFile":"Weaponry Fucker","__Designer.Colors.unselectedOption":"282828","__Designer.Colors.main":"rainbow","__Designer.Colors.elementBorder":"141414","__Designer.Background.ImageColor":"FFFFFF","__Designer.Colors.topGradient":"232323"}]],
+	--["DefaultTheme"] = [[{"__Designer.Background.UseBackgroundImage":true,"__Designer.Colors.unhoveredOptionBottom":"232323","__Designer.Colors.otherElementText":"817F81","__Designer.Colors.elementText":"939193","__Designer.Colors.hoveredOptionBottom":"2D2D2D","__Designer.Colors.hoveredOptionTop":"414141","__Designer.Colors.section":"B0AFB0","__Designer.Colors.bottomGradient":"1D1D1D","__Designer.Background.ImageTransparency":100,"__Designer.Colors.innerBorder":"493F49","__Designer.Colors.outerBorder":"0F0F0F","__Designer.Colors.sectionBackground":"232222","__Designer.Settings.ShowHideKey":"Enum.KeyCode.RightShift","__Designer.Colors.unhoveredOptionTop":"323232","__Designer.Colors.selectedOption":"373737","__Designer.Colors.background":"282828","__Designer.Background.ImageAssetID":"rbxassetid://4427304036","__Designer.Files.WorkspaceFile":"Weaponry Fucker","__Designer.Colors.unselectedOption":"282828","__Designer.Colors.main":"rainbow","__Designer.Colors.elementBorder":"141414","__Designer.Background.ImageColor":"FFFFFF","__Designer.Colors.topGradient":"232323"}]],
 	["Themeable"] = {
 		["Credit"] = true,
 		["Info"] = "Script made by jLn0n#1464"
@@ -151,7 +159,8 @@ silentAim:AddDropdown({
 	["Flag"] = "sAim_aimPart",
 	["List"] = {
 		"Head",
-		"HumanoidRootPart"
+		"Body",
+		"Leg"
 	},
 	["Value"] = "Head (Default)",
 	["Callback"] = function(value)
@@ -174,9 +183,8 @@ local oldCastMouse, oldRecoilFunc = rayCastClient.CastRayMouse, recoilHandler.ac
 rayCastClient.CastRayMouse = function(_camera, x, y)
 	if config.SilentAim.Enabled then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		if nearestPlr and checkPlr(nearestPlr) then
-			local p_char = nearestPlr.Character
-			local p_targetPart = p_char:FindFirstChild(config.SilentAim.AimPart)
+		if nearestPlr and checkPlr(nearestPlr) and hitboxes:FindFirstChild(nearestPlr.UserId) then
+			local p_targetPart = getAimPart(hitboxes:FindFirstChild(nearestPlr.UserId))
 			local newVec2 = camera:WorldToScreenPoint(p_targetPart.Position)
 			x, y = newVec2.X, newVec2.Y + guiService:GetGuiInset().Y
 		end
