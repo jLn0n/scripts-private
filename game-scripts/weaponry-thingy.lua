@@ -37,12 +37,13 @@ local function getClientFramework()
 end
 local function checkPlr(plrArg)
 	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
-	return plrArg ~= player and (plrArg.Team ~= player.Team) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (not plrArg.Neutral and (plrArg.Team ~= player.Team and plrArg.TeamColor ~= player.TeamColor) or true) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
-local function inLineOfSite(posVec3, ...)
-	return #camera:GetPartsObscuringTarget({posVec3}, {camera, player.Character, hitboxes, ...}) == 0
+local function inLineOfSite(position, ...)
+	return #camera:GetPartsObscuringTarget({position}, {camera, player.Character, hitboxes, ...}) == 0
 end
 local function getAimPart(hitboxFolder)
+	if config.SilentAim.AimPart == "Random" then return hitboxFolder:GetChildren()[math.random(1, 3)] end
 	for _, hitbox in ipairs(hitboxFolder:GetChildren()) do
 		if string.find(hitbox.Name, config.SilentAim.AimPart) then
 			return hitbox
@@ -55,7 +56,7 @@ local function getNearestPlrByCursor()
 		local p_char = plr.Character
 		if p_char and checkPlr(plr) then
 			local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
-			local posVec3, _unused = camera:WorldToScreenPoint(p_dPart.Position)
+			local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
 			local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 			local distance = (mouseVec2 - posVec2).Magnitude
 			if (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
@@ -77,7 +78,7 @@ local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Sour
 -- ui init
 local mainUI = ui_library:CreateWindow({
 	["Name"] = "Weaponry Fucker",
-	--["DefaultTheme"] = [[{"__Designer.Background.UseBackgroundImage":true,"__Designer.Colors.unhoveredOptionBottom":"232323","__Designer.Colors.otherElementText":"817F81","__Designer.Colors.elementText":"939193","__Designer.Colors.hoveredOptionBottom":"2D2D2D","__Designer.Colors.hoveredOptionTop":"414141","__Designer.Colors.section":"B0AFB0","__Designer.Colors.bottomGradient":"1D1D1D","__Designer.Background.ImageTransparency":100,"__Designer.Colors.innerBorder":"493F49","__Designer.Colors.outerBorder":"0F0F0F","__Designer.Colors.sectionBackground":"232222","__Designer.Settings.ShowHideKey":"Enum.KeyCode.RightShift","__Designer.Colors.unhoveredOptionTop":"323232","__Designer.Colors.selectedOption":"373737","__Designer.Colors.background":"282828","__Designer.Background.ImageAssetID":"rbxassetid://4427304036","__Designer.Files.WorkspaceFile":"Weaponry Fucker","__Designer.Colors.unselectedOption":"282828","__Designer.Colors.main":"rainbow","__Designer.Colors.elementBorder":"141414","__Designer.Background.ImageColor":"FFFFFF","__Designer.Colors.topGradient":"232323"}]],
+	["DefaultTheme"] = [[{"__Designer.Background.UseBackgroundImage":true,"__Designer.Colors.unhoveredOptionBottom":"232323","__Designer.Colors.otherElementText":"817F81","__Designer.Colors.elementText":"939193","__Designer.Colors.hoveredOptionBottom":"2D2D2D","__Designer.Colors.hoveredOptionTop":"414141","__Designer.Colors.section":"B0AFB0","__Designer.Colors.bottomGradient":"1D1D1D","__Designer.Background.ImageTransparency":100,"__Designer.Colors.innerBorder":"493F49","__Designer.Colors.outerBorder":"0F0F0F","__Designer.Colors.sectionBackground":"232222","__Designer.Settings.ShowHideKey":"Enum.KeyCode.RightShift","__Designer.Colors.unhoveredOptionTop":"323232","__Designer.Colors.selectedOption":"373737","__Designer.Colors.background":"282828","__Designer.Background.ImageAssetID":"rbxassetid://4427304036","__Designer.Files.WorkspaceFile":"Weaponry Fucker","__Designer.Colors.unselectedOption":"282828","__Designer.Colors.main":"rainbow","__Designer.Colors.elementBorder":"141414","__Designer.Background.ImageColor":"FFFFFF","__Designer.Colors.topGradient":"232323"}]],
 	["Themeable"] = {
 		["Credit"] = true,
 		["Info"] = "Script made by jLn0n#1464"
@@ -160,11 +161,11 @@ silentAim:AddDropdown({
 	["List"] = {
 		"Head",
 		"Body",
-		"Leg"
+		"Legs",
+		"Random"
 	},
-	["Value"] = "Head (Default)",
 	["Callback"] = function(value)
-		config.SilentAim.AimPart = value
+		config.SilentAim.AimPart = (value == "Legs") and "Leg" or value
 	end
 })
 -- main
@@ -183,7 +184,7 @@ local oldCastMouse, oldRecoilFunc = rayCastClient.CastRayMouse, recoilHandler.ac
 rayCastClient.CastRayMouse = function(_camera, x, y)
 	if config.SilentAim.Enabled then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		if nearestPlr and checkPlr(nearestPlr) and hitboxes:FindFirstChild(nearestPlr.UserId) then
+		if nearestPlr and checkPlr(nearestPlr) then
 			local p_targetPart = getAimPart(hitboxes:FindFirstChild(nearestPlr.UserId))
 			local newVec2 = camera:WorldToScreenPoint(p_targetPart.Position)
 			x, y = newVec2.X, newVec2.Y + guiService:GetGuiInset().Y
