@@ -23,8 +23,7 @@ local R6Btn = ExecutorUI.R6Btn
 local RespawnBtn = ExecutorUI.RespawnBtn
 local AttachBtn = ExecutorUI.AttachBtn
 -- variables
-local testSource = [[local daValue = Instance.new("StringValue") daValue.Name, daValue.Parent, daValue.Value = game.PlaceId, workspace, "%s"]]
-local scannedNameEvents = table.create(0)
+local config = isfile("bexe-config.lua") and readfile("bexe-config.lua") or game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 local eventInfo = {
 	["eventInst"] = nil,
 	["eventPath"] = "",
@@ -32,15 +31,16 @@ local eventInfo = {
 	["eventIter"] = 1,
 	["eventFunc"] = nil,
 }
-local config = isfile("bexe-config.lua") and readfile("bexe-config.lua") or game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 local msg_outputs = {
 	["attached"] = "\n Attached Event: %s\n Type: %s",
 	["printEvent"] = "\n Event: %s\n Type: %s",
 	["outdatedCache"] = "This game [%s] cache doesn't work, it might be outdated."
 }
+local testSource = [[local daValue = Instance.new("StringValue") daValue.Name, daValue.Parent, daValue.Value = game.PlaceId, workspace, "%s"]]
+local scannedNameEvents = table.create(0)
 local uiDeb, attachDeb = true, true
+-- functions
 local gotAttached, sendNotif, strToInst
--- main
 local function createTween(...)
 	return tweenService:Create(...)
 end
@@ -48,7 +48,12 @@ end
 local function checkRemote(inst)
 	local instFullName = inst:GetFullName()
 
-	if (inst:FindFirstChild("__FUNCTION") or inst.Name == "__FUNCTION") or string.find(instFullName, "MouseInfo") or string.find(instFullName, "HDAdminClient") or string.find(instFullName, "Basic Admin Essentials") or scannedNameEvents[inst.Name] then
+	if (config.blacklistSettings.eventNames[inst.Name] or config.blacklistSettings.eventParentNames[inst.Parent.Name]) or
+		scannedNameEvents[inst.Name] or
+		(inst:FindFirstChild("__FUNCTION") or inst.Name == "__FUNCTION") or
+		string.find(instFullName, "MouseInfo") or string.find(instFullName, "HDAdminClient") or
+		string.find(instFullName, "Basic Admin Essentials") or
+		inst.Parent == game:GetService("RobloxReplicatedStorage") then
 		return false
 	end
 	return true
@@ -76,15 +81,15 @@ local function findBackdoors()
 			elseif object:IsA("RemoteFunction") then
 				pcall(coroutine.wrap(function() object:InvokeServer(string.format(testSource, object:GetFullName())) end))
 			end
+			local valueLOL = workspace:FindFirstChild(game.PlaceId)
+			if valueLOL and valueLOL.Value ~= "" then
+				pcall(function()
+					gotAttached(strToInst(valueLOL.Value))
+				end)
+			end
 			scannedNameEvents[object.Name] = true
 			task.wait()
 		end
-	end
-	local valueLOL = workspace:FindFirstChild(game.PlaceId)
-	if valueLOL and valueLOL.Value ~= "" then
-		pcall(function()
-			gotAttached(strToInst(valueLOL.Value))
-		end)
 	end
 	table.clear(scannedNameEvents)
 end
@@ -104,8 +109,8 @@ function gotAttached(backdooredEvent)
 	ExecBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	RespawnBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	R6Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	AttachedText.Visible = true
 	AttachBtn.TextColor3 = Color3.fromRGB(145, 145, 145)
+	AttachedText.Visible = true
 	print(string.format(msg_outputs.attached, backdooredEvent:GetFullName(), backdooredEvent.ClassName))
 	execScript("game.Workspace:FindFirstChild(game.PlaceId):Destroy()")
 	for _, _script in ipairs(config.autoExec) do
@@ -192,11 +197,11 @@ AttachBtn.MouseButton1Click:Connect(function()
 	if attachDeb and not eventInfo.eventInst then
 		sendNotif("Press F9 to see the remotes being scanned.")
 		attachDeb = false
-		for cachedPlaceId, cache in pairs(config.cachedPlaces) do
-			if game.PlaceId == cachedPlaceId then
-				local succ, res = pcall(strToInst, cache.Path)
+		for placeId, cacheData in pairs(config.cachedPlaces) do
+			if game.PlaceId == placeId then
+				local succ, res = pcall(strToInst, cacheData.Path)
 				if succ then
-					eventInfo.eventArgs, eventInfo.eventFunc = cache.Args, cache.Func or nil
+					eventInfo.eventArgs, eventInfo.eventFunc = cacheData.Args, cacheData.Func or nil
 					gotAttached(res)
 					break
 				else
@@ -223,7 +228,7 @@ SF_Textbox:GetPropertyChangedSignal("CanvasPosition"):Connect(syncTextboxScroll)
 uis.InputBegan:Connect(function(input)
 	local tween, connection
 	local tweenInfo = TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	if input.KeyCode == Enum.KeyCode.Equals and uis:GetFocusedTextBox() == nil then
+	if input.KeyCode == Enum.KeyCode.RightControl and uis:GetFocusedTextBox() == nil then
 		if uiDeb then
 			uiDeb = false
 			if not MainUI.Visible then
@@ -261,8 +266,11 @@ end)
 
 do -- INITIALIZER
 	local tween, connection
-	local gethui = gethui or gethiddenui or get_hidden_gui or nil
-	GUI.Name, GUI.Parent = "backdoor-executor", gethui and gethui() or game:GetService("CoreGui")
+	local gethui = gethui or gethiddenui or get_hidden_gui or function()
+		return game:GetService("CoreGui")
+	end
+	if syn and syn.protect_gui then syn.protect_gui(GUI) end
+	GUI.Parent = gethui()
 	MainUI.Visible = true
 	tween = createTween(MainUI, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, 500, 0, 300)
@@ -276,13 +284,10 @@ do -- INITIALIZER
 	initDraggify(MainUI, Topbar);initTextbox()
 	tween:Play()
 	if not isfile("bexe-config.lua") then writefile("bexe-config.lua", config) end
-	local succ, result = pcall(function()
-		return loadstring(config)()
+	pcall(function()
+		config = loadstring(config)()
 	end)
-	if succ then
-		config = result
-	end
-	if not succ or (config.configVer and config.configVer < 2) then
+	if typeof(config) == "string" or (config.configVer and config.configVer < 3) then
 		config = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/created-scripts-public/main/backdoor-executor/bexe-config.lua", false)
 		writefile("bexe-config.lua", config)
 		config = loadstring(config)()
