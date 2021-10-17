@@ -27,20 +27,12 @@ local mouse = player:GetMouse()
 -- modules
 local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.RecoilCamHandler)
 -- functions
-local function getClientFramework()
-	for _, plrscript in ipairs(player.PlayerScripts:GetChildren()) do
-		local scriptRunning, scriptEnv = pcall(getsenv, plrscript)
-		if (scriptRunning and scriptEnv) and scriptEnv.InspectWeapon then
-			return plrscript
-		end
-	end
-end
 local function checkPlr(plrArg)
 	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
 	return plrArg ~= player and (not plrArg.Neutral and (plrArg.Team ~= player.Team and plrArg.TeamColor ~= player.TeamColor) or true) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
-local function inLineOfSite(position, ...)
-	return #camera:GetPartsObscuringTarget({position}, {camera, player.Character, hitboxes, ...}) == 0
+local function inLineOfSite(originPos, ...)
+	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
 end
 local function getAimPart(hitboxFolder)
 	if config.SilentAim.AimPart == "Random" then return hitboxFolder:GetChildren()[math.random(1, 3)] end
@@ -54,17 +46,16 @@ local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_char = plr.Character
-		if p_char and checkPlr(plr) then
-			local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
-			local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
-			local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
-			local distance = (mouseVec2 - posVec2).Magnitude
-			if (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
-				table.insert(nearPlrs, {
-					plr = plr,
-					dist = distance
-				})
-			end
+		if not (p_char and checkPlr(plr)) then continue end
+		local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
+		local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
+		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
+		local distance = (mouseVec2 - posVec2).Magnitude
+		if (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
+			table.insert(nearPlrs, {
+				plr = plr,
+				dist = distance
+			})
 		end
 	end
 	table.sort(nearPlrs, function(x, y)
@@ -73,7 +64,15 @@ local function getNearestPlrByCursor()
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1].plr or nil
 end
 -- variables
-local clientFwUpvals = getsenv(getClientFramework()).CheckIsToolValid
+local frameworkUpvals do
+	for _, plrscript in ipairs(player.PlayerScripts:GetChildren()) do
+		local scriptRunning, scriptEnv = pcall(getsenv, plrscript)
+		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
+			frameworkUpvals = scriptEnv.CheckIsToolValid
+			break
+		end
+	end
+end
 local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
 -- ui init
 local mainUI = ui_library:CreateWindow({
@@ -170,14 +169,13 @@ silentAim:AddDropdown({
 })
 -- main
 runService.RenderStepped:Connect(function()
-	local weaponsData = debug.getupvalue(clientFwUpvals, 1)
+	local weaponsData = debug.getupvalue(frameworkUpvals, 1)
 	for _, weaponData in pairs(weaponsData) do
-		if weaponData.FriendlyName ~= "Knife" then
-			if config.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
-			if config.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
-			if config.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
-			weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.Enabled and config.MultipleBullets.AmmoCount or 1 -- multiple bullets
-		end
+		if weaponData.FriendlyName == "Knife" then continue end
+		if config.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
+		if config.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
+		if config.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
+		weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.Enabled and config.MultipleBullets.AmmoCount or 1 -- multiple bullets
 	end
 end)
 local oldCastMouse, oldRecoilFunc = rayCastClient.CastRayMouse, recoilHandler.accelerate
