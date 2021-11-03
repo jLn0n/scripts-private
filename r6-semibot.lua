@@ -2,18 +2,19 @@
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
+local uis = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
 local hRootPart = character.HumanoidRootPart
 -- init
-assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", player.UserId)), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
-assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
+assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", player.UserId)), string.format([[\n["R6-SEMIBOT.LUA"]: Please reset to be able to run the script again]]))
+assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
 	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
 	_G.Settings.HeadName = _G.Settings.HeadName or "NinjaMaskOfShadows"
-	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(0, -35, 25.05)
+	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(-35, 25.05, 0)
 	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
 	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
 end
@@ -44,8 +45,7 @@ local function onCharRemoved()
 end
 
 task.defer(function() -- initializing reanimation after the code below ran
-	character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 1e8))
-	task.wait(.25)
+	hRootPart.Anchored = true
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
 	animScript.Disabled = true
@@ -81,7 +81,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 			table.insert(accessories, object)
 		end
 	end
-	player.Character, botChar.Parent = botChar, character
+	botChar.Parent = character
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
 	starterGui:SetCore("SendNotification", {
@@ -91,7 +91,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
+if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
@@ -141,4 +141,8 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		end
 	end
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
+	botChar.Humanoid:Move(humanoid.MoveDirection, false)
+	if uis:IsKeyDown(Enum.KeyCode.Space) and uis:GetFocusedTextBox() == nil then
+		botChar.Humanoid.Jump = true
+	end
 end)
