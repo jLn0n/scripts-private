@@ -48,7 +48,7 @@ local function getNearestPlrByCursor()
 		local p_char = plr.Character
 		if not (p_char or plr == player) then continue end
 		local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
-        if not (p_dPart or p_head) then continue end
+		if not (p_dPart or p_head) then continue end
 		local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
