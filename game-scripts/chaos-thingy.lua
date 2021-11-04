@@ -7,6 +7,10 @@ local player = players.LocalPlayer
 local scanRange = 25
 -- main
 if _G.CHAOS_killAura then _G.CHAOS_killAura:Disconnect() end
+local function checkPlr(plrArg)
+	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
+	return plrArg ~= player and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+end
 local function getNearestPlr(hrp)
 	if not hrp then return end
 	local nearPlrs = table.create(0)
@@ -15,7 +19,7 @@ local function getNearestPlr(hrp)
 		local p_hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") or nil
 		if not p_hrp then continue end
 		local distance = (hrp.Position - p_hrp.Position).Magnitude
-		if distance < scanRange then
+		if distance < scanRange and checkPlr(plr) then
 			table.insert(nearPlrs, {
 				plr = plr,
 				dist = distance
