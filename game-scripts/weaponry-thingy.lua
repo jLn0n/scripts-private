@@ -29,7 +29,7 @@ local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastCli
 -- functions
 local function checkPlr(plrArg)
 	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
-	return plrArg ~= player and (not plrArg.Neutral and (plrArg.Team ~= player.Team and plrArg.TeamColor ~= player.TeamColor) or true) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (plrArg.Neutral and true or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
@@ -46,12 +46,13 @@ local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_char = plr.Character
-		if not (p_char and checkPlr(plr)) then continue end
+		if not (p_char or plr == player) then continue end
 		local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
+        if not (p_dPart or p_head) then continue end
 		local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
-		if (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
+		if checkPlr(plr) and (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
 			table.insert(nearPlrs, {
 				plr = plr,
 				dist = distance
@@ -182,7 +183,7 @@ local oldCastMouse, oldRecoilFunc = rayCastClient.CastRayMouse, recoilHandler.ac
 rayCastClient.CastRayMouse = function(_camera, x, y)
 	if config.SilentAim.Enabled then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		if nearestPlr and checkPlr(nearestPlr) then
+		if nearestPlr then
 			local p_targetPart = getAimPart(hitboxes:FindFirstChild(nearestPlr.UserId))
 			local newVec2 = camera:WorldToScreenPoint(p_targetPart.Position)
 			x, y = newVec2.X, newVec2.Y + guiService:GetGuiInset().Y
