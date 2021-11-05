@@ -20,7 +20,7 @@ end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
 local charOldPos = hRootPart.CFrame
-local bodyParts = {
+local accessories, bodyParts = table.create(0), {
 	["Head"] = (character:FindFirstChild(_G.Settings.HeadName) or character:FindFirstChild("MediHood")),
 	["Torso"] = character:FindFirstChild("SeeMonkey"),
 	["Torso1"] = character:FindFirstChild("Robloxclassicred"),
@@ -54,7 +54,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 	botChar.HumanoidRootPart.CFrame = charOldPos
 	for PartName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
-			object.Name = string.match(PartName, "Torso") and "Torso" or PartName
+			object.Name = (string.match(PartName, "Torso") and "Torso" or PartName)
 			local accHandle = object.Handle
 			if PartName == "Head" and _G.Settings.RemoveHeadMesh then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
@@ -62,6 +62,17 @@ task.defer(function() -- initializing reanimation after the code below ran
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
+		end
+	end
+	for _, object in ipairs(character:GetChildren()) do
+		if object:IsA("Accessory") and not botChar:FindFirstChild(object.Name) then
+			local cloneAcce = object:Clone()
+			local cloneAcceHandle, cloneAcceWeld = object:FindFirstChild("Handle"), object.Handle:FindFirstChildWhichIsA("Weld")
+			cloneAcceHandle.Transparency = 1
+			cloneAcce.Parent = botChar
+			cloneAcceWeld.Part1 = botChar:FindFirstChild(object.Handle:FindFirstChildWhichIsA("Weld").Part1.Name) or botChar.HumanoidRootPart
+			object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
+			table.insert(accessories, object)
 		end
 	end
 	player.Character, botChar.Parent = botChar, character
@@ -88,13 +99,12 @@ if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character
 		end
 	end
 
-	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
 				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
 			end
 		end
 	end)
@@ -113,6 +123,12 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			else
 				object.CFrame = botChar[PartName].CFrame * CFrame.Angles(math.rad(90), 0, 0)
 			end
+		end
+	end
+	for _, object in pairs(accessories) do
+		if object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
+			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
+			object.CFrame = botChar:FindFirstChild(object.Parent.Name).Handle.CFrame
 		end
 	end
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
