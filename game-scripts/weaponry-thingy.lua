@@ -11,6 +11,7 @@ local config = {
 	["SilentAim"] = {
 		["Enabled"] = false,
 		["AimPart"] = "Head",
+		["Distance"] = 250,
 		["VisibleCheck"] = false,
 	},
 }
@@ -28,16 +29,17 @@ local mouse = player:GetMouse()
 local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.RecoilCamHandler)
 -- functions
 local function checkPlr(plrArg)
-	local plrHrp, plrHumanoid = plrArg.Character:FindFirstChild("HumanoidRootPart"), plrArg.Character:FindFirstChildWhichIsA("Humanoid")
-	return plrArg ~= player and (plrArg.Neutral and true or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and plrHrp and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
+	return plrArg ~= player and (plrArg.Neutral and true or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
 end
 local function getAimPart(hitboxFolder)
+	if not hitboxFolder then return nil end
 	if config.SilentAim.AimPart == "Random" then return hitboxFolder:GetChildren()[math.random(1, 3)] end
 	for _, hitbox in ipairs(hitboxFolder:GetChildren()) do
-		if string.find(hitbox.Name, config.SilentAim.AimPart) then
+		if string.match(hitbox.Name, config.SilentAim.AimPart) then
 			return hitbox
 		end
 	end
@@ -45,24 +47,22 @@ end
 local function getNearestPlrByCursor()
 	local nearPlrs = table.create(0)
 	for _, plr in ipairs(players:GetPlayers()) do
-		local p_char = plr.Character
-		if not (p_char or plr == player) then continue end
-		local p_dPart, p_head = p_char:FindFirstChild("HumanoidRootPart"), p_char:FindFirstChild("Head")
-		if not (p_dPart or p_head) then continue end
+		local p_dPart = getAimPart(hitboxes:FindFirstChild(plr.UserId))
+		if not p_dPart then continue end
 		local posVec3 = camera:WorldToScreenPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
-		if checkPlr(plr) and (config.SilentAim.VisibleCheck and inLineOfSite(p_head.Position, plr.Character) or true) and distance <= 250 then
+		if checkPlr(plr) and (not config.SilentAim.VisibleCheck and true or inLineOfSite(p_dPart.Position, plr.Character)) and distance <= config.SilentAim.Distance then
 			table.insert(nearPlrs, {
-				plr = plr,
-				dist = distance
+				aimPart = p_dPart,
+				dist = distance,
 			})
 		end
 	end
 	table.sort(nearPlrs, function(x, y)
 		return (x.dist < y.dist)
 	end)
-	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1].plr or nil
+	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
 -- variables
 local frameworkUpvals do
@@ -165,11 +165,22 @@ silentAim:AddDropdown({
 		"Random"
 	},
 	["Callback"] = function(value)
-		config.SilentAim.AimPart = (value == "Legs") and "Leg" or value
+		config.SilentAim.AimPart = value
+	end
+})
+silentAim:AddSlider({
+	["Name"] = "Distance",
+	["Flag"] = "sAim_Distance",
+	["Percision"] = 1,
+	["Min"] = 1,
+	["Max"] = 500,
+	["Value"] = 250,
+	["Callback"] = function(value)
+		config.SilentAim.Distance = value
 	end
 })
 -- main
-runService.RenderStepped:Connect(function()
+runService.Heartbeat:Connect(function()
 	local weaponsData = debug.getupvalue(frameworkUpvals, 1)
 	for _, weaponData in pairs(weaponsData) do
 		if weaponData.FriendlyName == "Knife" then continue end
@@ -184,8 +195,7 @@ rayCastClient.CastRayMouse = function(_camera, x, y)
 	if config.SilentAim.Enabled then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
 		if nearestPlr then
-			local p_targetPart = getAimPart(hitboxes:FindFirstChild(nearestPlr.UserId))
-			local newVec2 = camera:WorldToScreenPoint(p_targetPart.Position)
+			local newVec2 = camera:WorldToScreenPoint(nearestPlr.aimPart.Position)
 			x, y = newVec2.X, newVec2.Y + guiService:GetGuiInset().Y
 		end
 	end
