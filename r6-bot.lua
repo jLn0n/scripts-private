@@ -67,7 +67,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and not botChar:FindFirstChild(object.Name) then
 			local cloneAcce = object:Clone()
-			local cloneAcceHandle, cloneAcceWeld = object:FindFirstChild("Handle"), object.Handle:FindFirstChildWhichIsA("Weld")
+			local cloneAcceHandle, cloneAcceWeld = cloneAcce:FindFirstChild("Handle"), cloneAcce.Handle:FindFirstChildWhichIsA("Weld")
 			cloneAcceHandle.Transparency = 1
 			cloneAcce.Parent = botChar
 			cloneAcceWeld.Part1 = botChar:FindFirstChild(object.Handle:FindFirstChildWhichIsA("Weld").Part1.Name) or botChar.HumanoidRootPart
@@ -88,7 +88,7 @@ end)
 if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
@@ -100,6 +100,7 @@ if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character
 	end
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+		setsimulationradius(1e10, 1e10)
 		for _, object in ipairs(character:GetChildren()) do
 			if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
 				object.Massless, object.CanCollide = true, false
