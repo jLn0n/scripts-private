@@ -27,6 +27,18 @@ local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
 local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.RecoilCamHandler)
+-- variables
+local frameworkUpvals do
+	for _, plrscript in ipairs(player.PlayerScripts:GetChildren()) do
+		local scriptRunning, scriptEnv = pcall(getsenv, plrscript)
+		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
+			frameworkUpvals = scriptEnv.CheckIsToolValid
+			break
+		end
+	end
+end
+local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
+local nearPlrs = table.create(0)
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
@@ -45,7 +57,7 @@ local function getAimPart(hitboxFolder)
 	end
 end
 local function getNearestPlrByCursor()
-	local nearPlrs = table.create(0)
+	table.clear(nearPlrs)
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_dPart = getAimPart(hitboxes:FindFirstChild(plr.UserId))
 		if not p_dPart then continue end
@@ -64,17 +76,6 @@ local function getNearestPlrByCursor()
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
--- variables
-local frameworkUpvals do
-	for _, plrscript in ipairs(player.PlayerScripts:GetChildren()) do
-		local scriptRunning, scriptEnv = pcall(getsenv, plrscript)
-		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
-			frameworkUpvals = scriptEnv.CheckIsToolValid
-			break
-		end
-	end
-end
-local ui_library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
 -- ui init
 local mainUI = ui_library:CreateWindow({
 	["Name"] = "Weaponry Fucker",
