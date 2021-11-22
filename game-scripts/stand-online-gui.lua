@@ -7,35 +7,44 @@ local player = players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local espFolder = coreGui:FindFirstChild("espFolder") or Instance.new("Folder")
 -- init
-_G.SO_GUI_CONNECTIONS = table.create(0)
-if _G.SO_GUI_EXECUTED then
+do
+	_G.SO_GUI_CONNECTIONS = not _G.SO_GUI_CONNECTIONS and table.create(0) or _G.SO_GUI_CONNECTIONS
+	if _G.SO_GUI_EXECUTED then
+		if espFolder.Name ~= "espFolder" then
+			espFolder.Name, espFolder.Parent = "espFolder", coreGui
+		end
+		for _, connection in ipairs(_G.SO_GUI_CONNECTIONS) do connection:Disconnect() end
+		espFolder:ClearAllChildren()
+		coreGui:FindFirstChild("ScreenGui"):Destroy()
+	end
 	if espFolder.Name ~= "espFolder" then
 		espFolder.Name, espFolder.Parent = "espFolder", coreGui
 	end
-	for _, connection in ipairs(_G.SO_GUI_CONNECTIONS) do connection:Disconnect() end
-	espFolder:ClearAllChildren()
-	coreGui:FindFirstChild("ScreenGui"):Destroy()
+	_G.SO_GUI_EXECUTED = true
 end
 local library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Kiwi-i/wallys-ui-fork/master/lib.lua", true))()
 local window = library:CreateWindow("Stands Online")
 -- main
-local function checkTool(toolObj)
-	return (toolObj:IsA("Tool") and toolObj:FindFirstChild("Handle") and toolObj.Parent:FindFirstChildWhichIsA("Humanoid"))
+local function getTool(toolObj) -- checks if its a tool obj or a meshpart clickable tool
+	toolObj = ((toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or toolObj:IsA("Tool") and toolObj or nil)
+	return (toolObj and (toolObj:FindFirstChild("Handle") and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid"))) and toolObj or nil
 end
 local function gotAdornied(toolObj)
 	for _, espThingy in ipairs(espFolder:GetChildren()) do
-		if espThingy.Adornee == toolObj then
+		if espThingy.Adornee.Parent == toolObj then
 			return true
 		end
 	end
 end
 local function getDroppedItems(toolObj)
-	if window.flags.gditems and checkTool(toolObj) and character.Humanoid.Health ~= 0 then
+	toolObj = getTool(toolObj)
+	if window.flags.gditems and (toolObj and character.Humanoid.Health ~= 0) then
 		character.Humanoid:EquipTool(toolObj)
 	end
 end
 local function itemESP(toolObj)
-	if window.flags.itemEsp and checkTool(toolObj) and not gotAdornied(toolObj) then
+	toolObj = getTool(toolObj)
+	if window.flags.itemEsp and (toolObj and not gotAdornied(toolObj)) then
 		local guiEsp, itemName, itemDist = Instance.new("BillboardGui"), Instance.new("TextLabel"), Instance.new("TextLabel")
 		guiEsp.Name, itemName.Name, itemDist.Name = "itemGui", "itemName", "itemDist"
 		guiEsp.Parent, itemName.Parent, itemDist.Parent = espFolder, guiEsp, guiEsp
@@ -65,17 +74,6 @@ local function itemESP(toolObj)
 		itemDist.TextSize = 15
 		itemDist.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		itemDist.TextStrokeTransparency = 0
-		local distFromChar, connection
-		connection = runService.Heartbeat:Connect(function()
-			if not window.flags.itemesp or toolObj.Parent == nil then
-				guiEsp:Destroy()
-				connection:Disconnect()
-			end
-			distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
-			itemDist.Text = string.format("%sm", distFromChar)
-			guiEsp.Enabled = (distFromChar <= 10 or not toolObj.Parent:IsA("Workspace")) and true or false
-		end)
-		table.insert(_G.SO_GUI_CONNECTIONS. connection)
 	end
 end
 table.insert(_G.SO_GUI_CONNECTIONS, workspace.ChildAdded:Connect(function()
@@ -87,6 +85,15 @@ end))
 table.insert(_G.SO_GUI_CONNECTIONS, player.CharacterRemoving:Connect(function()
 	character = player.CharacterAdded:Wait()
 end))
+table.insert(_G.SO_GUI_CONNECTIONS, runService.Heartbeat:Connect(function()
+	for _, guiEsp in ipairs(espFolder:GetChildren()) do
+		if not window.flags.itemEsp or not guiEsp.Adornee or guiEsp.Adornee.Parent.Parent == nil then guiEsp:Destroy() end
+		local toolObj = guiEsp.Adornee.Parent
+		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
+		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
+		guiEsp.Enabled = (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and true or false
+	end
+end))
 window:Section("Made by: jLn0n#1464")
 window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
 	if window.flags.gditems then
@@ -96,7 +103,7 @@ window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
 	end
 end)
 window:Toggle("Item ESP", {flag = "itemEsp"}, function()
-	if window.flags.itemesp then
+	if window.flags.itemEsp then
 		for _, object in ipairs(workspace:GetChildren()) do
 			itemESP(object)
 		end
@@ -106,4 +113,5 @@ window:Button("Destroy GUI", function()
 	for _, connection in ipairs(_G.SO_GUI_CONNECTIONS) do connection:Disconnect() end
 	espFolder:ClearAllChildren()
 	coreGui:WaitForChild("ScreenGui"):Destroy()
+	_G.SO_GUI_EXECUTED = false
 end)
