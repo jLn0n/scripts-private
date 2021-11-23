@@ -27,7 +27,7 @@ local window = library:CreateWindow("Stands Online")
 -- main
 local function getTool(toolObj) -- checks if its a tool obj or a meshpart clickable tool
 	toolObj = ((toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or toolObj:IsA("Tool") and toolObj or nil)
-	return (toolObj and (toolObj:FindFirstChild("Handle") and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid"))) and toolObj or nil
+	return (toolObj and (toolObj:FindFirstChild("Handle") and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
 end
 local function gotAdornied(toolObj)
 	for _, espThingy in ipairs(espFolder:GetChildren()) do
@@ -39,7 +39,15 @@ end
 local function getDroppedItems(toolObj)
 	toolObj = getTool(toolObj)
 	if window.flags.gditems and (toolObj and character.Humanoid.Health ~= 0) then
-		character.Humanoid:EquipTool(toolObj)
+		if toolObj.Parent:IsA("Workspace") then
+			character.Humanoid:EquipTool(toolObj)
+		elseif toolObj.Parent:IsA("Model") then
+			character.Humanoid:EquipTool(nil);
+			(coroutine.wrap(function()
+				firetouchinterest(toolObj.Handle, character.Head, 0)
+				firetouchinterest(toolObj.Handle, character.Head, 1)
+			end))()
+		end
 	end
 end
 local function itemESP(toolObj)
@@ -47,7 +55,6 @@ local function itemESP(toolObj)
 	if window.flags.itemEsp and (toolObj and not gotAdornied(toolObj)) then
 		local guiEsp, itemName, itemDist = Instance.new("BillboardGui"), Instance.new("TextLabel"), Instance.new("TextLabel")
 		guiEsp.Name, itemName.Name, itemDist.Name = "itemGui", "itemName", "itemDist"
-		guiEsp.Parent, itemName.Parent, itemDist.Parent = espFolder, guiEsp, guiEsp
 		guiEsp.Enabled = true
 		guiEsp.Adornee = toolObj.Handle
 		guiEsp.AlwaysOnTop = true
@@ -74,6 +81,7 @@ local function itemESP(toolObj)
 		itemDist.TextSize = 15
 		itemDist.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		itemDist.TextStrokeTransparency = 0
+		guiEsp.Parent, itemName.Parent, itemDist.Parent = espFolder, guiEsp, guiEsp
 	end
 end
 table.insert(_G.SO_GUI_CONNECTIONS, workspace.ChildAdded:Connect(function()
@@ -87,10 +95,10 @@ table.insert(_G.SO_GUI_CONNECTIONS, player.CharacterRemoving:Connect(function()
 end))
 table.insert(_G.SO_GUI_CONNECTIONS, runService.Heartbeat:Connect(function()
 	for _, guiEsp in ipairs(espFolder:GetChildren()) do
-		if not window.flags.itemEsp or not guiEsp.Adornee or guiEsp.Adornee.Parent.Parent == nil then guiEsp:Destroy() end
+		if not window.flags.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or guiEsp.Adornee.Parent.Parent == nil then guiEsp:Destroy() end
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
-		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
+		guiEsp:FindFirstChild("itemDist").Text = string.format("%sm", distFromChar)
 		guiEsp.Enabled = (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and true or false
 	end
 end))
