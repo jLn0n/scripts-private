@@ -1,7 +1,8 @@
 -- services
+local coreGui = game:GetService("CoreGui")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
-local coreGui = game:GetService("CoreGui")
+local tweenService = game:GetService("TweenService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -25,7 +26,7 @@ end
 local library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Kiwi-i/wallys-ui-fork/master/lib.lua", true))()
 local window = library:CreateWindow("Stands Online")
 -- main
-local function getTool(toolObj) -- checks if its a tool obj or a meshpart clickable tool
+local function getTool(toolObj) -- returns a tool if it passes a certain condition
 	toolObj = ((toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or toolObj:IsA("Tool") and toolObj or nil)
 	return (toolObj and (toolObj:FindFirstChild("Handle") and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
 end
@@ -36,17 +37,32 @@ local function gotAdornied(toolObj)
 		end
 	end
 end
-local function getDroppedItems(toolObj)
-	toolObj = getTool(toolObj)
-	if window.flags.gditems and (toolObj and character.Humanoid.Health ~= 0) then
-		if toolObj.Parent:IsA("Workspace") then
-			character.Humanoid:EquipTool(toolObj)
-		elseif toolObj.Parent:IsA("Model") then
-			character.Humanoid:EquipTool(nil);
-			(coroutine.wrap(function()
-				firetouchinterest(toolObj.Handle, character.Head, 0)
-				firetouchinterest(toolObj.Handle, character.Head, 1)
-			end))()
+local function tpPlayer(posCFrame)
+	posCFrame = typeof(posCFrame) == "Vector3" and CFrame.new(posCFrame) or posCFrame
+	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / (4.5 * 10), Enum.EasingStyle.Quad)
+	local tweenObj = tweenService:Create(character.HumanoidRootPart, _tweenInfo, {
+		CFrame = (posCFrame * CFrame.new(Vector3.new(0, .5, 0)))
+	})
+	tweenObj.Completed:Connect(function()
+		tweenObj:Destroy()
+	end)
+	tweenObj:Play()
+	return tweenObj.Completed
+end
+local function getDroppedItems()
+	for _, toolObj in ipairs(workspace:GetChildren()) do
+		toolObj = getTool(toolObj)
+		if not window.flags.gditems then break end
+		if (toolObj and character.Humanoid.Health ~= 0) then
+			if toolObj.Parent:IsA("Workspace") then
+				character.Humanoid:EquipTool(toolObj)
+			elseif toolObj.Parent:IsA("Model") then
+				local toolHandle = toolObj:FindFirstChild("Handle")
+				tpPlayer(toolHandle.Position):Wait()
+				task.wait(.2)
+				firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
+				firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
+			end
 		end
 	end
 end
@@ -87,15 +103,18 @@ end
 table.insert(_G.SO_GUI_CONNECTIONS, workspace.ChildAdded:Connect(function()
 	for _, object in ipairs(workspace:GetChildren()) do
 		itemESP(object)
-		getDroppedItems(object)
 	end
+	getDroppedItems()
 end))
 table.insert(_G.SO_GUI_CONNECTIONS, player.CharacterRemoving:Connect(function()
 	character = player.CharacterAdded:Wait()
 end))
 table.insert(_G.SO_GUI_CONNECTIONS, runService.Heartbeat:Connect(function()
 	for _, guiEsp in ipairs(espFolder:GetChildren()) do
-		if not window.flags.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or guiEsp.Adornee.Parent.Parent == nil then guiEsp:Destroy() end
+		if not window.flags.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
+			guiEsp:Destroy()
+			continue
+		end
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
 		guiEsp:FindFirstChild("itemDist").Text = string.format("%sm", distFromChar)
@@ -105,9 +124,7 @@ end))
 window:Section("Made by: jLn0n#1464")
 window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
 	if window.flags.gditems then
-		for _, object in ipairs(workspace:GetChildren()) do
-			getDroppedItems(object)
-		end
+		coroutine.wrap(getDroppedItems)()
 	end
 end)
 window:Toggle("Item ESP", {flag = "itemEsp"}, function()
