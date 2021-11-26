@@ -7,19 +7,19 @@ local tweenService = game:GetService("TweenService")
 local player = players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local espFolder = coreGui:FindFirstChild("espFolder") or Instance.new("Folder")
+local tpCompleted = Instance.new("BindableEvent")
 -- init
 do
 	_G.SO_GUI_CONNECTIONS = not _G.SO_GUI_CONNECTIONS and table.create(0) or _G.SO_GUI_CONNECTIONS
 	if _G.SO_GUI_EXECUTED then
-		if espFolder.Name ~= "espFolder" then
-			espFolder.Name, espFolder.Parent = "espFolder", coreGui
-		end
 		for _, connection in ipairs(_G.SO_GUI_CONNECTIONS) do connection:Disconnect() end
 		espFolder:ClearAllChildren()
-		coreGui:FindFirstChild("ScreenGui"):Destroy()
+		if coreGui:FindFirstChild("ScreenGui") then coreGui:FindFirstChild("ScreenGui"):Destroy() end
 	end
 	if espFolder.Name ~= "espFolder" then
-		espFolder.Name, espFolder.Parent = "espFolder", coreGui
+		local gethui = gethui or gethiddenui or get_hidden_gui or function() return coreGui end
+		if syn and syn.protect_gui then syn.protect_gui(espFolder) end
+		espFolder.Name, espFolder.Parent = "espFolder", gethui()
 	end
 	_G.SO_GUI_EXECUTED = true
 end
@@ -39,30 +39,31 @@ local function gotAdornied(toolObj)
 end
 local function tpPlayer(posCFrame)
 	posCFrame = typeof(posCFrame) == "Vector3" and CFrame.new(posCFrame) or posCFrame
-	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / (4.5 * 10), Enum.EasingStyle.Quad)
+	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / 150, Enum.EasingStyle.Quad)
 	local tweenObj = tweenService:Create(character.HumanoidRootPart, _tweenInfo, {
-		CFrame = (posCFrame * CFrame.new(Vector3.new(0, .5, 0)))
+		CFrame = posCFrame
 	})
-	tweenObj.Completed:Connect(function()
-		tweenObj:Destroy()
+	tweenObj.Completed:Connect(function(playbackState)
+		if playbackState == Enum.PlaybackState.Completed then
+			tpCompleted:Fire()
+			tweenObj:Destroy()
+		end
 	end)
 	tweenObj:Play()
-	return tweenObj.Completed
 end
-local function getDroppedItems()
-	for _, toolObj in ipairs(workspace:GetChildren()) do
-		toolObj = getTool(toolObj)
-		if not window.flags.gditems then break end
-		if (toolObj and character.Humanoid.Health ~= 0) then
-			if toolObj.Parent:IsA("Workspace") then
-				character.Humanoid:EquipTool(toolObj)
-			elseif toolObj.Parent:IsA("Model") then
-				local toolHandle = toolObj:FindFirstChild("Handle")
-				tpPlayer(toolHandle.Position):Wait()
-				task.wait(.2)
-				firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
-				firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
-			end
+local function getDroppedItems(toolObj)
+	toolObj = getTool(toolObj)
+	if not window.flags.gditems then return end
+	if (toolObj and character.Humanoid.Health ~= 0) then
+		if toolObj.Parent:IsA("Workspace") then
+			character.Humanoid:EquipTool(toolObj)
+		elseif toolObj.Parent:IsA("Model") then
+			local toolHandle = toolObj:FindFirstChild("Handle")
+			tpPlayer(toolHandle.Position)
+			tpCompleted.Event:Wait()
+			task.wait(.1)
+			firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
+			firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
 		end
 	end
 end
@@ -103,8 +104,8 @@ end
 table.insert(_G.SO_GUI_CONNECTIONS, workspace.ChildAdded:Connect(function()
 	for _, object in ipairs(workspace:GetChildren()) do
 		itemESP(object)
+		coroutine.wrap(getDroppedItems)(object)
 	end
-	getDroppedItems()
 end))
 table.insert(_G.SO_GUI_CONNECTIONS, player.CharacterRemoving:Connect(function()
 	character = player.CharacterAdded:Wait()
@@ -117,14 +118,18 @@ table.insert(_G.SO_GUI_CONNECTIONS, runService.Heartbeat:Connect(function()
 		end
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
-		guiEsp:FindFirstChild("itemDist").Text = string.format("%sm", distFromChar)
+		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
 		guiEsp.Enabled = (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and true or false
 	end
 end))
 window:Section("Made by: jLn0n#1464")
 window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
 	if window.flags.gditems then
-		coroutine.wrap(getDroppedItems)()
+		coroutine.wrap(function()
+			for _, object in ipairs(workspace:GetChildren()) do
+				getDroppedItems(object)
+			end
+		end)()
 	end
 end)
 window:Toggle("Item ESP", {flag = "itemEsp"}, function()
@@ -138,5 +143,4 @@ window:Button("Destroy GUI", function()
 	for _, connection in ipairs(_G.SO_GUI_CONNECTIONS) do connection:Disconnect() end
 	espFolder:ClearAllChildren()
 	coreGui:WaitForChild("ScreenGui"):Destroy()
-	_G.SO_GUI_EXECUTED = false
 end)
