@@ -53,7 +53,6 @@ local function tpPlayer(posCFrame)
 end
 local function getDroppedItems(toolObj)
 	toolObj = getTool(toolObj)
-	if not window.flags.gditems then return end
 	if (toolObj and character.Humanoid.Health ~= 0) then
 		if toolObj.Parent:IsA("Workspace") then
 			character.Humanoid:EquipTool(toolObj)
@@ -62,8 +61,12 @@ local function getDroppedItems(toolObj)
 			tpPlayer(toolHandle.Position)
 			tpCompleted.Event:Wait()
 			task.wait(.1)
-			firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
-			firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
+			if toolHandle:FindFirstChildWhichIsA("TouchTransmitter") then
+				firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
+				firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
+			elseif toolHandle:FindFirstChildWhichIsA("ClickDetector") then
+				fireclickdetector(toolHandle:FindFirstChildWhichIsA("ClickDetector"), 5)
+			end
 		end
 	end
 end
@@ -124,13 +127,12 @@ table.insert(_G.SO_GUI_CONNECTIONS, runService.Heartbeat:Connect(function()
 end))
 window:Section("Made by: jLn0n#1464")
 window:Toggle("Get Dropped Items", {flag = "gditems"}, function()
-	if window.flags.gditems then
-		coroutine.wrap(function()
-			for _, object in ipairs(workspace:GetChildren()) do
-				getDroppedItems(object)
-			end
-		end)()
-	end
+	coroutine.wrap(function()
+		for _, object in ipairs(workspace:GetChildren()) do
+			if not window.flags.gditems then break end
+			getDroppedItems(object)
+		end
+	end)()
 end)
 window:Toggle("Item ESP", {flag = "itemEsp"}, function()
 	if window.flags.itemEsp then
