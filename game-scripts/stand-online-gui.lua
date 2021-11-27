@@ -87,7 +87,7 @@ local function getItem(toolObj)
 	if (toolObj and character.Humanoid.Health ~= 0 and itemFarmable(toolObj.Name)) then
 		if toolObj.Parent:IsA("Workspace") and (config.itemConfig.itemFarmMode == "default" or config.itemConfig.itemFarmMode == "dropped") then
 			character.Humanoid:EquipTool(toolObj)
-		elseif toolObj.Parent:IsA("Model") (config.itemConfig.itemFarmMode == "default" or config.itemConfig.itemFarmMode == "spawned") then
+		elseif toolObj.Parent:IsA("Model") and (config.itemConfig.itemFarmMode == "default" or config.itemConfig.itemFarmMode == "spawned") then
 			local toolHandle = toolObj:FindFirstChild("Handle")
 			tpPlayer(toolHandle.Position)
 			tpCompleted.Event:Wait()
@@ -150,7 +150,7 @@ local itemFarm_config = itemFarm_page:addSection("Configuration")
 local itemFarm_items = itemFarm_page:addSection("Items")
 
 local settings_page = window:addPage("Settings")
-local settings_idk = settings_page:addSection("Settings")
+local settings_section = settings_page:addSection("Settings")
 
 itemFarm_config:addToggle("Item Farm", config.itemConfig.itemFarm, function(value)
 	coroutine.resume(coroutine.create(getItems))
@@ -168,6 +168,11 @@ for _, itemTable in ipairs(itemsList) do
 		config.itemConfig.itemsToFarm[itemTable[2]] = value
 	end)
 end
+
+settings_section:addKeybind("UI Toggle", Enum.KeyCode.RightControl, function()
+	window:toggle()
+end)
+
 window:SelectPage(window.pages[1], true)
 -- init
 _G.standOnline_GUI = not _G.standOnline_GUI and table.create(0) or _G.standOnline_GUI
