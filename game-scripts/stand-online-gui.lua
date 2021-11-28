@@ -156,7 +156,12 @@ local itemFarm_items = farming_page:addSection("Item Whitelist")
 local settings_page = window:addPage("Settings")
 local settings_section = settings_page:addSection("Settings")
 
-expFarm_sect:addToggle("EXP Farm", )
+expFarm_sect:addToggle("EXP Farm", config.expUtil.expFarm, function(value)
+	config.expUtil.expFarm = value
+end)
+expFarm_sect:addToggle("Auto Prestige", config.expUtil.autoPrestige, function(value)
+	config.expUtil.autoPrestige = value
+end)
 
 itemFarm_sect:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
 	coroutine.wrap(getItems)()
