@@ -6,7 +6,7 @@ local tweenService = game:GetService("TweenService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local espFolder --= coreGui:FindFirstChild("espFolder") or Instance.new("Folder")
+local espFolder
 local tpCompleted = Instance.new("BindableEvent")
 -- variables
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -18,14 +18,12 @@ local itemsList = {
 	{"Requiem Arrow", "reqArrow"},
 	{"Heavenly Diary", "diaryBook"},
 	{"Hamon Headband", "hbHamon"},
-	{"Stone Mask", "stoneMask"},
+	{"Vampire Mask", "vampMask"},
 	{"Steel Ball", "steelBall"},
 	{"Other Items", "otherItems"}
 }
 local otherItemsList = {
 	"Roka-Cola",
-	"Diet", -- roka cola
-	"Zero", -- roka cola
 	"Color Arrow",
 	"Pose Arrow",
 	"Idle Arrow",
@@ -34,10 +32,10 @@ local otherItemsList = {
 }
 -- config init
 local config = {
-	["itemConfig"] = {
+	["itemUtil"] = {
 		["itemFarm"] = false,
-		["itemFarmMode"] = "default",
-		["itemsToFarm"] = {},
+		["itemFarming"] = "default",
+		["itemWL"] = {},
 		["itemEsp"] = false,
 	},
 	["configVer"] = 1
@@ -57,10 +55,10 @@ end
 local function itemFarmable(itemName)
 	for _, itemTable in ipairs(itemsList) do
 		if string.find(itemName, itemTable[1]) then
-			return config.itemConfig.itemsToFarm[itemTable[2]]
+			return config.itemUtil.itemWL[itemTable[2]]
 		end
 	end
-	if config.itemConfig.itemsToFarm.otherItems then
+	if config.itemUtil.itemWL.otherItems then
 		for _, _itemName in ipairs(otherItemsList) do
 			if string.find(itemName, _itemName) then
 				return true
@@ -85,9 +83,9 @@ end
 local function getItem(toolObj)
 	toolObj = getTool(toolObj)
 	if (toolObj and character.Humanoid.Health ~= 0 and itemFarmable(toolObj.Name)) then
-		if toolObj.Parent:IsA("Workspace") and (config.itemConfig.itemFarmMode == "default" or config.itemConfig.itemFarmMode == "dropped") then
+		if toolObj.Parent:IsA("Workspace") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "dropped") then
 			character.Humanoid:EquipTool(toolObj)
-		elseif toolObj.Parent:IsA("Model") and (config.itemConfig.itemFarmMode == "default" or config.itemConfig.itemFarmMode == "spawned") then
+		elseif toolObj.Parent:IsA("Model") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "spawned") then
 			local toolHandle = toolObj:FindFirstChild("Handle")
 			tpPlayer(toolHandle.Position)
 			tpCompleted.Event:Wait()
@@ -102,15 +100,15 @@ local function getItem(toolObj)
 	end
 end
 local function getItems()
-	if not config.itemConfig.itemFarm then return end
+	if not config.itemUtil.itemFarm then return end
 	for _, object in ipairs(workspace:GetChildren()) do
-		if not config.itemConfig.itemFarm then break end
+		if not config.itemUtil.itemFarm then break end
 		getItem(object)
 	end
 end
 local function itemESP(toolObj)
 	toolObj = getTool(toolObj)
-	if config.itemConfig.itemEsp and (toolObj and not gotAdornied(toolObj)) then
+	if config.itemUtil.itemEsp and (toolObj and not gotAdornied(toolObj)) then
 		local guiEsp, itemName, itemDist = Instance.new("BillboardGui"), Instance.new("TextLabel"), Instance.new("TextLabel")
 		guiEsp.Name, itemName.Name, itemDist.Name = "itemGui", "itemName", "itemDist"
 		guiEsp.Enabled = true
@@ -145,27 +143,27 @@ end
 -- ui init
 local window = ui_library.new("Stands Online")
 
-local itemFarm_page = window:addPage("Item Utilities", 5012544693)
-local itemFarm_config = itemFarm_page:addSection("Configuration")
-local itemFarm_items = itemFarm_page:addSection("Items")
+local itemFarm_page = window:addPage("Farming", 5012544693)
+local itemFarm_config = itemFarm_page:addSection("Item Utilities")
+local itemFarm_items = itemFarm_page:addSection("Item Whitelist")
 
 local settings_page = window:addPage("Settings")
 local settings_section = settings_page:addSection("Settings")
 
-itemFarm_config:addToggle("Item Farm", config.itemConfig.itemFarm, function(value)
-	coroutine.resume(coroutine.create(getItems))
-	config.itemConfig.itemFarm = value
+itemFarm_config:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
+	coroutine.wrap(getItems)()
+	config.itemUtil.itemFarm = value
 end)
-itemFarm_config:addDropdown("Farm Mode", {"Default", "Spawned", "Dropped"}, function(value)
-	coroutine.resume(coroutine.create(getItems))
-	config.itemConfig.itemFarmMode = string.lower(value)
+itemFarm_config:addDropdown("Items To Farm", {"Default", "Spawned", "Dropped"}, function(value)
+	coroutine.wrap(getItems)()
+	config.itemUtil.itemFarming = string.lower(value)
 end)
-itemFarm_config:addToggle("Item ESP", config.itemConfig.itemEsp, function(value)
-	config.itemConfig.itemEsp = value
+itemFarm_config:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
+	config.itemUtil.itemEsp = value
 end)
 for _, itemTable in ipairs(itemsList) do
-	itemFarm_items:addToggle(itemTable[1], config.itemConfig.itemsToFarm[itemTable[2]], function(value)
-		config.itemConfig.itemsToFarm[itemTable[2]] = value
+	itemFarm_items:addToggle(itemTable[1], config.itemUtil.itemWL[itemTable[2]], function(value)
+		config.itemUtil.itemWL[itemTable[2]] = value
 	end)
 end
 
@@ -191,14 +189,14 @@ table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(functi
 	for _, object in ipairs(workspace:GetChildren()) do
 		itemESP(object)
 	end
-	coroutine.resume(coroutine.create(getItems))
+	coroutine.wrap(getItems)()
 end))
 table.insert(_G.standOnline_GUI.connections, player.CharacterRemoving:Connect(function()
 	character = player.CharacterAdded:Wait()
 end))
 table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(function()
 	for _, guiEsp in ipairs(espFolder:GetChildren()) do
-		if not config.itemConfig.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
+		if not config.itemUtil.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
 			guiEsp:Destroy()
 			continue
 		end
