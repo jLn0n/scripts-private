@@ -32,6 +32,10 @@ local otherItemsList = {
 }
 -- config init
 local config = {
+	["expUtil"] = {
+		["expFarm"] = false,
+		--[""] = false
+	},
 	["itemUtil"] = {
 		["itemFarm"] = false,
 		["itemFarming"] = "default",
@@ -143,22 +147,26 @@ end
 -- ui init
 local window = ui_library.new("Stands Online")
 
-local itemFarm_page = window:addPage("Farming", 5012544693)
-local itemFarm_config = itemFarm_page:addSection("Item Utilities")
-local itemFarm_items = itemFarm_page:addSection("Item Whitelist")
+local farming_page = window:addPage("Farming", 5012544693)
+
+local expFarm_sect = farming_page:addSection("EXP Utils (SOON!)")
+local itemFarm_sect = farming_page:addSection("Item Utils")
+local itemFarm_items = farming_page:addSection("Item Whitelist")
 
 local settings_page = window:addPage("Settings")
 local settings_section = settings_page:addSection("Settings")
 
-itemFarm_config:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
+expFarm_sect:addToggle("EXP Farm", )
+
+itemFarm_sect:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
 	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarm = value
 end)
-itemFarm_config:addDropdown("Items To Farm", {"Default", "Spawned", "Dropped"}, function(value)
+itemFarm_sect:addDropdown("Items To Farm", {"Default", "Spawned", "Dropped"}, function(value)
 	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarming = string.lower(value)
 end)
-itemFarm_config:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
+itemFarm_sect:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
 	config.itemUtil.itemEsp = value
 end)
 for _, itemTable in ipairs(itemsList) do
