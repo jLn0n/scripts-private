@@ -34,7 +34,9 @@ local otherItemsList = {
 local config = {
 	["expUtil"] = {
 		["expFarm"] = false,
-		--[""] = false
+		["plrDist"] = 3,
+		["autoPrestige"] = false,
+		["farmingMob"] = "Thug"
 	},
 	["itemUtil"] = {
 		["itemFarm"] = false,
@@ -45,9 +47,13 @@ local config = {
 	["configVer"] = 1
 }
 -- functions
-local function getTool(toolObj) -- returns a tool if it passes a certain condition
-	toolObj = ((toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or toolObj:IsA("Tool") and toolObj or nil)
-	return (toolObj and (toolObj:FindFirstChild("Handle") and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
+local function getTool(toolObj) -- returns the tool if it passes a certain condition
+	toolObj = (
+		(toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or
+		--(toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("ClickDetector", true)) and toolObj:FindFirstChildWhichIsA("MeshPart") or
+		toolObj:IsA("Tool") and toolObj or nil
+	)
+	return (toolObj and ((toolObj:IsA("BasePart") or toolObj:FindFirstChild("Handle")) and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
 end
 local function gotAdornied(toolObj)
 	for _, espThingy in ipairs(espFolder:GetChildren()) do
@@ -153,11 +159,25 @@ local expFarm_sect = farming_page:addSection("EXP Utils (SOON!)")
 local itemFarm_sect = farming_page:addSection("Item Utils")
 local itemFarm_items = farming_page:addSection("Item Whitelist")
 
-local settings_page = window:addPage("Settings")
-local settings_section = settings_page:addSection("Settings")
+local settings_sect = window:addPage("Settings")
+local settings_section = settings_sect:addSection("Settings")
 
 expFarm_sect:addToggle("EXP Farm", config.expUtil.expFarm, function(value)
 	config.expUtil.expFarm = value
+end)
+expFarm_sect:addDropdown("Mob to Farm", {
+	"Thug",
+	"Brute",
+	"Gorilla",
+	"Werewolf",
+	"Zombie",
+	"Vampire",
+	"Hamon Golem"
+}, function(value)
+	config.expUtil.farmingMob = value
+end)
+expFarm_sect:addSlider("Distance", config.expUtil.plrDist, 0, 10, function(value)
+	config.expUtil.plrDist = value
 end)
 expFarm_sect:addToggle("Auto Prestige", config.expUtil.autoPrestige, function(value)
 	config.expUtil.autoPrestige = value
@@ -167,7 +187,7 @@ itemFarm_sect:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
 	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarm = value
 end)
-itemFarm_sect:addDropdown("Items To Farm", {"Default", "Spawned", "Dropped"}, function(value)
+itemFarm_sect:addDropdown("Items To Farm", {"Default", "Dropped", "Spawned"}, function(value)
 	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarming = string.lower(value)
 end)
