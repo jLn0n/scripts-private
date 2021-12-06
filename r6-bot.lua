@@ -44,6 +44,8 @@ local function onCharRemoved()
 end
 
 task.defer(function() -- initializing reanimation after the code below ran
+	character:SetPrimaryPartCFrame(CFrame.new(Vector3.new(1, 1, 1) * 10e10))
+	task.wait(.175)
 	hRootPart.Anchored = true
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
@@ -88,27 +90,31 @@ end)
 if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	player.ReplicationFocus = workspace
 
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, _G.Settings.Velocity, _G.Settings.Velocity
+			local BodyVel, BodyAngVel = Instance.new("BodyForce"), Instance.new("BodyAngularVelocity")
+			BodyVel.Force = _G.Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
 			BodyVel.Parent, BodyAngVel.Parent = object, object
 		end
 	end
 
-	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-		setsimulationradius(1e10, 1e10)
-		for _, object in ipairs(character:GetChildren()) do
-			if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
-				object.Massless, object.CanCollide = true, false
-				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
-				sethiddenproperty(object, "NetworkIsSleeping", false)
+	-- TODO: disconnect the coroutine when its no longer used
+	coroutine.resume(coroutine.create(function()
+		while true do
+			for _, object in ipairs(character:GetChildren()) do
+				if object:IsA("Accessory") and object:FindFirstChild("Handle") then object = object:FindFirstChild("Handle")
+					object.Massless, object.CanCollide = true, false
+					object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
+					sethiddenproperty(object, "NetworkIsSleeping", false)
+				end
 			end
+			task.wait()
 		end
-	end)
+	end))
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
