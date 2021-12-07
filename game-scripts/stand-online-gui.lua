@@ -76,6 +76,9 @@ local function itemFarmable(itemName)
 		end
 	end
 end
+local function expFarmMob(mobObj)
+	-- TODO: figure out how to do the expFarm
+end
 local function tpPlayer(posCFrame)
 	posCFrame = typeof(posCFrame) == "Vector3" and CFrame.new(posCFrame) or posCFrame
 	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / 150, Enum.EasingStyle.Quad)
@@ -195,6 +198,7 @@ itemFarm_sect:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
 	config.itemUtil.itemEsp = value
 end)
 for _, itemTable in ipairs(itemsList) do
+	config.itemUtil.itemWL[itemTable[2]] = true
 	itemFarm_items:addToggle(itemTable[1], config.itemUtil.itemWL[itemTable[2]], function(value)
 		config.itemUtil.itemWL[itemTable[2]] = value
 	end)
