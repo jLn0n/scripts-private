@@ -2,6 +2,7 @@
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
+local insertService = game:GetService("InsertService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
@@ -12,16 +13,17 @@ assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", playe
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
 	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
-	_G.Settings.HeadName = _G.Settings.HeadName or "MediHood"
+	_G.Settings.HeadName = _G.Settings.HeadName
 	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(-35, -25.05, 0)
 	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
 	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
+print("connections cleared")
 -- variables
 local charOldPos = rootPart.CFrame
 local accessories, bodyParts = table.create(0), {
-	["Head"] = character:FindFirstChild(_G.Settings.HeadName),
+	["Head"] = character:FindFirstChild(_G.Settings.HeadName or "MediHood"),
 	["Torso"] = character:FindFirstChild("SeeMonkey"),
 	["Torso1"] = character:FindFirstChild("Robloxclassicred"),
 	["Torso2"] = character:FindFirstChild("LavanderHair"),
@@ -31,7 +33,7 @@ local accessories, bodyParts = table.create(0), {
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
 -- main
-local botChar = game:GetObjects("rbxassetid://6843243348")[1]
+local botChar = insertService:LoadLocalAsset("rbxassetid://6843243348")
 botChar.Name = string.format("%s-reanimation", player.UserId)
 for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 
@@ -50,7 +52,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 	animScript.Parent = botChar
 	animScript.Disabled = false
 	botChar.HumanoidRootPart.CFrame = charOldPos
-	plrFace.Parent, plrFace.Transparency = botChar.Head, 1
+	plrFace.Parent = botChar.Head
+	plrFace.Transparency = 1
 	for PartName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
 			object.Name = (string.match(PartName, "Torso") and "Torso" or PartName)
@@ -74,7 +77,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 			table.insert(accessories, object)
 		end
 	end
-	player.Character, botChar.Parent = botChar, character
+	player.Character = botChar
+	botChar.Parent = character
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
 	starterGui:SetCore("SendNotification", {
@@ -84,24 +88,11 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-if _G.Settings.UseBuiltinNetless then
+if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
 
-	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-		for _, object in ipairs(character:GetChildren()) do
-			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
-			if object then
-				object.Massless, object.CanCollide = true, false
-				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
-				sethiddenproperty(object, "NetworkIsSleeping", false)
-			end
-		end
-		rnet.sendposition(Vector3.new(1, 1, 1) * 1e10)
-	end)
-
-	player:GetPropertyChangedSignal("Character"):Wait()
 	for _, object in ipairs(character:GetChildren()) do
 		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 		if object then
@@ -111,6 +102,17 @@ if _G.Settings.UseBuiltinNetless then
 			BodyVel.Parent, BodyAngVel.Parent = object, object
 		end
 	end
+
+	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+		for _, object in ipairs(character:GetChildren()) do
+			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+			if object then
+				object.Massless, object.CanCollide = true, false
+				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
+			end
+		end
+		rnet.sendposition(Vector3.new(1, 1, 1) * 1e10)
+	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
