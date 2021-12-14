@@ -85,10 +85,20 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-if _G.Settings.UseBuiltinNetless then
+if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Skip8
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+
+	for _, object in ipairs(character:GetChildren()) do
+		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+		if object then
+			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
+			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, Vector3.new(1, 1, 1) * math.huge, _G.Settings.Velocity
+			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
+			BodyVel.Parent, BodyAngVel.Parent = object, object
+		end
+	end
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
@@ -97,21 +107,10 @@ if _G.Settings.UseBuiltinNetless then
 				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
 				sethiddenproperty(object, "NetworkIsSleeping", false)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
 		end
-		setsimulationradius(-1, -1)
 	end)
-
-	player:GetPropertyChangedSignal("Character"):Wait()
-	for _, object in ipairs(character:GetChildren()) do
-		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
-		if object then
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.MaxForce, BodyVel.Velocity = _G.Settings.Velocity, _G.Settings.Velocity
-			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = object, object
-		end
-	end
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
