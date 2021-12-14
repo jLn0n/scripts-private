@@ -12,14 +12,14 @@ local rootPart = character.HumanoidRootPart
 assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", player.UserId)), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
-	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
+	_G.Connections = _G.Connections or table.create(0)
+	_G.Settings = _G.Settings or table.create(0)
 	_G.Settings.HeadName = _G.Settings.HeadName
 	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(-35, -25.05, 0)
 	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
 	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
-print("connections cleared")
 -- variables
 local charOldPos = rootPart.CFrame
 local accessories, bodyParts = table.create(0), {
@@ -46,12 +46,12 @@ local function onCharRemoved()
 end
 
 task.defer(function() -- initializing reanimation after the code below ran
+	character:PivotTo(CFrame.new(Vector3.new(1, 1, 1) * 1e10))
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
 	animScript.Disabled = true
 	animScript.Parent = botChar
 	animScript.Disabled = false
-	botChar.HumanoidRootPart.CFrame = charOldPos
 	plrFace.Parent = botChar.Head
 	plrFace.Transparency = 1
 	for PartName, object in pairs(bodyParts) do
@@ -79,6 +79,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 	end
 	player.Character = botChar
 	botChar.Parent = character
+	botChar.HumanoidRootPart.CFrame = charOldPos
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
 	starterGui:SetCore("SendNotification", {
@@ -88,16 +89,17 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
+player:GetPropertyChangedSignal("Character"):Wait()
+if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 
 	for _, object in ipairs(character:GetChildren()) do
 		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 		if object then
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.MaxForce, BodyVel.Velocity = _G.Settings.Velocity, _G.Settings.Velocity
+			local BodyVel, BodyAngVel = Instance.new("BodyForce"), Instance.new("BodyAngularVelocity")
+			BodyVel.Force = _G.Settings.Velocity
 			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
 			BodyVel.Parent, BodyAngVel.Parent = object, object
 		end
@@ -109,9 +111,10 @@ if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character
 			if object then
 				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
+				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
-		rnet.sendposition(Vector3.new(1, 1, 1) * 1e10)
+		rnet.sendposition(Vector3.new(1, 1, 1) * 10e10)
 	end)
 end
 
