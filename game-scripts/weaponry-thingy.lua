@@ -16,8 +16,11 @@ local config = {
 	},
 	["Esp"] = {
 		["Enabled"] = false,
+		["Name"] = true,
+		["Health"] = true,
+		["Distance"] = true,
 		["Tracers"] = true,
-		["TeamCheck"] = true
+		["TeamCheck"] = true,
 	}
 }
 -- services
@@ -42,9 +45,11 @@ local frameworkUpvals do
 	end
 end
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
-local owlEsp = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/owlesp-modified.lua"))()
+local espUtil = _G.espUtil --loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-util.lua"))()
 local nearPlrs = table.create(0)
-local owlEspPlrDatas = table.create(0)
+local plrEspList = table.create(0)
+local espTextFormat = "Name: %s+Health: %s / %s+Distance: %s"
+local espTextCount = 0
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
@@ -67,10 +72,10 @@ local function getNearestPlrByCursor()
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_dPart = getAimPart(hitboxes:FindFirstChild(plr.UserId))
 		if not p_dPart then continue end
-		local posVec3 = camera:WorldToViewportPoint(p_dPart.Position)
+		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
-		if checkPlr(plr) and (config.SilentAim.VisibleCheck and inLineOfSite(p_dPart.Position, plr.Character) or true) and distance <= config.SilentAim.Distance then
+		if checkPlr(plr) and (config.SilentAim.VisibleCheck and (onScreen and inLineOfSite(p_dPart.Position, plr.Character)) or true) and distance <= config.SilentAim.Distance then
 			table.insert(nearPlrs, {
 				aimPart = p_dPart,
 				dist = distance,
@@ -135,7 +140,16 @@ esp_sect:addToggle("Enable", config.Esp.Enabled, function(value)
 	config.Esp.Enabled = value
 end)
 esp_sect:addToggle("Tracers", config.Esp.Tracers, function(value)
-	config.Esp.Enabled = value
+	config.Esp.Tracers = value
+end)
+esp_sect:addToggle("Name", config.Esp.Name, function(value)
+	config.Esp.Name = value
+end)
+esp_sect:addToggle("Health", config.Esp.Health, function(value)
+	config.Esp.Health = value
+end)
+esp_sect:addToggle("Distance", config.Esp.Distance, function(value)
+	config.Esp.Distance = value
 end)
 esp_sect:addToggle("Team Check", config.Esp.TeamCheck, function(value)
 	config.Esp.TeamCheck = value
@@ -161,30 +175,52 @@ end)
 runService.RenderStepped:Connect(function()
 	for _, plr in ipairs(players:GetPlayers()) do
 		if plr == player then continue end
-		if not owlEspPlrDatas[plr.Name] then
-			owlEspPlrDatas[plr.Name] = owlEsp.new({
-				plr = plr,
-				espBoxVisible = config.Esp.Enabled,
-				tracerVisible = config.Esp.Enabled and config.Esp.Tracers or false,
-				text = plr.Name,
+		if not plrEspList[plr.Name] then
+			plrEspList[plr.Name] = espUtil.new(plr, {
+				color = Color3.new(255, 255, 255),
 				teamCheck = config.Esp.TeamCheck,
-				espColor = Color3.new(255, 255, 255)
+				visibility = {
+					box = config.Esp.Enabled,
+					tracer = config.Esp.Enabled and config.Esp.Tracers,
+					text = config.Esp.Enabled and config.Esp.Name
+				}
 			})
 		end
 	end
-	for plr, espData in pairs(owlEspPlrDatas) do
-		local plrObj = players:FindFirstChild(plr)
+	for plrName, espData in pairs(plrEspList) do
+		local plrObj = players:FindFirstChild(plrName)
 		if plrObj then
-			espData:setConfig({
-				char = plrObj.Character,
-				espBoxVisible = config.Esp.Enabled,
-				tracerVisible = config.Esp.Enabled and config.Esp.Tracers or false,
-				teamCheck = config.Esp.TeamCheck
+			local textFormat = string.gsub(espTextFormat, "+", function(value)
+				local _split = string.split(value, ":")
+				if config.Esp[_split[1]] then
+					espTextCount += 1
+					return value .. "|"
+				else
+					return ""
+				end
+			end)
+			espData:updateConfig({
+				character = plrObj.Character,
+				color = Color3.new(255, 255, 255),
+				text = string.format(string.gsub(textFormat, "|", "\n"),
+					plrObj.Name,
+					"helth",
+					"maxhelth",
+					math.floor(player:DistanceFromCharacter(Vector3.new(420, 0, 0)))
+				),
+				textOffset = 16 * (espTextCount - 1),
+				teamCheck = config.Esp.TeamCheck,
+				visibility = {
+					box = config.Esp.Enabled,
+					tracer = config.Esp.Enabled and config.Esp.Tracers,
+					text = config.Esp.Enabled and config.Esp.Name
+				}
 			})
-			espData:update()
+			espData:updateRender()
+			espTextCount = 0
 		else
 			espData:remove()
-			owlEspPlrDatas[plr] = nil
+			plrEspList[plrName] = nil
 		end
 	end
 end)
