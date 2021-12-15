@@ -107,7 +107,7 @@ if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character
 				object.Massless, object.CanCollide = true, false
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.OnContact)
 			end
 		end
 	end)
