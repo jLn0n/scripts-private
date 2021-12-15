@@ -1,32 +1,37 @@
 -- services
 local insertService = game:GetService("InsertService")
--- variables
+-- variables / functions
 local gameMt = getrawmetatable(game)
 local oldIndex, oldNamecall = gameMt.__index, gameMt.__namecall
+local loadLocalAsset = function(...)
+	return {insertService.LoadLocalAsset(insertService, ...)}
+end
+local function newcclosure(...)
+	return ...
+end
 -- main
 setreadonly(gameMt, false)
-gameMt.__index = function(...)
-	if checkcaller() then
-		local args = {...}
-		local nameIndex = args[2]
-		if nameIndex == "HttpGet" then
-			return httpget(args[3], args[4])
-		elseif nameIndex == "GetObjects" then
-			return {insertService:LoadLocalAsset(args[3])}
+gameMt.__index = newcclosure(function(...)
+	local self, indexKey = select(1, ...)
+	if self == game and checkcaller() then
+		if indexKey == "HttpGet" then
+			return httpget
+		elseif indexKey == "GetObjects" then
+			return loadLocalAsset
 		end
 	end
 	return oldIndex(...)
-end
-gameMt.__namecall = function(...)
-	if checkcaller() then
-		local args = {...}
-		local namecallMethod = getnamecallmethod()
+end)
+gameMt.__namecall = newcclosure(function(...)
+	local self, arg1, arg2 = select(1, ...)
+	local namecallMethod = getnamecallmethod()
+	if self == game and checkcaller() then
 		if namecallMethod == "HttpGet" then
-			return httpget(args[2], args[3])
+			return httpget(arg1, arg2)
 		elseif namecallMethod == "GetObjects" then
-			return {insertService:LoadLocalAsset(args[2])}
+			return loadLocalAsset(arg1)
 		end
 	end
 	return oldNamecall(...)
-end
+end)
 setreadonly(gameMt, true)
