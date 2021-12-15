@@ -45,11 +45,11 @@ local frameworkUpvals do
 	end
 end
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
-local espUtil = _G.espUtil --loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-util.lua"))()
+local espUtil = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-util.lua"))()
 local nearPlrs = table.create(0)
 local plrEspList = table.create(0)
-local espTextFormat = "Name: %s+Health: %s / %s+Distance: %s"
-local espTextCount = 0
+local espTextFormat = "Name: %s|Health: %s / %s|Distance: %s"
+local espTextCount = 1
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
@@ -173,6 +173,13 @@ runService.Heartbeat:Connect(function()
 	end
 end)
 runService.RenderStepped:Connect(function()
+	local textFormat = string.gsub(espTextFormat, "|", function(value)
+		value = string.gsub(value, "|", "")
+		local _split = string.split(value, ":")
+		local _enabled = config.Esp[_split[1]]
+		espTextCount = _enabled and (espTextCount >= 3 and espTextCount or espTextCount + 1) or espTextCount
+		return _enabled and (value .. "\0\r\n") or ""
+	end)
 	for _, plr in ipairs(players:GetPlayers()) do
 		if plr == player then continue end
 		if not plrEspList[plr.Name] then
@@ -182,7 +189,7 @@ runService.RenderStepped:Connect(function()
 				visibility = {
 					box = config.Esp.Enabled,
 					tracer = config.Esp.Enabled and config.Esp.Tracers,
-					text = config.Esp.Enabled and config.Esp.Name
+					text = config.Esp.Enabled
 				}
 			})
 		end
@@ -190,23 +197,16 @@ runService.RenderStepped:Connect(function()
 	for plrName, espData in pairs(plrEspList) do
 		local plrObj = players:FindFirstChild(plrName)
 		if plrObj then
-			local textFormat = string.gsub(espTextFormat, "+", function(value)
-				local _split = string.split(value, ":")
-				if config.Esp[_split[1]] then
-					espTextCount += 1
-					return value .. "|"
-				else
-					return ""
-				end
-			end)
+			local plrChar = plrObj.Character
+			local humanoid, rootPart = plrChar and plrChar:FindFirstChildWhichIsA("Humanoid"), plrChar and plrChar:FindFirstChild("HumanoidRootPart")
 			espData:updateConfig({
-				character = plrObj.Character,
+				character = plrChar,
 				color = Color3.new(255, 255, 255),
-				text = string.format(string.gsub(textFormat, "|", "\n"),
+				text = string.format(textFormat,
 					plrObj.Name,
-					"helth",
-					"maxhelth",
-					math.floor(player:DistanceFromCharacter(Vector3.new(420, 0, 0)))
+					humanoid and humanoid.Health or "NaN",
+					humanoid and humanoid.MaxHealth or "NaN",
+					rootPart and math.floor(player:DistanceFromCharacter(rootPart.Position)) or "NaN"
 				),
 				textOffset = 16 * (espTextCount - 1),
 				teamCheck = config.Esp.TeamCheck,
@@ -217,7 +217,7 @@ runService.RenderStepped:Connect(function()
 				}
 			})
 			espData:updateRender()
-			espTextCount = 0
+			espTextCount = 1
 		else
 			espData:remove()
 			plrEspList[plrName] = nil
