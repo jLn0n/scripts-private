@@ -1,199 +1,122 @@
--- // SERVICES
-local Players = game:GetService("Players")
-local RepStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local Workspace = game.Workspace
--- // OBJECTS
-local Camera = Workspace.CurrentCamera
-local Player = Players.LocalPlayer
-local HRP = Player.Character.HumanoidRootPart
-local Humanoid = Player.Character.Humanoid
-local ShootEvent, ReloadEvent, ItemHandler, TeamEvent =
-	RepStorage.ShootEvent,
-	RepStorage.ReloadEvent,
-	Workspace.Remote.ItemHandler,
-	Workspace.Remote.TeamEvent
--- // VARIABLES
-local TargetPlr
-local sformat = string.format
-local WalkSpeed, JumpPower = 16, 50
--- // MAIN
-ItemHandler:InvokeServer(workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP)
-for _, module in next, getloadedmodules() do
-	if module.Name == "GunStates" and module.Parent == Player.Backpack then
-		module = require(module)
-		module.MaxAmmo = math.huge
-		module.CurrentAmmo = math.huge
+-- services
+local players = game:GetService("Players")
+local repStorage = game:GetService("ReplicatedStorage")
+local runService = game:GetService("RunService")
+-- objects
+local player = players.LocalPlayer
+local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+local camera = workspace.CurrentCamera
+-- events
+local melee = repStorage:FindFirstChild("meleeEvent")
+local teamChange = workspace.Remote:FindFirstChild("TeamEvent")
+local itemHandler = workspace.Remote:FindFirstChild("ItemHandler")
+-- variables
+local killAll_hrpTarget
+local killWl = table.create(0)
+local walkSpeed, jumpPower = 16, 50
+-- functions
+local function killPlr(targetPlr)
+	if not targetPlr or killWl[targetPlr.Name] then return end
+	killAll_hrpTarget = targetPlr.Character:FindFirstChild("HumanoidRootPart")
+	if killAll_hrpTarget and not targetPlr.Character:FindFirstChildWhichIsA("ForceField") and targetPlr.Character:FindFirstChildWhichIsA("Humanoid") then
+		itemHandler:InvokeServer(workspace.Prison_ITEMS.single:FindFirstChild("Crude Knife").ITEMPICKUP)
+		for _ = 1, 100 do
+			if targetPlr.Character.Humanoid.Health == 0 then break end
+			melee:FireServer(targetPlr)
+		end
 	end
+	killAll_hrpTarget = nil
 end
-local KillPlr = function(targetPlr)
-	if targetPlr and targetPlr.Character then
-		local aFuckingGun = Player.Backpack:FindFirstChild("Remington 870")
-		local remote_args = {
-			[1] = {
-				[1] = {
-					["RayObject"] = Ray.new(aFuckingGun.Muzzle.Position, targetPlr.Character.Head.Position + Vector3.new(0, math.random(.1, 1))),
-					["Distance"] = (HRP.Position - targetPlr.Character.HumanoidRootPart.Position).Magnitude,
-					["Cframe"] = targetPlr.Character.Head.CFrame,
-					["Hit"] = targetPlr.Character.Head
-				},
-				[2] = {
-					["RayObject"] = Ray.new(aFuckingGun.Muzzle.Position, targetPlr.Character.Head.Position + Vector3.new(0, math.random(.1, 1))),
-					["Distance"] = (HRP.Position - targetPlr.Character.HumanoidRootPart.Position).Magnitude,
-					["Cframe"] = targetPlr.Character.Head.CFrame,
-					["Hit"] = targetPlr.Character.Head
-				},
-				[3] = {
-					["RayObject"] = Ray.new(aFuckingGun.Muzzle.Position, targetPlr.Character.Head.Position + Vector3.new(0, math.random(.1, 1))),
-					["Distance"] = (HRP.Position - targetPlr.Character.HumanoidRootPart.Position).Magnitude,
-					["Cframe"] = targetPlr.Character.Head.CFrame,
-					["Hit"] = targetPlr.Character.Head
-				},
-				[4] = {
-					["RayObject"] = Ray.new(aFuckingGun.Muzzle.Position, targetPlr.Character.Head.Position + Vector3.new(0, math.random(.1, 1))),
-					["Distance"] = (HRP.Position - targetPlr.Character.HumanoidRootPart.Position).Magnitude,
-					["Cframe"] = targetPlr.Character.Head.CFrame,
-					["Hit"] = targetPlr.Character.Head
-				},
-				[5] = {
-					["RayObject"] = Ray.new(aFuckingGun.Muzzle.Position, targetPlr.Character.Head.Position + Vector3.new(0, math.random(.1, 1))),
-					["Distance"] = (HRP.Position - targetPlr.Character.HumanoidRootPart.Position).Magnitude,
-					["Cframe"] = targetPlr.Character.Head.CFrame,
-					["Hit"] = targetPlr.Character.Head
-				},
-			},
-			[2] = aFuckingGun
-		}
-		ShootEvent:FireServer(table.unpack(remote_args))
-		ReloadEvent:FireServer(aFuckingGun)
-	end
-	wait()
-end
-local FindPlyrFromString = function(str)
-	for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-		if string.sub(string.lower(player.Name), 0, string.len(str)) == string.lower(str) then
-			if player:IsA("Player") and player.Name ~= Player.Name and player ~= nil then
-				return player
+local function stringFindPlayer(str)
+	for _, plr in ipairs(players:GetPlayers()) do
+		local atMatch = string.match(str, "^@")
+		if atMatch then
+			str = string.gsub(str, atMatch, "", 1)
+			if string.sub(string.lower(plr.Name), 0, string.len(str)) == string.lower(str) then
+				return plr == player and nil or plr
+			end
+		else
+			if string.sub(string.lower(plr.DisplayName), 0, string.len(str)) == string.lower(str) then
+				return plr == player and nil or plr
 			end
 		end
 	end
 end
-local CreateMessage = function(text)
-	StarterGui:SetCore("ChatMakeSystemMessage", {
-		Text = text,
-		Color = Color3.fromRGB(255, 255, 255),
-		Font = Enum.Font.SourceSansBold,
-		FontSize = Enum.FontSize.Size32,
-	})
+local function getPlayers()
+	local plrsTable = players:GetPlayers()
+	table.sort(plrsTable, function(plr1, plr2)
+		local plr1Char, plr2Char = plr1.Character, plr2.Character
+		local plr1Count, plr2Count = 0, 0
+		plr1Count = not plr1Char:FindFirstChildWhichIsA("Humanoid") and plr1Count or plr1Count + 1
+		plr2Count = not plr2Char:FindFirstChildWhichIsA("Humanoid") and plr2Count or plr2Count + 1
+		plr1Count = not plr1Char:FindFirstChildWhichIsA("ForceField") and plr1Count or plr1Count + 1
+		plr2Count = not plr2Char:FindFirstChildWhichIsA("ForceField") and plr2Count or plr2Count + 1
+		return (plr1Count < plr2Count)
+	end)
+	return plrsTable
 end
-Player.CharacterAdded:Connect(function(char)
-	wait()
-	ItemHandler:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
-	for _, module in next, getloadedmodules() do
-		if module.Name == "GunStates" and module.Parent == Player.Backpack then
-			module = require(module)
-			module.MaxAmmo = math.huge
-			module.CurrentAmmo = math.huge
+-- main
+runService.Heartbeat:Connect(function()
+	if killAll_hrpTarget and killAll_hrpTarget.Parent.Humanoid.Health ~= 0 then
+		rnet.sendposition(killAll_hrpTarget.Position - Vector3.new(0, 4))
+	end
+	if humanoid then
+		humanoid.WalkSpeed = walkSpeed
+		humanoid.JumpPower = jumpPower
+	end
+	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
+end)
+player.Chatted:Connect(function(msg)
+	msg = string.lower(msg)
+	local prefixMatch = string.match(msg, "^/")
+
+	if prefixMatch then
+		msg = string.gsub(msg, prefixMatch, "", 1)
+		local args = table.create(0)
+		for arg in string.gmatch(msg, "[^%s]+") do
+			table.insert(args, arg)
 		end
-	end
-	HRP = char.HumanoidRootPart
-	Humanoid = char.Humanoid
-	Camera.CameraSubject = char.Humanoid
-end)
-RunService:BindToRenderStep("Naem_GOTYABEBEKOH", math.huge, function()
-	if Humanoid then
-		Humanoid.WalkSpeed = WalkSpeed
-		Humanoid.JumpPower = JumpPower
-	end
-end)
-Player.Chatted:Connect(function(chat)
-	local chatBody = string.split(chat, " ")
-	if chatBody[1] == "/e" then
-		if chatBody[2] == "kill" then
-			if chatBody[3] == "all" then
-				TeamEvent:FireServer("Medium stone grey")
-				for _, player in pairs(Players:GetPlayers()) do
-					if player.Name ~= Player.Name then
-						if player and player.Character and player.Character:FindFirstChild("Humanoid") then
-							KillPlr(player)
-						end
+
+		if args[1] == "kill" then
+			if args[2] == "all" then
+				for _, plr in ipairs(getPlayers()) do
+					if plr ~= player and plr.Character then
+						killPlr(plr)
 					end
 				end
-				TeamEvent:FireServer("Bright orange")
-				CreateMessage("All players has been killed.")
-			elseif chatBody[3] == "cops" or chatBody[3] == "guards" then
-				TeamEvent:FireServer("Medium stone grey")
-				for _, player in pairs(Players:GetPlayers()) do
-					if player.Name ~= Player.Name then
-						if player and player.Character and player.Character:FindFirstChild("Humanoid") and  player.TeamColor.Name == "Bright blue" then
-							KillPlr(player)
-						end
+			elseif (args[2] == "cops" or args[2] == "guards") or (args[2] == "crims" or args[2] == "criminals") or (args[2] == "inmates" or args[2] == "prisoners") then
+				for _, plr in ipairs(getPlayers()) do
+					if plr ~= player and plr.Character and plr.TeamColor.Name == (
+						(args[2] == "cops" or args[2] == "guards") and "Bright blue" or
+						(args[2] == "crims" or args[2] == "criminals") and "Really red" or
+						(args[2] == "inmates" or args[2] == "prisoners") and "Bright orange" or nil
+					) then
+						killPlr(plr)
 					end
 				end
-				TeamEvent:FireServer("Bright orange")
-				CreateMessage("All cops/guards has been killed.")
-			elseif chatBody[3] == "crims" or chatBody[3] == "criminals" then
-				TeamEvent:FireServer("Medium stone grey")
-				for _, player in pairs(Players:GetPlayers()) do
-					if player.Name ~= Player.Name then
-						if player and player.Character and player.Character:FindFirstChild("Humanoid") and  player.TeamColor.Name == "Really red" then
-							KillPlr(player)
-						end
-					end
-				end
-				TeamEvent:FireServer("Bright orange")
-				CreateMessage("All criminals has been killed.")
-			elseif chatBody[3] == "inmates" or chatBody[3] == "prisoners" then
-				TeamEvent:FireServer("Medium stone grey")
-				for _, player in pairs(Players:GetPlayers()) do
-					if player.Name ~= Player.Name then
-						if player and player.Character and player.Character:FindFirstChild("Humanoid") and  player.TeamColor.Name == "Bright orange"  then
-							KillPlr(player)
-						end
-					end
-				end
-				TeamEvent:FireServer("Bright orange")
-				CreateMessage("All inmates/prisoners has been killed.")
 			else
-				TargetPlr = FindPlyrFromString(chatBody[3])
-				if TargetPlr and TargetPlr.Name ~= Player.Name then
-					TeamEvent:FireServer("Medium stone grey")
-					pcall(KillPlr, TargetPlr)
-					TeamEvent:FireServer("Bright orange")
-					CreateMessage(sformat("Successfully killed %s.", TargetPlr.Name))
-				else
-					CreateMessage("Cannot find player.")
+				local targetPlr = stringFindPlayer(args[2])
+				if targetPlr then
+					killPlr(targetPlr)
 				end
 			end
-		elseif chatBody[2] == "ws" or chatBody[2] == "walkspeed" then
-			local succ, _ = pcall(function() chatBody[3] = tonumber(chatBody[3]) end)
-			if succ then
-				WalkSpeed = chatBody[3]
-				CreateMessage(sformat("Successfully changed walkspeed to %s", tostring(chatBody[3])))
-			else
-				CreateMessage("Argument 2 should be a number.")
+		elseif args[1] == "kill-wl" then
+			local targetPlr = stringFindPlayer(args[2])
+			if targetPlr then
+				killWl[targetPlr.Name] = true
 			end
-		elseif chatBody[2] == "jp" or chatBody[2] == "jumppower" then
-			local succ, _ = pcall(function() chatBody[3] = tonumber(chatBody[3]) end)
-			if succ then
-				JumpPower = chatBody[3]
-				CreateMessage(sformat("Successfully changed jumppower to %s", tostring(chatBody[3])))
-			else
-				CreateMessage("Argument 2 should be a number.")
+		elseif args[1] == "kill-bl" then
+			local targetPlr = stringFindPlayer(args[2])
+			if targetPlr then
+				killWl[targetPlr.Name] = false
 			end
-		elseif chatBody[2] == "goto" then
-			TargetPlr = FindPlyrFromString(chatBody[3])
-			if TargetPlr and TargetPlr ~= Player.Name then
-				if HRP and Humanoid.Health ~= 0 and TargetPlr.Character:FindFirstChild("HumanoidRootPart") then
-					HRP.CFrame = TargetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(Vector3.new(0, 0, 4))
+		elseif args[1] == "goto" then
+			local targetPlr = stringFindPlayer(args[2])
+			if targetPlr then
+				if (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart") then
+					player.Character.HumanoidRootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 4)
 				end
-				CreateMessage(sformat("Teleported to %s", TargetPlr.Name))
-			else
-				CreateMessage("Can't find player.")
 			end
 		end
 	end
-	TargetPlr = nil
 end)
-CreateMessage("Crappy commands has been loaded! \nThanks for using crappy commands!")
