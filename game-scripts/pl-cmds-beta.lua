@@ -2,67 +2,42 @@
 local players = game:GetService("Players")
 local repStorage = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
+local starterGui = game:GetService("StarterGui")
 -- objects
 local player = players.LocalPlayer
 local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
 -- events
-local punch, shoot, reload, itemGive, teamChange, loadChar =
-	repStorage:FindFirstChild("meleeEvent"),
+local shoot, reload, itemGive, teamChange =
 	repStorage:FindFirstChild("ShootEvent"),
 	repStorage:FindFirstChild("ReloadEvent"),
 	workspace.Remote:FindFirstChild("ItemHandler"),
-	workspace.Remote:FindFirstChild("TeamEvent"),
-	workspace.Remote:FindFirstChild("loadchar")
+	workspace.Remote:FindFirstChild("TeamEvent")
 -- variables
-local killAll_hrpTarget
-local killWl = table.create(0)
-local killMethod = 1
-local walkSpeed, jumpPower = 16, 50
+local config = {
+	["killConf"] = {
+		["hrpTarget"] = nil,
+		["killWl"] = table.create(0),
+	},
+	["utils"] = {
+		["autoCriminal"] = false
+	},
+	["walkSpeed"] = 16,
+	["jumpPower"] = 50
+}
+local currentKilling = false
 -- functions
 local function killPlr(arg1)
-	if killMethod == 1 then
-		if typeof(arg1) == "table" then
-			for _, plr in ipairs(arg1) do
-				killAll_hrpTarget = plr.Character:FindFirstChild("HumanoidRootPart")
-				if killAll_hrpTarget and not plr.Character:FindFirstChildWhichIsA("ForceField") then
-					for _ = 1, 100 do
-						if plr.Character.Humanoid.Health == 0 then break end
-						punch:FireServer(plr)
-					end
-				end
-			end
-		else
-			killAll_hrpTarget = arg1.Character:FindFirstChild("HumanoidRootPart")
-			if killAll_hrpTarget and not arg1.Character:FindFirstChildWhichIsA("ForceField") then
-				for _ = 1, 100 do
-					if arg1.Character.Humanoid.Health == 0 then break end
-					punch:FireServer(arg1)
-				end
-			end
-		end
-		killAll_hrpTarget = nil
-	elseif killMethod == 2 then
-		if not humanoid then return end
-		teamChange:FireServer("Medium stone grey")
+	local gunObj = player.Backpack:FindFirstChild("M9")
+	if not gunObj then
 		itemGive:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
-		local gunObj = player.Backpack:FindFirstChild("M9")
-		local shootings = table.create(0)
-		if typeof(arg1) == "table" then
-			for _, plr in ipairs(arg1) do
-				local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
-				if not targetPart or killWl[plr.Name] then continue end
-				for _ = 1, 10 do
-					table.insert(shootings, {
-						["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
-						["Distance"] = 0,
-						["Cframe"] = CFrame.new(),
-						["Hit"] = targetPart
-					})
-				end
-			end
-		else
-			local targetPart = arg1.Character and arg1.Character:FindFirstChild("Head") or nil
-			if not targetPart then return end
+		gunObj = player.Backpack:FindFirstChild("M9")
+	end
+	local shootings = table.create(0)
+	if typeof(arg1) == "table" then
+		for _, plr in ipairs(arg1) do
+			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
+			if not targetPart or config.killConf.killWl[plr.Name] then continue end
 			for _ = 1, 10 do
 				table.insert(shootings, {
 					["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
@@ -72,15 +47,37 @@ local function killPlr(arg1)
 				})
 			end
 		end
-		shoot:FireServer(shootings, gunObj)
-		reload:FireServer(gunObj)
-		teamChange:FireServer("Bright orange")
+	else
+		local targetPart = arg1.Character and arg1.Character:FindFirstChild("Head") or nil
+		if not targetPart then return end
+		for _ = 1, 10 do
+			table.insert(shootings, {
+				["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
+				["Distance"] = 0,
+				["Cframe"] = CFrame.new(),
+				["Hit"] = targetPart
+			})
+		end
 	end
+	currentKilling = true
+	teamChange:FireServer("Medium stone grey")
+	currentKilling = false
+	shoot:FireServer(shootings, gunObj)
+	reload:FireServer(gunObj)
+	teamChange:FireServer("Bright orange")
 end
-local function stringFindPlayer(strArg)
+local function msgNotify(msg)
+	starterGui:SetCore("ChatMakeSystemMessage", {
+        Text = string.format("[pl-cmds.lua]: %s", msg),
+        Color = Color3.fromRGB(255, 255, 255),
+        Font = Enum.Font.SourceSansBold,
+        FontSize = Enum.FontSize.Size32,
+    })
+end
+local function stringFindPlayer(strArg, allowSets)
 	strArg = string.lower(strArg)
 	local result = table.create(0)
-	if (strArg == "cops" or strArg == "guards") or (strArg == "crims" or strArg == "criminals") or (strArg == "inmates" or strArg == "prisoners") then
+	if allowSets and (strArg == "cops" or strArg == "guards") or (strArg == "crims" or strArg == "criminals") or (strArg == "inmates" or strArg == "prisoners") then
 		for _, plr in ipairs(players:GetPlayers()) do
 			if plr ~= player and plr.Character and plr.TeamColor.Name == (
 				(strArg == "cops" or strArg == "guards") and "Bright blue" or
@@ -94,77 +91,92 @@ local function stringFindPlayer(strArg)
 	else
 		for _, plr in ipairs(players:GetPlayers()) do
 			local atMatch = string.match(strArg, "^@")
-			if atMatch then
-				strArg = string.gsub(strArg, atMatch, "", 1)
-				if string.sub(string.lower(plr.Name), 0, string.len(strArg)) == strArg then
-					return plr == player and nil or plr
-				end
-			else
-				if string.sub(string.lower(plr.DisplayName), 0, string.len(strArg)) == strArg then
-					return plr == player and nil or plr
-				end
+			strArg = atMatch and string.gsub(strArg, atMatch, "", 1) or strArg
+			if string.sub(string.lower(plr[atMatch and "Name" or "DisplayName"]), 0, string.len(strArg)) == strArg then
+				return plr == player and nil or plr
 			end
 		end
 	end
 end
--- main
-runService.Heartbeat:Connect(function()
-	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
-	if killAll_hrpTarget and killAll_hrpTarget.Parent.Humanoid.Health ~= 0 then
-		rnet.sendposition(killAll_hrpTarget.Position - Vector3.new(0, 4))
+local function autoCrim()
+	if config.utils.autoCriminal and (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) and not currentKilling then
+		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
+		firetouchinterest(player.Character.HumanoidRootPart, spawnPart, 0)
+		firetouchinterest(player.Character.HumanoidRootPart, spawnPart, 1)
 	end
-	if humanoid then
-		humanoid.WalkSpeed = walkSpeed
-		humanoid.JumpPower = jumpPower
-	end
-end)
-player.Chatted:Connect(function(msg)
-	msg = string.lower(msg)
-	local prefixMatch = string.match(msg, "^/") or string.match(msg, "^/e")
+end
+local function cmdParse(msgString)
+	msgString = string.lower(msgString)
+	local prefixMatch = string.match(msgString, "^/e ") or string.match(msgString, "^/")
 
 	if prefixMatch then
-		msg = string.gsub(msg, prefixMatch, "", 1)
+		msgString = string.gsub(msgString, prefixMatch, "", 1)
 		local args = table.create(0)
-		for arg in string.gmatch(msg, "[^%s]+") do
+		for arg in string.gmatch(msgString, "[^%s]+") do
 			table.insert(args, arg)
 		end
 
 		if args[1] == "kill" then
 			if args[2] == "all" then
-				if killMethod == 2 then
-					killPlr(players:GetPlayers())
-				else
-					for _, plr in ipairs(players:GetPlayers()) do
-						if plr ~= player and plr.Character then
-							killPlr(plr)
-						end
-					end
-				end
+				killPlr(players:GetPlayers())
+				msgNotify("killed all players.")
 			else
-				local targetPlr = stringFindPlayer(args[2])
+				local targetPlr = stringFindPlayer(args[2], true)
 				if targetPlr then
 					killPlr(targetPlr)
+					msgNotify(string.format("killed %s.", (type(targetPlr) ~= "table" and targetPlr.Name or args[2])))
 				end
 			end
-		elseif args[1] == "killmethod" then
-			killMethod = (args[2] == "punch" and 1 or args[2] == "gun" and 2 or 1)
 		elseif args[1] == "kill-wl" then
 			local targetPlr = stringFindPlayer(args[2])
 			if targetPlr then
-				killWl[targetPlr.Name] = true
+				config.killConf.killWl[targetPlr.Name] = true
+				msgNotify(string.format("added %s to whitelist, he/she will not be killed anymore.", targetPlr.Name))
 			end
 		elseif args[1] == "kill-bl" then
 			local targetPlr = stringFindPlayer(args[2])
 			if targetPlr then
-				killWl[targetPlr.Name] = false
+				config.killConf.killWl[targetPlr.Name] = false
+				msgNotify(string.format("removed %s whitelist, player will be killed again.", targetPlr.Name))
 			end
 		elseif args[1] == "goto" then
 			local targetPlr = stringFindPlayer(args[2])
-			if targetPlr then
-				if (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart") then
-					player.Character.HumanoidRootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-				end
+			if targetPlr and (rootPart and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) then
+				rootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+				msgNotify(string.format("teleported to %s.", targetPlr.Name))
 			end
+		elseif args[1] == "ws" or args[1] == "walkspeed" then
+			local success = pcall(tonumber, args[2])
+			if success then
+				config.walkSpeed = args[2]
+				msgNotify(string.format("changed walkspeed to %s.", args[2]))
+			else
+				msgNotify("argument 2 should be a number.")
+			end
+		elseif args[1] == "jp" or args[1] == "jumppower" then
+			local success = pcall(tonumber, args[2])
+			if success then
+				config.jumpPower = args[2]
+				msgNotify(string.format("changed jumppower to %s.", args[2]))
+			else
+				msgNotify("argument 2 should be a number.")
+			end
+		elseif args[1] == "autocrim" then
+			config.utils.autoCriminal = not config.utils.autoCriminal
+			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "on/enabled" or "off/disabled")))
+			autoCrim()
 		end
 	end
+end
+-- main
+player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
+player.Chatted:Connect(cmdParse)
+runService.Heartbeat:Connect(function()
+	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
+	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
+	if humanoid then
+		humanoid.WalkSpeed = config.walkSpeed
+		humanoid.JumpPower = config.jumpPower
+	end
 end)
+msgNotify("v0.1.1 loaded, enjoy!")
