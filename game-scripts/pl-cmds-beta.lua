@@ -25,6 +25,10 @@ local config = {
 	["walkSpeed"] = 16,
 	["jumpPower"] = 50
 }
+local msgOutputs = {
+	["kill-bl_ADD"] = "added %s to whitelist, player wouldn't be killed anymore.",
+	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again."
+}
 local currentKilling = false
 -- functions
 local function killPlr(arg1)
@@ -105,14 +109,14 @@ local function autoCrim()
 		firetouchinterest(player.Character.HumanoidRootPart, spawnPart, 1)
 	end
 end
-local function cmdParse(msgString)
-	msgString = string.lower(msgString)
-	local prefixMatch = string.match(msgString, "^/e ") or string.match(msgString, "^/")
+local function cmdParse(message)
+	message = string.lower(message)
+	local prefixMatch = string.match(message, "^/e ") or string.match(message, "^/")
 
 	if prefixMatch then
-		msgString = string.gsub(msgString, prefixMatch, "", 1)
+		message = string.gsub(message, prefixMatch, "", 1)
 		local args = table.create(0)
-		for arg in string.gmatch(msgString, "[^%s]+") do
+		for arg in string.gmatch(message, "[^%s]+") do
 			table.insert(args, arg)
 		end
 
@@ -127,17 +131,11 @@ local function cmdParse(msgString)
 					msgNotify(string.format("killed %s.", (type(targetPlr) ~= "table" and targetPlr.Name or args[2])))
 				end
 			end
-		elseif args[1] == "kill-wl" then
-			local targetPlr = stringFindPlayer(args[2])
-			if targetPlr then
-				config.killConf.killWl[targetPlr.Name] = true
-				msgNotify(string.format("added %s to whitelist, he/she will not be killed anymore.", targetPlr.Name))
-			end
 		elseif args[1] == "kill-bl" then
-			local targetPlr = stringFindPlayer(args[2])
+			local targetPlr = stringFindPlayer(args[3])
 			if targetPlr then
-				config.killConf.killWl[targetPlr.Name] = false
-				msgNotify(string.format("removed %s whitelist, player will be killed again.", targetPlr.Name))
+				config.killConf.killWl[targetPlr.Name] = (args[2] == "add" and true or args[2] == "remove" and false or config.killConf.killWl[targetPlr.Name])
+				msgNotify(string.format((config.killConf.killWl[targetPlr.Name] and msgOutputs["kill-bl_ADD"] or msgOutputs["kill-bl_REMOVE"]), targetPlr.Name))
 			end
 		elseif args[1] == "goto" then
 			local targetPlr = stringFindPlayer(args[2])
