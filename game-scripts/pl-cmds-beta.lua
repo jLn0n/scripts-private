@@ -8,11 +8,12 @@ local player = players.LocalPlayer
 local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
 -- events
-local shoot, reload, itemGive, teamChange =
+local shoot, reload, itemGive, teamChange, loadChar =
 	repStorage:FindFirstChild("ShootEvent"),
 	repStorage:FindFirstChild("ReloadEvent"),
 	workspace.Remote:FindFirstChild("ItemHandler"),
-	workspace.Remote:FindFirstChild("TeamEvent")
+	workspace.Remote:FindFirstChild("TeamEvent"),
+	workspace.Remote:FindFirstChild("loadchar")
 -- variables
 local config = {
 	["killConf"] = {
@@ -20,7 +21,8 @@ local config = {
 		["killWl"] = table.create(0),
 	},
 	["utils"] = {
-		["autoCriminal"] = false
+		["autoCriminal"] = false,
+		["fastRespawn"] = false,
 	},
 	["walkSpeed"] = 16,
 	["jumpPower"] = 50
@@ -31,6 +33,14 @@ local msgOutputs = {
 }
 local currentKilling = false
 -- functions
+local function autoCrim()
+	if (config.utils.autoCriminal and not config.utils.fastRespawn) and rootPart and not currentKilling then
+		local oldPos, spawnPart = rootPart.CFrame, workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
+		rootPart.CFrame = spawnPart.CFrame; task.wait()
+		rootPart.CFrame = oldPos
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
+	end
+end
 local function killPlr(arg1)
 	local gunObj = player.Backpack:FindFirstChild("M9")
 	if not gunObj then
@@ -63,20 +73,27 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	currentKilling = true
-	teamChange:FireServer("Medium stone grey")
-	currentKilling = false
+	if not config.utils.fastRespawn then
+		currentKilling = true
+		teamChange:FireServer("Medium stone grey"); currentKilling = false
+		if config.utils.autoCriminal then autoCrim();return end
+		task.defer(teamChange.FireServer, teamChange, "Bright orange")
+	end
 	shoot:FireServer(shootings, gunObj)
 	reload:FireServer(gunObj)
-	teamChange:FireServer("Bright orange")
 end
 local function msgNotify(msg)
 	starterGui:SetCore("ChatMakeSystemMessage", {
-        Text = string.format("[pl-cmds.lua]: %s", msg),
-        Color = Color3.fromRGB(255, 255, 255),
-        Font = Enum.Font.SourceSansBold,
-        FontSize = Enum.FontSize.Size32,
-    })
+		Text = string.format("[pl-cmds.lua]: %s", msg),
+		Color = Color3.fromRGB(255, 255, 255),
+		Font = Enum.Font.SourceSansBold,
+		FontSize = Enum.FontSize.Size32,
+	})
+end
+local function respawnSelf()
+	local oldPos = rootPart.CFrame
+	loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or "Really black"))
+	rootPart.CFrame = oldPos
 end
 local function stringFindPlayer(strArg, allowSets)
 	strArg = string.lower(strArg)
@@ -100,13 +117,6 @@ local function stringFindPlayer(strArg, allowSets)
 				return plr == player and nil or plr
 			end
 		end
-	end
-end
-local function autoCrim()
-	if config.utils.autoCriminal and (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) and not currentKilling then
-		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
-		firetouchinterest(player.Character.HumanoidRootPart, spawnPart, 0)
-		firetouchinterest(player.Character.HumanoidRootPart, spawnPart, 1)
 	end
 end
 local function cmdParse(message)
@@ -161,8 +171,11 @@ local function cmdParse(message)
 			end
 		elseif args[1] == "autocrim" then
 			config.utils.autoCriminal = not config.utils.autoCriminal
-			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "on/enabled" or "off/disabled")))
+			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
 			autoCrim()
+		elseif args[1] == "fast-respawn" then
+			config.utils.fastRespawn = not config.utils.fastRespawn
+			msgNotify(string.format("fast respawn is now %s.", (config.utils.fastRespawn and "enabled" or "disabled")))
 		end
 	end
 end
@@ -170,11 +183,14 @@ end
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.Chatted:Connect(cmdParse)
 runService.Heartbeat:Connect(function()
-	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
-	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
 	if humanoid then
 		humanoid.WalkSpeed = config.walkSpeed
 		humanoid.JumpPower = config.jumpPower
+		if rootPart and humanoid.Health < 1 then
+			respawnSelf()
+		end
 	end
+	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
+	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
 end)
-msgNotify("v0.1.1 loaded, enjoy!")
+msgNotify("v0.1.1 loaded, enjoy!"); respawnSelf()
