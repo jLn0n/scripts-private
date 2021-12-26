@@ -22,7 +22,7 @@ local config = {
 	},
 	["utils"] = {
 		["autoCriminal"] = false,
-		["fastRespawn"] = false,
+		["fastRespawn"] = true,
 	},
 	["walkSpeed"] = 16,
 	["jumpPower"] = 50
@@ -91,9 +91,9 @@ local function msgNotify(msg)
 	})
 end
 local function respawnSelf()
-	local oldPos = rootPart.CFrame
-	loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or "Really black"))
-	rootPart.CFrame = oldPos
+	local oldPos = player.Character:GetPivot()
+	loadChar:InvokeServer(player.Name, (config.utils.autoCriminal and "Really red" or "Really black"))
+	player.Character:PivotTo(oldPos)
 end
 local function stringFindPlayer(strArg, allowSets)
 	strArg = string.lower(strArg)
@@ -183,14 +183,14 @@ end
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.Chatted:Connect(cmdParse)
 runService.Heartbeat:Connect(function()
+	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
+	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
 	if humanoid then
 		humanoid.WalkSpeed = config.walkSpeed
 		humanoid.JumpPower = config.jumpPower
-		if rootPart and humanoid.Health < 1 then
+		if config.utils.fastRespawn and (humanoid and humanoid.Health < 1) then
 			respawnSelf()
 		end
 	end
-	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
-	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
 end)
 msgNotify("v0.1.1 loaded, enjoy!"); respawnSelf()
