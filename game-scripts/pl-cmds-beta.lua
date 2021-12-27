@@ -32,6 +32,7 @@ local msgOutputs = {
 	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again."
 }
 local currentKilling = false
+local diedConnection
 -- functions
 local function autoCrim()
 	if (config.utils.autoCriminal and not config.utils.fastRespawn) and rootPart and not currentKilling then
@@ -73,7 +74,7 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not config.utils.fastRespawn then
+	if (config.utils.autoCriminal or not config.utils.fastRespawn) then
 		currentKilling = true
 		teamChange:FireServer("Medium stone grey"); currentKilling = false
 		if config.utils.autoCriminal then autoCrim();return end
@@ -182,15 +183,17 @@ end
 -- main
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.Chatted:Connect(cmdParse)
+player.CharacterAdded:Connect(function(character)
+	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
+	if config.utils.fastRespawn then
+		if diedConnection then diedConnection:Disconnect() end
+		diedConnection = humanoid.Died:Connect(respawnSelf)
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
+	end
+end)
 runService.Heartbeat:Connect(function()
-	humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") or nil
-	rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nil
 	if humanoid then
-		humanoid.WalkSpeed = config.walkSpeed
-		humanoid.JumpPower = config.jumpPower
-		if config.utils.fastRespawn and (humanoid and humanoid.Health < 1) then
-			respawnSelf()
-		end
+		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
 end)
 msgNotify("v0.1.1 loaded, enjoy!"); respawnSelf()
