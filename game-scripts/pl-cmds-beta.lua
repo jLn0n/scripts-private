@@ -14,6 +14,7 @@ local shoot, reload, itemGive, teamChange, loadChar =
 	workspace.Remote:FindFirstChild("ItemHandler"),
 	workspace.Remote:FindFirstChild("TeamEvent"),
 	workspace.Remote:FindFirstChild("loadchar")
+local chatted = Instance.new("BindableEvent")
 -- variables
 local config = {
 	["killConf"] = {
@@ -32,10 +33,10 @@ local msgOutputs = {
 	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again."
 }
 local currentKilling = false
-local diedConnection
+local diedConnection, oldNamecall
 -- functions
 local function autoCrim()
-	if (config.utils.autoCriminal and not config.utils.fastRespawn) and rootPart and not currentKilling then
+	if config.utils.autoCriminal and rootPart and not currentKilling then
 		local oldPos, spawnPart = rootPart.CFrame, workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		rootPart.CFrame = spawnPart.CFrame; task.wait()
 		rootPart.CFrame = oldPos
@@ -122,7 +123,7 @@ local function stringFindPlayer(strArg, allowSets)
 end
 local function cmdParse(message)
 	message = string.lower(message)
-	local prefixMatch = string.match(message, "^/e ") or string.match(message, "^/")
+	local prefixMatch = string.match(message, "^/")
 
 	if prefixMatch then
 		message = string.gsub(message, prefixMatch, "", 1)
@@ -181,8 +182,8 @@ local function cmdParse(message)
 	end
 end
 -- main
+chatted.Event:Connect(cmdParse)
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
-player.Chatted:Connect(cmdParse)
 player.CharacterAdded:Connect(function(character)
 	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
 	if config.utils.fastRespawn then
@@ -196,4 +197,14 @@ runService.Heartbeat:Connect(function()
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
 end)
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+	local message = ...
+	local namecallMethod = getnamecallmethod()
+
+	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and (message and string.match(message, "^/")) then
+		chatted.Fire(chatted, message)
+		return
+	end
+	return oldNamecall(self, ...)
+end))
 msgNotify("v0.1.1 loaded, enjoy!"); respawnSelf()
