@@ -76,7 +76,7 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not config.utils.fastRespawn then
+	if not config.utils.autoCriminal or (not config.utils.fastRespawn and config.utils.autoCriminal) then
 		currentKilling = true
 		teamChange:FireServer("Medium stone grey"); currentKilling = false
 		if config.utils.autoCriminal then task.defer(autoCrim);return end
@@ -184,6 +184,7 @@ local function commandRun(message)
 		elseif args[1] == "fast-respawn" then
 			config.utils.fastRespawn = not config.utils.fastRespawn
 			msgNotify(string.format("fast respawn is now %s.", (config.utils.fastRespawn and "enabled" or "disabled")))
+			respawnSelf()
 		end
 	end
 end
