@@ -14,7 +14,6 @@ local shoot, reload, itemGive, teamChange, loadChar =
 	workspace.Remote:FindFirstChild("ItemHandler"),
 	workspace.Remote:FindFirstChild("TeamEvent"),
 	workspace.Remote:FindFirstChild("loadchar")
-local chatted = Instance.new("BindableEvent")
 -- variables
 local config = {
 	["killConf"] = {
@@ -23,7 +22,7 @@ local config = {
 	},
 	["utils"] = {
 		["autoCriminal"] = false,
-		["fastRespawn"] = true,
+		["fastRespawn"] = false,
 	},
 	["walkSpeed"] = 16,
 	["jumpPower"] = 50
@@ -37,10 +36,12 @@ local diedConnection, oldNamecall
 -- functions
 local function autoCrim()
 	if config.utils.autoCriminal and rootPart and not currentKilling then
-		local oldPos, spawnPart = rootPart.CFrame, workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
-		rootPart.CFrame = spawnPart.CFrame; task.wait()
-		rootPart.CFrame = oldPos
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
+		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
+		local oldSpawnPos = spawnPart.CFrame
+		spawnPart.CFrame = rootPart.CFrame
+		firetouchinterest(spawnPart, rootPart, 0)
+		firetouchinterest(spawnPart, rootPart, 1)
+		spawnPart.CFrame = oldSpawnPos
 	end
 end
 local function killPlr(arg1)
@@ -75,10 +76,10 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if (config.utils.autoCriminal or not config.utils.fastRespawn) then
+	if not config.utils.fastRespawn then
 		currentKilling = true
 		teamChange:FireServer("Medium stone grey"); currentKilling = false
-		if config.utils.autoCriminal then autoCrim();return end
+		if config.utils.autoCriminal then task.defer(autoCrim);return end
 		task.defer(teamChange.FireServer, teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj)
@@ -93,15 +94,18 @@ local function msgNotify(msg)
 	})
 end
 local function respawnSelf()
-	local oldPos = player.Character:GetPivot()
-	loadChar:InvokeServer(player.Name, (config.utils.autoCriminal and "Really red" or "Really black"))
-	player.Character:PivotTo(oldPos)
+	if diedConnection then diedConnection:Disconnect() end
+	if config.utils.fastRespawn then
+		local oldPos = player.Character:GetPivot()
+		loadChar:InvokeServer(player.Name, (config.utils.autoCriminal and "Really red" or "Really black"))
+		player.Character:PivotTo(oldPos)
+	end
 end
 local function stringFindPlayer(strArg, allowSets)
 	strArg = string.lower(strArg)
-	local result = table.create(0)
+	local result, playersList = table.create(0), players:GetPlayers()
 	if allowSets and (strArg == "cops" or strArg == "guards") or (strArg == "crims" or strArg == "criminals") or (strArg == "inmates" or strArg == "prisoners") then
-		for _, plr in ipairs(players:GetPlayers()) do
+		for _, plr in ipairs(playersList) do
 			if plr ~= player and plr.Character and plr.TeamColor.Name == (
 				(strArg == "cops" or strArg == "guards") and "Bright blue" or
 				(strArg == "crims" or strArg == "criminals") and "Really red" or
@@ -111,8 +115,10 @@ local function stringFindPlayer(strArg, allowSets)
 			end
 		end
 		return result
+	elseif strArg == "random" then
+		return playersList[math.random(1, #playersList)]
 	else
-		for _, plr in ipairs(players:GetPlayers()) do
+		for _, plr in ipairs(playersList) do
 			local atMatch = string.match(strArg, "^@")
 			strArg = atMatch and string.gsub(strArg, atMatch, "", 1) or strArg
 			if string.sub(string.lower(plr[atMatch and "Name" or "DisplayName"]), 0, string.len(strArg)) == strArg then
@@ -121,7 +127,7 @@ local function stringFindPlayer(strArg, allowSets)
 		end
 	end
 end
-local function cmdParse(message)
+local function commandRun(message)
 	message = string.lower(message)
 	local prefixMatch = string.match(message, "^/")
 
@@ -171,7 +177,7 @@ local function cmdParse(message)
 			else
 				msgNotify("argument 2 should be a number.")
 			end
-		elseif args[1] == "autocrim" then
+		elseif args[1] == "auto-crim" then
 			config.utils.autoCriminal = not config.utils.autoCriminal
 			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
 			autoCrim()
@@ -182,12 +188,10 @@ local function cmdParse(message)
 	end
 end
 -- main
-chatted.Event:Connect(cmdParse)
-player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
+player:GetPropertyChangedSignal("TeamColor"):Connect(function()task.defer(autoCrim) end)
 player.CharacterAdded:Connect(function(character)
 	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
 	if config.utils.fastRespawn then
-		if diedConnection then diedConnection:Disconnect() end
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
@@ -202,9 +206,9 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	local namecallMethod = getnamecallmethod()
 
 	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and (message and string.match(message, "^/")) then
-		chatted.Fire(chatted, message)
+		task.spawn(commandRun, message)
 		return
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify("v0.1.1 loaded, enjoy!"); respawnSelf()
+msgNotify("v0.1.2 loaded, prefix is '/' enjoy!"); respawnSelf()
