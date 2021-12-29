@@ -22,8 +22,9 @@ local config = {
 	},
 	["utils"] = {
 		["autoCriminal"] = false,
-		["fastRespawn"] = false,
+		["autoSpawn"] = false,
 	},
+	["prefix"] = ";",
 	["walkSpeed"] = 16,
 	["jumpPower"] = 50
 }
@@ -31,11 +32,11 @@ local msgOutputs = {
 	["kill-bl_ADD"] = "added %s to whitelist, player wouldn't be killed anymore.",
 	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again."
 }
-local currentKilling = false
+local isKilling = false
 local diedConnection, oldNamecall
 -- functions
 local function autoCrim()
-	if config.utils.autoCriminal and rootPart and not currentKilling then
+	if config.utils.autoCriminal and rootPart and not isKilling then
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
@@ -76,10 +77,11 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not config.utils.autoCriminal or (not config.utils.fastRespawn and config.utils.autoCriminal) then
-		currentKilling = true
-		teamChange:FireServer("Medium stone grey"); currentKilling = false
-		if config.utils.autoCriminal then task.defer(autoCrim);return end
+	-- TODO: fix this shit not working when auto spawn and auto criminal is enabled at the same time
+	if not config.utils.autoSpawn or config.utils.autoCriminal then
+		isKilling = true
+		teamChange:FireServer("Medium stone grey"); isKilling = false
+		if config.utils.autoCriminal then task.defer(autoCrim); return end
 		task.defer(teamChange.FireServer, teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj)
@@ -95,7 +97,7 @@ local function msgNotify(msg)
 end
 local function respawnSelf()
 	if diedConnection then diedConnection:Disconnect() end
-	if config.utils.fastRespawn then
+	if config.utils.autoSpawn then
 		local oldPos = player.Character:GetPivot()
 		loadChar:InvokeServer(player.Name, (config.utils.autoCriminal and "Really red" or "Really black"))
 		player.Character:PivotTo(oldPos)
@@ -127,9 +129,12 @@ local function stringFindPlayer(strArg, allowSets)
 		end
 	end
 end
+local function msgHasPrefix(message)
+	return message and string.match(message, string.format("^%s", config.prefix))
+end
 local function commandRun(message)
 	message = string.lower(message)
-	local prefixMatch = string.match(message, "^/")
+	local prefixMatch = string.match(message, string.format("^%s", config.prefix))
 
 	if prefixMatch then
 		message = string.gsub(message, prefixMatch, "", 1)
@@ -150,10 +155,17 @@ local function commandRun(message)
 				end
 			end
 		elseif args[1] == "kill-bl" then
-			local targetPlr = stringFindPlayer(args[3])
+			local targetPlr = args[3] and stringFindPlayer(args[3]) or nil
 			if targetPlr then
 				config.killConf.killWl[targetPlr.Name] = (args[2] == "add" and true or args[2] == "remove" and false or config.killConf.killWl[targetPlr.Name])
 				msgNotify(string.format((config.killConf.killWl[targetPlr.Name] and msgOutputs["kill-bl_ADD"] or msgOutputs["kill-bl_REMOVE"]), targetPlr.Name))
+			end
+			if args[2] == "list" then
+				local listResult = ""
+				for plrName in pairs(config.killConf.killWl) do
+					listResult = listResult .. plrName .. "\n"
+				end
+				msgNotify(string.format("blacklisted players list: \n%s", listResult))
 			end
 		elseif args[1] == "goto" then
 			local targetPlr = stringFindPlayer(args[2])
@@ -181,18 +193,18 @@ local function commandRun(message)
 			config.utils.autoCriminal = not config.utils.autoCriminal
 			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
 			autoCrim()
-		elseif args[1] == "fast-respawn" then
-			config.utils.fastRespawn = not config.utils.fastRespawn
-			msgNotify(string.format("fast respawn is now %s.", (config.utils.fastRespawn and "enabled" or "disabled")))
+		elseif args[1] == "auto-spawn" then
+			config.utils.autoSpawn = not config.utils.autoSpawn
+			msgNotify(string.format("auto spawn is now %s.", (config.utils.autoSpawn and "enabled" or "disabled")))
 			respawnSelf()
 		end
 	end
 end
 -- main
-player:GetPropertyChangedSignal("TeamColor"):Connect(function()task.defer(autoCrim) end)
+player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.CharacterAdded:Connect(function(character)
 	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
-	if config.utils.fastRespawn then
+	if config.utils.autoSpawn then
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
@@ -206,10 +218,10 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	local message = ...
 	local namecallMethod = getnamecallmethod()
 
-	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and (message and string.match(message, "^/")) then
+	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and msgHasPrefix(message) then
 		task.spawn(commandRun, message)
 		return
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify("v0.1.2 loaded, prefix is '/' enjoy!"); respawnSelf()
+msgNotify(string.format("v0.1.2 loaded, prefix is '%s' enjoy!", config.prefix))
