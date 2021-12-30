@@ -78,10 +78,10 @@ local function killPlr(arg1)
 		end
 	end
 	-- TODO: fix this shit not working when auto spawn and auto criminal is enabled at the same time
-	if not config.utils.autoSpawn or config.utils.autoCriminal then
+	if not config.utils.autoSpawn or (config.utils.autoSpawn and config.utils.autoCriminal) then
 		isKilling = true
 		teamChange:FireServer("Medium stone grey"); isKilling = false
-		if config.utils.autoCriminal then task.defer(autoCrim); return end
+		if config.utils.autoCriminal then autoCrim(); return end
 		task.defer(teamChange.FireServer, teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj)
