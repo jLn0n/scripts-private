@@ -35,8 +35,9 @@ local msgOutputs = {
 local isKilling = false
 local diedConnection, oldNamecall
 -- functions
+local function setIsKilling()isKilling = not isKilling; end
 local function autoCrim()
-	if config.utils.autoCriminal and rootPart and not isKilling then
+	if (config.utils.autoCriminal and rootPart and not isKilling and player.TeamColor.Name ~= "Really red") then
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
@@ -78,11 +79,13 @@ local function killPlr(arg1)
 		end
 	end
 	-- TODO: fix this shit not working when auto spawn and auto criminal is enabled at the same time
-	if not config.utils.autoSpawn or (config.utils.autoSpawn and config.utils.autoCriminal) then
-		isKilling = true
-		teamChange:FireServer("Medium stone grey"); isKilling = false
-		if config.utils.autoCriminal then autoCrim(); return end
-		task.defer(teamChange.FireServer, teamChange, "Bright orange")
+	if (not config.utils.autoSpawn or config.utils.autoCriminal) then
+		setIsKilling()
+		teamChange:FireServer("Medium stone grey"); task.delay(.1, setIsKilling)
+		if config.utils.autoCriminal then
+			task.delay(.1, autoCrim); return
+		end
+		task.delay(.1, teamChange.FireServer, teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj)
 	reload:FireServer(gunObj)
