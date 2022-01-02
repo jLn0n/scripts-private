@@ -118,9 +118,9 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not config.utils.autoSpawn then
-		isKilling = not isKilling
-		teamChange:FireServer("Medium stone grey"); isKilling = not isKilling
+	if not player.Team.Name == "Neutral" or not config.utils.autoSpawn then
+		isKilling = true
+		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj); reload:FireServer(gunObj)
@@ -249,7 +249,7 @@ player.CharacterAdded:Connect(function(spawnedCharacter)
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
-	task.defer(invisSelf)
+	task.defer(invisSelf); task.defer(autoCrim)
 end)
 runService.Heartbeat:Connect(function()
 	if humanoid then
