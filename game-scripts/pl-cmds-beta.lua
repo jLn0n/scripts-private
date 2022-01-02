@@ -19,7 +19,7 @@ local shoot, reload, itemGive, teamChange, loadChar =
 local config = {
 	["killConf"] = {
 		["hrpTarget"] = nil,
-		["killWl"] = table.create(0),
+		["killBlacklist"] = table.create(0),
 	},
 	["utils"] = {
 		["autoCriminal"] = false,
@@ -31,10 +31,28 @@ local config = {
 	["jumpPower"] = 50
 }
 local msgOutputs = {
-	["kill-bl_ADD"] = "added %s to whitelist, player wouldn't be killed anymore.",
-	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again.",
-	["invisible_enabled"] = "invisibility is now enabled, nobody can see u now.",
-	["invisible_disabled"] = "invisibility is now disabled, anyone can see u now."
+	["characterMods"] = {
+		["changed"] = "changed %s to %s."
+	},
+	["goto"] = {
+		["tpSuccess"] = "teleported to %s."
+	},
+	["invisible"] = {
+		["enabled"] = "invisibility is now enabled, nobody can see u now.",
+		["disabled"] = "invisibility is now disabled, anyone can see u now.",
+	},
+	["kill"] = {
+		["allPlrs"] = "killed all players.",
+		["targetPlr"] = "killed %s."
+	},
+	["kill-bl"] = {
+		["plrAdd"] = "added %s to whitelist, player wouldn't be killed anymore.",
+		["plrRemove"] = "removed %s whitelist, player will be killed again.",
+		["list"] = "blacklisted players list: \n%s"
+	},
+	["argumentError"] = "argument %s should be a %s.",
+	["prefixChange"] = "changed prefix to '%s'.",
+	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!"
 }
 local isKilling = false
 local diedConnection, oldNamecall
@@ -59,29 +77,26 @@ end
 local function invisSelf()
 	if config.utils.invisibility and (character and rootPart) then
 		local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
-		character:PivotTo(CFrame.new(Vector3.one * 1e10))
-		task.wait(.25)
+		character:PivotTo(CFrame.new(Vector3.one * 1e10)); task.wait(.25)
+		rootPart.Anchored = true
 		character.Parent = nil
 		rootPart:Destroy()
-		cloneRootPart.Parent = character
+		rootPart, cloneRootPart.Parent = cloneRootPart, character
 		character.Parent = workspace
 		character:PivotTo(oldPos)
-		rootPart = cloneRootPart
-	elseif not config.utils.invisibility then
-		character:BreakJoints()
 	end
 end
 local function killPlr(arg1)
 	local gunObj = player.Backpack:FindFirstChild("M9")
+	local shootings = table.create(0)
 	if not gunObj then
 		itemGive:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
 		gunObj = player.Backpack:FindFirstChild("M9")
 	end
-	local shootings = table.create(0)
 	if typeof(arg1) == "table" then
 		for _, plr in ipairs(arg1) do
 			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
-			if not targetPart or config.killConf.killWl[plr.Name] then continue end
+			if not targetPart or config.killConf.killBlacklist[plr.Name] then continue end
 			for _ = 1, 10 do
 				table.insert(shootings, {
 					["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
@@ -108,8 +123,7 @@ local function killPlr(arg1)
 		teamChange:FireServer("Medium stone grey"); isKilling = not isKilling
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
-	shoot:FireServer(shootings, gunObj)
-	reload:FireServer(gunObj)
+	shoot:FireServer(shootings, gunObj); reload:FireServer(gunObj)
 end
 local function msgNotify(msg)
 	starterGui:SetCore("ChatMakeSystemMessage", {
@@ -162,48 +176,53 @@ local function commandRun(message)
 		if args[1] == "kill" then
 			if args[2] == "all" then
 				killPlr(players:GetPlayers())
-				msgNotify("killed all players.")
+				msgNotify(msgOutputs.kill.allPlrs)
 			else
 				local targetPlr = stringFindPlayer(args[2], true)
 				if targetPlr then
 					killPlr(targetPlr)
-					msgNotify(string.format("killed %s.", (type(targetPlr) ~= "table" and targetPlr.Name or args[2])))
+					msgNotify(string.format(msgOutputs.kill.targetPlr, (type(targetPlr) ~= "table" and targetPlr.Name or args[2])))
 				end
 			end
 		elseif args[1] == "kill-bl" then
 			local targetPlr = args[3] and stringFindPlayer(args[3]) or nil
 			if targetPlr then
-				config.killConf.killWl[targetPlr.Name] = (args[2] == "add" and true or args[2] == "remove" and false or config.killConf.killWl[targetPlr.Name])
-				msgNotify(string.format((config.killConf.killWl[targetPlr.Name] and msgOutputs["kill-bl_ADD"] or msgOutputs["kill-bl_REMOVE"]), targetPlr.Name))
+				config.killConf.killBlacklist[targetPlr.Name] = (args[2] == "add" and true or args[2] == "remove" and false or config.killConf.killBlacklist[targetPlr.Name])
+				msgNotify(string.format(msgOutputs["kill-bl"][(config.killConf.killBlacklist[targetPlr.Name] and "plrAdd" or "plrRemove")], targetPlr.Name))
 			end
 			if args[2] == "list" then
 				local listResult = ""
-				for plrName in pairs(config.killConf.killWl) do
+				for plrName in pairs(config.killConf.killBlacklist) do
 					listResult = listResult .. plrName .. "\n"
 				end
-				msgNotify(string.format("blacklisted players list: \n%s", listResult))
+				msgNotify(string.format(msgOutputs["kill-bl"].list, listResult))
 			end
 		elseif args[1] == "goto" then
 			local targetPlr = stringFindPlayer(args[2])
 			if targetPlr and (rootPart and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) then
 				rootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-				msgNotify(string.format("teleported to %s.", targetPlr.Name))
+				msgNotify(string.format(msgOutputs.goto.tpSuccess, targetPlr.Name))
 			end
 		elseif args[1] == "ws" or args[1] == "walkspeed" then
 			local success = pcall(tonumber, args[2])
 			if success then
 				config.walkSpeed = args[2]
-				msgNotify(string.format("changed walkspeed to %s.", args[2]))
+				msgNotify(string.format(msgOutputs.characterMods.changed, "walkspeed", args[2]))
 			else
-				msgNotify("argument 2 should be a number.")
+				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
 			end
 		elseif args[1] == "jp" or args[1] == "jumppower" then
 			local success = pcall(tonumber, args[2])
 			if success then
 				config.jumpPower = args[2]
-				msgNotify(string.format("changed jumppower to %s.", args[2]))
+				msgNotify(string.format(msgOutputs.characterMods.changed, "jumppower", args[2]))
 			else
-				msgNotify("argument 2 should be a number.")
+				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
+			end
+		elseif args[1] == "prefix" then
+			if args[2] then
+				config.prefix = args[2]
+				msgNotify(string.format(msgOutputs.prefixChange, args[2]))
 			end
 		elseif args[1] == "auto-crim" then
 			config.utils.autoCriminal = not config.utils.autoCriminal
@@ -215,7 +234,7 @@ local function commandRun(message)
 			respawnSelf()
 		elseif args[1] == "invisible" then
 			config.utils.invisibility = not config.utils.invisibility
-			msgNotify(config.utils.invisibility and msgOutputs.invisible_enabled or msgOutputs.invisible_disabled)
+			msgNotify(config.utils.invisibility and msgOutputs.invisible.enabled or msgOutputs.invisible.disabled)
 			invisSelf()
 		end
 	end
@@ -247,4 +266,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify(string.format("v0.1.2 loaded, prefix is '%s' enjoy!", config.prefix))
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.2", config.prefix))
