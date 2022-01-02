@@ -5,8 +5,9 @@ local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
 -- objects
 local player = players.LocalPlayer
-local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
-local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+local character = player.Character
+local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+local rootPart = character:FindFirstChild("HumanoidRootPart")
 -- events
 local shoot, reload, itemGive, teamChange, loadChar =
 	repStorage:FindFirstChild("ShootEvent"),
@@ -23,6 +24,7 @@ local config = {
 	["utils"] = {
 		["autoCriminal"] = false,
 		["autoSpawn"] = false,
+		["invisibility"] = false
 	},
 	["prefix"] = ";",
 	["walkSpeed"] = 16,
@@ -30,20 +32,43 @@ local config = {
 }
 local msgOutputs = {
 	["kill-bl_ADD"] = "added %s to whitelist, player wouldn't be killed anymore.",
-	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again."
+	["kill-bl_REMOVE"] = "removed %s whitelist, player will be killed again.",
+	["invisible_enabled"] = "invisibility is now enabled, nobody can see u now.",
+	["invisible_disabled"] = "invisibility is now disabled, anyone can see u now."
 }
 local isKilling = false
 local diedConnection, oldNamecall
 -- functions
-local function setIsKilling()isKilling = not isKilling; end
 local function autoCrim()
-	if (config.utils.autoCriminal and rootPart and not isKilling and player.TeamColor.Name ~= "Really red") then
+	if ((config.utils.autoCriminal and not config.utils.invisibility) and rootPart and not isKilling and player.TeamColor.Name ~= "Really red") then
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
 		firetouchinterest(spawnPart, rootPart, 0)
 		firetouchinterest(spawnPart, rootPart, 1)
 		spawnPart.CFrame = oldSpawnPos
+	end
+end
+local function respawnSelf(useCurrentTeam)
+	if config.utils.autoSpawn then
+		local oldPos = player.Character:GetPivot()
+		loadChar:InvokeServer(player.Name, (useCurrentTeam and player.TeamColor.Name or (config.utils.autoCriminal and "Really red" or "Really black")))
+		player.Character:PivotTo(oldPos)
+	end
+end
+local function invisSelf()
+	if config.utils.invisibility and (character and rootPart) then
+		local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
+		character:PivotTo(CFrame.new(Vector3.one * 1e10))
+		task.wait(.25)
+		character.Parent = nil
+		rootPart:Destroy()
+		cloneRootPart.Parent = character
+		character.Parent = workspace
+		character:PivotTo(oldPos)
+		rootPart = cloneRootPart
+	elseif not config.utils.invisibility then
+		character:BreakJoints()
 	end
 end
 local function killPlr(arg1)
@@ -78,14 +103,10 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	-- TODO: fix this shit not working when auto spawn and auto criminal is enabled at the same time
-	if (not config.utils.autoSpawn or config.utils.autoCriminal) then
-		setIsKilling()
-		teamChange:FireServer("Medium stone grey"); task.delay(.1, setIsKilling)
-		if config.utils.autoCriminal then
-			task.delay(.1, autoCrim); return
-		end
-		task.delay(.1, teamChange.FireServer, teamChange, "Bright orange")
+	if not config.utils.autoSpawn then
+		isKilling = not isKilling
+		teamChange:FireServer("Medium stone grey"); isKilling = not isKilling
+		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootings, gunObj)
 	reload:FireServer(gunObj)
@@ -97,14 +118,6 @@ local function msgNotify(msg)
 		Font = Enum.Font.SourceSansBold,
 		FontSize = Enum.FontSize.Size32,
 	})
-end
-local function respawnSelf()
-	if diedConnection then diedConnection:Disconnect() end
-	if config.utils.autoSpawn then
-		local oldPos = player.Character:GetPivot()
-		loadChar:InvokeServer(player.Name, (config.utils.autoCriminal and "Really red" or "Really black"))
-		player.Character:PivotTo(oldPos)
-	end
 end
 local function stringFindPlayer(strArg, allowSets)
 	strArg = string.lower(strArg)
@@ -133,7 +146,7 @@ local function stringFindPlayer(strArg, allowSets)
 	end
 end
 local function msgHasPrefix(message)
-	return message and string.match(message, string.format("^%s", config.prefix))
+	return message and string.match(message, string.format("^%s", config.prefix)) or nil
 end
 local function commandRun(message)
 	message = string.lower(message)
@@ -200,17 +213,24 @@ local function commandRun(message)
 			config.utils.autoSpawn = not config.utils.autoSpawn
 			msgNotify(string.format("auto spawn is now %s.", (config.utils.autoSpawn and "enabled" or "disabled")))
 			respawnSelf()
+		elseif args[1] == "invisible" then
+			config.utils.invisibility = not config.utils.invisibility
+			msgNotify(config.utils.invisibility and msgOutputs.invisible_enabled or msgOutputs.invisible_disabled)
+			invisSelf()
 		end
 	end
 end
 -- main
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
-player.CharacterAdded:Connect(function(character)
+player.CharacterAdded:Connect(function(spawnedCharacter)
+	character = spawnedCharacter
 	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
 	if config.utils.autoSpawn then
+		if diedConnection then diedConnection:Disconnect() end
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
+	task.defer(invisSelf)
 end)
 runService.Heartbeat:Connect(function()
 	if humanoid then
