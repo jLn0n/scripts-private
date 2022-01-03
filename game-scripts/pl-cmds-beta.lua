@@ -41,6 +41,7 @@ local msgOutputs = {
 	["invisible"] = {
 		["enabled"] = "invisibility is now enabled, nobody can see u now.",
 		["disabled"] = "invisibility is now disabled, anyone can see u now.",
+		["notify"] = "you are now invisible to other players."
 	},
 	["kill"] = {
 		["allPlrs"] = "killed all players.",
@@ -49,15 +50,28 @@ local msgOutputs = {
 	["kill-bl"] = {
 		["plrAdd"] = "added %s to whitelist, player wouldn't be killed anymore.",
 		["plrRemove"] = "removed %s whitelist, player will be killed again.",
-		["list"] = "blacklisted players list: \n%s"
+		["list"] = "blacklisted players list: \n%s",
+		["listEmpty"] = "blacklisted player(s) is empty.",
 	},
 	["prefix"] = {
 		["notify"] = "current prefix is '%s'.",
 		["change"] = "changed prefix to '%s'.",
 	},
 	["argumentError"] = "argument %s should be a %s.",
+	["autoToggleNotify"] = "%s is now %s.",
 	["characterModsChanged"] = "changed %s to %s.",
+	["teamColorChanged"] = "changed chat color to %s",
 	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!",
+	["resetNotify"] = "character resetted successfully."
+}
+local colorMappings = {
+	["black"] = BrickColor.new("Really black"),
+	["blue"] = BrickColor.new("Dark blue"),
+	["gray"] = BrickColor.new("Dark grey metallic"),
+	["green"] = BrickColor.new("Forest green"),
+	["red"] = BrickColor.new("Bright red"),
+	["white"] = BrickColor.new("Institutional white"),
+	["yellow"] = BrickColor.new("Fire Yellow"),
 }
 local isKilling = false
 local cmdAliases = table.create(0)
@@ -68,15 +82,14 @@ local function autoCrim()
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
-		firetouchinterest(spawnPart, rootPart, 0)
-		firetouchinterest(spawnPart, rootPart, 1)
+		firetouchinterest(spawnPart, rootPart, 0); firetouchinterest(spawnPart, rootPart, 1)
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
-local function respawnSelf(bypassToggle, useCurrentTeam)
+local function respawnSelf(bypassToggle)
 	if bypassToggle or config.utils.autoSpawn then
 		local oldPos = player.Character:GetPivot()
-		loadChar:InvokeServer(player.Name, (useCurrentTeam and player.TeamColor.Name or (config.utils.autoCriminal and "Really red" or "Really black")))
+		loadChar:InvokeServer(player.Name, (not config.utils.autoCriminal and player.TeamColor.Name or "Really red"))
 		player.Character:PivotTo(oldPos)
 	end
 end
@@ -94,7 +107,7 @@ local function invisSelf(bypassToggle)
 end
 local function killPlr(arg1)
 	local gunObj = player.Backpack:FindFirstChild("M9")
-	local shootings = table.create(0)
+	local shootPackets = table.create(0)
 	if not gunObj then
 		itemGive:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
 		gunObj = player.Backpack:FindFirstChild("M9")
@@ -104,7 +117,7 @@ local function killPlr(arg1)
 			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
 			if not targetPart or config.killConf.killBlacklist[plr.Name] then continue end
 			for _ = 1, 10 do
-				table.insert(shootings, {
+				table.insert(shootPackets, {
 					["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
 					["Distance"] = 0,
 					["Cframe"] = CFrame.new(),
@@ -116,7 +129,7 @@ local function killPlr(arg1)
 		local targetPart = arg1.Character and arg1.Character:FindFirstChild("Head") or nil
 		if not targetPart then return end
 		for _ = 1, 10 do
-			table.insert(shootings, {
+			table.insert(shootPackets, {
 				["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
 				["Distance"] = 0,
 				["Cframe"] = CFrame.new(),
@@ -129,7 +142,7 @@ local function killPlr(arg1)
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
-	shoot:FireServer(shootings, gunObj); reload:FireServer(gunObj)
+	shoot:FireServer(shootPackets, gunObj); reload:FireServer(gunObj)
 end
 local function msgNotify(msg)
 	starterGui:SetCore("ChatMakeSystemMessage", {
@@ -168,7 +181,7 @@ end
 local function msgPrefixMatch(message)
 	return message and string.match(message, string.format("^%s", config.prefix)) or nil
 end
-local function getCmdFuncFromCmdName(cmdName)
+local function getCommandFunction(cmdName)
 	local funcResult do
 		funcResult = commands[cmdName] and commands[cmdName].func or nil
 		if not funcResult then
@@ -195,7 +208,7 @@ local function cmdMsgParse(_player, message)
 
 		local cmdName = args[1]
 		table.remove(args, 1)
-		local cmdFunction = getCmdFuncFromCmdName(cmdName)
+		local cmdFunction = getCommandFunction(cmdName)
 		if cmdFunction then
 			cmdFunction(_player, args)
 		end
@@ -216,7 +229,7 @@ commands = {
 		["desc"] = "makes you criminal automatically.",
 		["func"] = function()
 			config.utils.autoCriminal = not config.utils.autoCriminal
-			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
+			msgNotify(string.format(msgOutputs.autoToggleNotify, "auto criminal", (config.utils.autoCriminal and "enabled" or "disabled")))
 			autoCrim()
 		end
 	},
@@ -234,8 +247,19 @@ commands = {
 		["desc"] = "makes you resets when died automatically.",
 		["func"] = function()
 			config.utils.autoSpawn = not config.utils.autoSpawn
-			msgNotify(string.format("auto reset is now %s.", (config.utils.autoSpawn and "enabled" or "disabled")))
+			msgNotify(string.format(msgOutputs.autoToggleNotify, "auto reset", (config.utils.autoSpawn and "enabled" or "disabled")))
 			respawnSelf()
+		end
+	},
+	["teamcolor"] = {
+		["aliases"] = {"tcolor"},
+		["desc"] = "changes team color.",
+		["func"] = function(_, args)
+			local selcColor = colorMappings[args[1]]
+			if selcColor then
+				player.TeamColor = selcColor
+				msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
+			end
 		end
 	},
 	["commands"] = {
@@ -250,12 +274,13 @@ commands = {
 		end
 	},
 	["goto"] = {
-		["aliases"] = {},
+		["aliases"] = {"to"},
 		["desc"] = "teleports to player.",
 		["func"] = function(_, args)
 			local targetPlr = stringFindPlayer(args[1])
-			if targetPlr and (rootPart and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) then
-				rootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+			local targetPlrPart = (targetPlr and targetPlr.Character) and targetPlr.Character:FindFirstChild("HumanoidRootPart") or nil
+			if targetPlr and ((humanoid and humanoid.Health ~= 0) and targetPlrPart) then
+				character:PivotTo(targetPlrPart.CFrame * CFrame.new(0, 0, 2))
 				msgNotify(string.format(msgOutputs.goto.tpSuccess, targetPlr.Name))
 			end
 		end
@@ -265,6 +290,7 @@ commands = {
 		["desc"] = "makes your character invisible.",
 		["func"] = function()
 			invisSelf(true)
+			msgNotify(msgOutputs.invisible.notify)
 		end
 	},
 	["kill"] = {
@@ -288,16 +314,15 @@ commands = {
 		["desc"] = "blacklist player from being killed with commands.",
 		["func"] = function(_, args)
 			local targetPlr = args[2] and stringFindPlayer(args[2]) or nil
-			if targetPlr then
+			if targetPlr and (args[1] == "add" or args[1] == "remove") then
 				config.killConf.killBlacklist[targetPlr.Name] = (args[1] == "add" and true or args[1] == "remove" and false or config.killConf.killBlacklist[targetPlr.Name])
 				msgNotify(string.format(msgOutputs["kill-bl"][(config.killConf.killBlacklist[targetPlr.Name] and "plrAdd" or "plrRemove")], targetPlr.Name))
-			end
-			if args[1] == "list" then
+			elseif args[1] == "list" then
 				local listResult = ""
 				for plrName in pairs(config.killConf.killBlacklist) do
 					listResult = listResult .. plrName .. "\n"
 				end
-				msgNotify(string.format(msgOutputs["kill-bl"].list, listResult))
+				msgNotify(#config.killConf.killBlacklist ~= 0 and string.format(msgOutputs["kill-bl"].list, listResult) or msgOutputs["kill-bl"].listEmpty)
 			end
 		end
 	},
@@ -316,8 +341,9 @@ commands = {
 	["reset"] = {
 		["aliases"] = {"re"},
 		["desc"] = "respawns you in your current position.",
-		["func"] = function(_, args)
-			respawnSelf(true, not args[2])
+		["func"] = function()
+			respawnSelf(true, true)
+			msgNotify(msgOutputs.resetNotify)
 		end
 	},
 	["jumppower"] = {
@@ -358,7 +384,6 @@ player.CharacterAdded:Connect(function(spawnedCharacter)
 	if config.utils.autoSpawn then
 		if diedConnection then diedConnection:Disconnect() end
 		diedConnection = humanoid.Died:Connect(respawnSelf)
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
 	task.defer(invisSelf); task.defer(autoCrim)
 end)
