@@ -31,8 +31,9 @@ local config = {
 	["jumpPower"] = 50
 }
 local msgOutputs = {
-	["characterMods"] = {
-		["changed"] = "changed %s to %s."
+	["commandsOutput"] = {
+		["listing"] = "commands: \n%s",
+		["templateShow"] = "- %s: %s\n"
 	},
 	["goto"] = {
 		["tpSuccess"] = "teleported to %s."
@@ -50,12 +51,17 @@ local msgOutputs = {
 		["plrRemove"] = "removed %s whitelist, player will be killed again.",
 		["list"] = "blacklisted players list: \n%s"
 	},
+	["prefix"] = {
+		["notify"] = "current prefix is '%s'.",
+		["change"] = "changed prefix to '%s'.",
+	},
 	["argumentError"] = "argument %s should be a %s.",
-	["prefixChange"] = "changed prefix to '%s'.",
-	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!"
+	["characterModsChanged"] = "changed %s to %s.",
+	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!",
 }
 local isKilling = false
-local diedConnection, oldNamecall
+local cmdAliases = table.create(0)
+local diedConnection, oldNamecall, commands
 -- functions
 local function autoCrim()
 	if ((config.utils.autoCriminal and not config.utils.invisibility) and rootPart and not isKilling and player.TeamColor.Name ~= "Really red") then
@@ -67,15 +73,15 @@ local function autoCrim()
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
-local function respawnSelf(useCurrentTeam)
-	if config.utils.autoSpawn then
+local function respawnSelf(bypassToggle, useCurrentTeam)
+	if bypassToggle or config.utils.autoSpawn then
 		local oldPos = player.Character:GetPivot()
 		loadChar:InvokeServer(player.Name, (useCurrentTeam and player.TeamColor.Name or (config.utils.autoCriminal and "Really red" or "Really black")))
 		player.Character:PivotTo(oldPos)
 	end
 end
-local function invisSelf()
-	if config.utils.invisibility and (character and rootPart) then
+local function invisSelf(bypassToggle)
+	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
 		local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
 		character:PivotTo(CFrame.new(Vector3.one * 1e10)); task.wait(.25)
 		rootPart.Anchored = true
@@ -118,7 +124,7 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not player.Team.Name == "Neutral" or not config.utils.autoSpawn then
+	if not player.Neutral or not config.utils.autoSpawn then
 		isKilling = true
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
@@ -159,87 +165,192 @@ local function stringFindPlayer(strArg, allowSets)
 		end
 	end
 end
-local function msgHasPrefix(message)
+local function msgPrefixMatch(message)
 	return message and string.match(message, string.format("^%s", config.prefix)) or nil
 end
-local function commandRun(message)
+local function getCmdFuncFromCmdName(cmdName)
+	local funcResult do
+		funcResult = commands[cmdName] and commands[cmdName].func or nil
+		if not funcResult then
+			for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
+				if table.find(cmdAliasList, cmdName) then
+					funcResult = commands[cmdAliasParent].func
+					break
+				end
+			end
+		end
+	end
+	return funcResult
+end
+local function cmdMsgParse(_player, message)
 	message = string.lower(message)
-	local prefixMatch = string.match(message, string.format("^%s", config.prefix))
+	local prefixMatch = msgPrefixMatch(message)
 
 	if prefixMatch then
 		message = string.gsub(message, prefixMatch, "", 1)
 		local args = table.create(0)
-		for arg in string.gmatch(message, "[^%s]+") do
-			table.insert(args, arg)
+		for argument in string.gmatch(message, "[^%s]+") do
+			table.insert(args, argument)
 		end
 
-		if args[1] == "kill" then
-			if args[2] == "all" then
+		local cmdName = args[1]
+		table.remove(args, 1)
+		local cmdFunction = getCmdFuncFromCmdName(cmdName)
+		if cmdFunction then
+			cmdFunction(_player, args)
+		end
+	end
+end
+--[==[[ commands
+	command template:
+	["example"] = {
+		["aliases"] = {},
+		["desc"] = "",
+		["func"] = function(speaker, args)
+		end
+	},
+--]]==]
+commands = {
+	["auto-criminal"] = {
+		["aliases"] = {"auto-crim"},
+		["desc"] = "makes you criminal automatically.",
+		["func"] = function()
+			config.utils.autoCriminal = not config.utils.autoCriminal
+			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
+			autoCrim()
+		end
+	},
+	["auto-invisible"] = {
+		["aliases"] = {"auto-invis"},
+		["desc"] = "makes you invisible automatically.",
+		["func"] = function()
+			config.utils.invisibility = not config.utils.invisibility
+			msgNotify(config.utils.invisibility and msgOutputs.invisible.enabled or msgOutputs.invisible.disabled)
+			invisSelf()
+		end
+	},
+	["auto-reset"] = {
+		["aliases"] = {"auto-re", "fast-spawn"},
+		["desc"] = "makes you resets when died automatically.",
+		["func"] = function()
+			config.utils.autoSpawn = not config.utils.autoSpawn
+			msgNotify(string.format("auto reset is now %s.", (config.utils.autoSpawn and "enabled" or "disabled")))
+			respawnSelf()
+		end
+	},
+	["commands"] = {
+		["aliases"] = {"cmds"},
+		["desc"] = "shows commands list.",
+		["func"] = function()
+			local msgResult = ""
+			for cmdName, cmdData in pairs(commands) do
+				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (#cmdData.aliases ~= 0 and string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/")) or cmdName), cmdData.desc)
+			end
+			msgNotify(string.format(msgOutputs.commandsOutput.listing, msgResult))
+		end
+	},
+	["goto"] = {
+		["aliases"] = {},
+		["desc"] = "teleports to player.",
+		["func"] = function(_, args)
+			local targetPlr = stringFindPlayer(args[1])
+			if targetPlr and (rootPart and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) then
+				rootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+				msgNotify(string.format(msgOutputs.goto.tpSuccess, targetPlr.Name))
+			end
+		end
+	},
+	["invisible"] = {
+		["aliases"] = {"invis"},
+		["desc"] = "makes your character invisible.",
+		["func"] = function()
+			invisSelf(true)
+		end
+	},
+	["kill"] = {
+		["aliases"] = {},
+		["desc"] = "kills player(s).",
+		["func"] = function(_, args)
+			if args[1] == "all" then
 				killPlr(players:GetPlayers())
 				msgNotify(msgOutputs.kill.allPlrs)
 			else
-				local targetPlr = stringFindPlayer(args[2], true)
+				local targetPlr = stringFindPlayer(args[1], true)
 				if targetPlr then
 					killPlr(targetPlr)
-					msgNotify(string.format(msgOutputs.kill.targetPlr, (type(targetPlr) ~= "table" and targetPlr.Name or args[2])))
+					msgNotify(string.format(msgOutputs.kill.targetPlr, (type(targetPlr) ~= "table" and targetPlr.Name or args[1])))
 				end
 			end
-		elseif args[1] == "kill-bl" then
-			local targetPlr = args[3] and stringFindPlayer(args[3]) or nil
+		end
+	},
+	["kill-blacklist"] = {
+		["aliases"] = {"kill-bl"},
+		["desc"] = "blacklist player from being killed with commands.",
+		["func"] = function(_, args)
+			local targetPlr = args[2] and stringFindPlayer(args[2]) or nil
 			if targetPlr then
-				config.killConf.killBlacklist[targetPlr.Name] = (args[2] == "add" and true or args[2] == "remove" and false or config.killConf.killBlacklist[targetPlr.Name])
+				config.killConf.killBlacklist[targetPlr.Name] = (args[1] == "add" and true or args[1] == "remove" and false or config.killConf.killBlacklist[targetPlr.Name])
 				msgNotify(string.format(msgOutputs["kill-bl"][(config.killConf.killBlacklist[targetPlr.Name] and "plrAdd" or "plrRemove")], targetPlr.Name))
 			end
-			if args[2] == "list" then
+			if args[1] == "list" then
 				local listResult = ""
 				for plrName in pairs(config.killConf.killBlacklist) do
 					listResult = listResult .. plrName .. "\n"
 				end
 				msgNotify(string.format(msgOutputs["kill-bl"].list, listResult))
 			end
-		elseif args[1] == "goto" then
-			local targetPlr = stringFindPlayer(args[2])
-			if targetPlr and (rootPart and (humanoid and humanoid.Health ~= 0) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) then
-				rootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-				msgNotify(string.format(msgOutputs.goto.tpSuccess, targetPlr.Name))
-			end
-		elseif args[1] == "ws" or args[1] == "walkspeed" then
-			local success = pcall(tonumber, args[2])
-			if success then
-				config.walkSpeed = args[2]
-				msgNotify(string.format(msgOutputs.characterMods.changed, "walkspeed", args[2]))
-			else
-				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
-			end
-		elseif args[1] == "jp" or args[1] == "jumppower" then
-			local success = pcall(tonumber, args[2])
-			if success then
-				config.jumpPower = args[2]
-				msgNotify(string.format(msgOutputs.characterMods.changed, "jumppower", args[2]))
-			else
-				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
-			end
-		elseif args[1] == "prefix" then
-			if args[2] then
-				config.prefix = args[2]
-				msgNotify(string.format(msgOutputs.prefixChange, args[2]))
-			end
-		elseif args[1] == "auto-crim" then
-			config.utils.autoCriminal = not config.utils.autoCriminal
-			msgNotify(string.format("auto criminal is now %s.", (config.utils.autoCriminal and "enabled" or "disabled")))
-			autoCrim()
-		elseif args[1] == "auto-spawn" then
-			config.utils.autoSpawn = not config.utils.autoSpawn
-			msgNotify(string.format("auto spawn is now %s.", (config.utils.autoSpawn and "enabled" or "disabled")))
-			respawnSelf()
-		elseif args[1] == "invisible" then
-			config.utils.invisibility = not config.utils.invisibility
-			msgNotify(config.utils.invisibility and msgOutputs.invisible.enabled or msgOutputs.invisible.disabled)
-			invisSelf()
 		end
-	end
-end
+	},
+	["prefix"] = {
+		["aliases"] = {},
+		["desc"] = "changes/says current prefix.",
+		["func"] = function(_, args)
+			if args[1] then
+				config.prefix = args[1]
+				msgNotify(string.format(msgOutputs.prefix.change, args[2]))
+			else
+				msgNotify(string.format(msgOutputs.prefix.notify, config.prefix))
+			end
+		end
+	},
+	["reset"] = {
+		["aliases"] = {"re"},
+		["desc"] = "respawns you in your current position.",
+		["func"] = function(_, args)
+			respawnSelf(true, not args[2])
+		end
+	},
+	["jumppower"] = {
+		["aliases"] = {"jp"},
+		["desc"] = "modifies jump power.",
+		["func"] = function(_, args)
+			local success = pcall(tonumber, args[1])
+			if success then
+				config.jumpPower = args[1]
+				msgNotify(string.format(msgOutputs.characterModsChanged, "jumppower", args[1]))
+			else
+				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
+			end
+		end
+	},
+	["walkspeed"] = {
+		["aliases"] = {"ws"},
+		["desc"] = "modifies walkspeed.",
+		["func"] = function(_, args)
+			local success = pcall(tonumber, args[1])
+			if success then
+				config.walkSpeed = args[1]
+				msgNotify(string.format(msgOutputs.characterModsChanged, "walkspeed", args[1]))
+			else
+				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
+			end
+		end
+	},
+}
 -- main
+for cmdName, cmdData in pairs(commands) do
+	cmdAliases[cmdName] = cmdData.aliases
+end
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.CharacterAdded:Connect(function(spawnedCharacter)
 	character = spawnedCharacter
@@ -260,10 +371,10 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	local message = ...
 	local namecallMethod = getnamecallmethod()
 
-	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and msgHasPrefix(message) then
-		task.spawn(commandRun, message)
+	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and msgPrefixMatch(message) then
+		task.spawn(cmdMsgParse, player, message)
 		return
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.2", config.prefix))
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.3", config.prefix))
