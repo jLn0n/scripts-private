@@ -9,9 +9,10 @@ local character = player.Character
 local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 -- events
-local shoot, reload, itemGive, teamChange, loadChar =
+local shoot, reload, punch, itemGive, teamChange, loadChar =
 	repStorage:FindFirstChild("ShootEvent"),
 	repStorage:FindFirstChild("ReloadEvent"),
+	repStorage:FindFirstChild("meleeEvent"),
 	workspace.Remote:FindFirstChild("ItemHandler"),
 	workspace.Remote:FindFirstChild("TeamEvent"),
 	workspace.Remote:FindFirstChild("loadchar")
@@ -25,6 +26,10 @@ local config = {
 		["autoCriminal"] = false,
 		["autoSpawn"] = false,
 		["invisibility"] = false
+	},
+	["killAura"] = {
+		["enabled"] = false,
+		["range"] = 10,
 	},
 	["prefix"] = ";",
 	["walkSpeed"] = 16,
@@ -59,10 +64,11 @@ local msgOutputs = {
 	},
 	["argumentError"] = "argument %s should be a %s.",
 	["autoToggleNotify"] = "%s is now %s.",
-	["characterModsChanged"] = "changed %s to %s.",
-	["teamColorChanged"] = "changed chat color to %s",
+	["changedNotify"] = "changed %s to %s.",
+	["teamColorChanged"] = "changed team color to %s",
 	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!",
-	["resetNotify"] = "character resetted successfully."
+	["respawnNotify"] = "character respawned successfully.",
+	["unknownCommand"] = "command '%s' cannot be found."
 }
 local colorMappings = {
 	["black"] = BrickColor.new("Really black"),
@@ -73,10 +79,19 @@ local colorMappings = {
 	["white"] = BrickColor.new("Institutional white"),
 	["yellow"] = BrickColor.new("Fire Yellow"),
 }
+local cframePlaces = {
+	["nexus"] = CFrame.new(920, 98, 2450),
+	["policeroom"] = CFrame.new(835, 99, 2270),
+	["crimbase"] = CFrame.new(-945, 95, 2055)
+}
 local isKilling = false
 local cmdAliases = table.create(0)
 local diedConnection, oldNamecall, commands
 -- functions
+local function isSelfNeutral()
+	local plrTeamName = player.TeamColor.Name
+	return not (plrTeamName == "Bright blue" or plrTeamName == "Really red" or plrTeamName == "Bright orange")
+end
 local function autoCrim()
 	if ((config.utils.autoCriminal and not config.utils.invisibility) and rootPart and not isKilling and player.TeamColor.Name ~= "Really red") then
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
@@ -87,10 +102,10 @@ local function autoCrim()
 	end
 end
 local function respawnSelf(bypassToggle)
-	if bypassToggle or config.utils.autoSpawn then
-		local oldPos = player.Character:GetPivot()
-		loadChar:InvokeServer(player.Name, (not config.utils.autoCriminal and player.TeamColor.Name or "Really red"))
-		player.Character:PivotTo(oldPos)
+	if (bypassToggle or config.utils.autoSpawn) and rootPart then
+		local oldPos = rootPart.CFrame
+		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or player.TeamColor.Name))
+		rootPart.CFrame = oldPos
 	end
 end
 local function invisSelf(bypassToggle)
@@ -137,7 +152,7 @@ local function killPlr(arg1)
 			})
 		end
 	end
-	if not player.Neutral or not config.utils.autoSpawn then
+	if not isSelfNeutral() then
 		isKilling = true
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
@@ -211,6 +226,8 @@ local function cmdMsgParse(_player, message)
 		local cmdFunction = getCommandFunction(cmdName)
 		if cmdFunction then
 			cmdFunction(_player, args)
+		else
+			msgNotify(string.format(msgOutputs.unknownCommand, cmdName))
 		end
 	end
 end
@@ -242,24 +259,13 @@ commands = {
 			invisSelf()
 		end
 	},
-	["auto-reset"] = {
-		["aliases"] = {"auto-re", "fast-spawn"},
-		["desc"] = "makes you resets when died automatically.",
+	["auto-respawn"] = {
+		["aliases"] = {"auto-re", "auto-reset"},
+		["desc"] = "makes you respawn quickly if dead.",
 		["func"] = function()
 			config.utils.autoSpawn = not config.utils.autoSpawn
-			msgNotify(string.format(msgOutputs.autoToggleNotify, "auto reset", (config.utils.autoSpawn and "enabled" or "disabled")))
+			msgNotify(string.format(msgOutputs.autoToggleNotify, "auto respawn", (config.utils.autoSpawn and "enabled" or "disabled")))
 			respawnSelf()
-		end
-	},
-	["teamcolor"] = {
-		["aliases"] = {"tcolor"},
-		["desc"] = "changes team color.",
-		["func"] = function(_, args)
-			local selcColor = colorMappings[args[1]]
-			if selcColor then
-				player.TeamColor = selcColor
-				msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
-			end
 		end
 	},
 	["commands"] = {
@@ -268,6 +274,7 @@ commands = {
 		["func"] = function()
 			local msgResult = ""
 			for cmdName, cmdData in pairs(commands) do
+				cmdName = config.prefix .. cmdName
 				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (#cmdData.aliases ~= 0 and string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/")) or cmdName), cmdData.desc)
 			end
 			msgNotify(string.format(msgOutputs.commandsOutput.listing, msgResult))
@@ -275,13 +282,13 @@ commands = {
 	},
 	["goto"] = {
 		["aliases"] = {"to"},
-		["desc"] = "teleports to player.",
+		["desc"] = "teleports to place/player.",
 		["func"] = function(_, args)
-			local targetPlr = stringFindPlayer(args[1])
-			local targetPlrPart = (targetPlr and targetPlr.Character) and targetPlr.Character:FindFirstChild("HumanoidRootPart") or nil
-			if targetPlr and ((humanoid and humanoid.Health ~= 0) and targetPlrPart) then
-				character:PivotTo(targetPlrPart.CFrame * CFrame.new(0, 0, 2))
-				msgNotify(string.format(msgOutputs.goto.tpSuccess, targetPlr.Name))
+			local targetPlr, partToTp = stringFindPlayer(args[1])
+			partToTp = ((targetPlr and targetPlr.Character) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) or cframePlaces[args[1]] or nil
+			if partToTp then
+				character:PivotTo(targetPlr and (partToTp.CFrame * CFrame.new(0, 0, 2)) or partToTp)
+				msgNotify(string.format(msgOutputs.goto.tpSuccess, (targetPlr and targetPlr.Name or args[1])))
 			end
 		end
 	},
@@ -306,6 +313,20 @@ commands = {
 					killPlr(targetPlr)
 					msgNotify(string.format(msgOutputs.kill.targetPlr, (type(targetPlr) ~= "table" and targetPlr.Name or args[1])))
 				end
+			end
+		end
+	},
+	["kill-aura"] = {
+		["aliases"] = {"kaura"},
+		["desc"] = "kills player(s) near your character.",
+		["func"] = function(_, args)
+			if args[1] == "range" then
+				local _, result = pcall(tonumber, args[2])
+				config.killAura.range = ((result and result < 15) and result or config.killAura.range)
+				msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "range", config.killAura.range)))
+			elseif args[1] == "toggle" then
+				config.killAura.enabled = not config.killAura.enabled
+				msgNotify(string.format(msgOutputs.autoToggleNotify, "kill aura", (config.killAura.enabled and "enabled" or "disabled")))
 			end
 		end
 	},
@@ -338,38 +359,42 @@ commands = {
 			end
 		end
 	},
-	["reset"] = {
-		["aliases"] = {"re"},
+	["respawn"] = {
+		["aliases"] = {"re", "reset"},
 		["desc"] = "respawns you in your current position.",
 		["func"] = function()
 			respawnSelf(true, true)
-			msgNotify(msgOutputs.resetNotify)
+			msgNotify(msgOutputs.respawnNotify)
+		end
+	},
+	["team-color"] = {
+		["aliases"] = {"tcolor"},
+		["desc"] = "changes team color.",
+		["func"] = function(_, args)
+			local selcColor = colorMappings[args[1]]
+			if selcColor then
+				player.TeamColor = selcColor
+				respawnSelf()
+				msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
+			end
 		end
 	},
 	["jumppower"] = {
 		["aliases"] = {"jp"},
 		["desc"] = "modifies jump power.",
 		["func"] = function(_, args)
-			local success = pcall(tonumber, args[1])
-			if success then
-				config.jumpPower = args[1]
-				msgNotify(string.format(msgOutputs.characterModsChanged, "jumppower", args[1]))
-			else
-				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
-			end
+			local _, result = pcall(tonumber, args[1])
+			config.jumpPower = result or config.jumpPower
+			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.killAura.range)))
 		end
 	},
 	["walkspeed"] = {
 		["aliases"] = {"ws"},
 		["desc"] = "modifies walkspeed.",
 		["func"] = function(_, args)
-			local success = pcall(tonumber, args[1])
-			if success then
-				config.walkSpeed = args[1]
-				msgNotify(string.format(msgOutputs.characterModsChanged, "walkspeed", args[1]))
-			else
-				msgNotify(string.format(msgOutputs.argumentError, "2", "number"))
-			end
+			local _, result = pcall(tonumber, args[1])
+			config.walkSpeed = result or config.walkSpeed
+			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "walkspeed", config.killAura.range)))
 		end
 	},
 }
@@ -390,6 +415,13 @@ end)
 runService.Heartbeat:Connect(function()
 	if humanoid then
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
+	end
+	if config.killAura.enabled and rootPart then
+		for _, plr in ipairs(players:GetPlayers()) do
+			if plr ~= player and not config.killConf.killBlacklist[plr.Name] and (plr:DistanceFromCharacter(rootPart.Position) < config.killAura.range) then
+				for _ = 1, 10 do punch:FireServer(plr) end
+			end
+		end
 	end
 end)
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
