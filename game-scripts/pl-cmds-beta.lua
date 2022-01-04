@@ -385,7 +385,7 @@ commands = {
 		["func"] = function(_, args)
 			local _, result = pcall(tonumber, args[1])
 			config.jumpPower = result or config.jumpPower
-			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.killAura.range)))
+			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.jumpPower)))
 		end
 	},
 	["walkspeed"] = {
@@ -394,7 +394,7 @@ commands = {
 		["func"] = function(_, args)
 			local _, result = pcall(tonumber, args[1])
 			config.walkSpeed = result or config.walkSpeed
-			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "walkspeed", config.killAura.range)))
+			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "walkspeed", config.walkSpeed)))
 		end
 	},
 }
