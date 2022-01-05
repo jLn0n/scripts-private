@@ -297,8 +297,8 @@ commands = {
 			msgNotify(string.format(msgOutputs.commandsOutput.listing, msgResult))
 		end
 	},
-	["getitem"] = {
-		["aliases"] = {"give"},
+	["giveitem"] = {
+		["aliases"] = {"give", "getitem"},
 		["desc"] = "gives you the item that you want.",
 		["func"] = function(_, args)
 			local itemPickupPart = args[1] and itemPickups[args[1]] or nil
