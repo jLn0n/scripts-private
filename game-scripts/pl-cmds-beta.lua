@@ -40,9 +40,6 @@ local msgOutputs = {
 		["listing"] = "commands: \n%s",
 		["templateShow"] = "- %s: %s\n"
 	},
-	["goto"] = {
-		["tpSuccess"] = "teleported to %s."
-	},
 	["invisible"] = {
 		["enabled"] = "invisibility is now enabled, nobody can see u now.",
 		["disabled"] = "invisibility is now disabled, anyone can see u now.",
@@ -66,6 +63,8 @@ local msgOutputs = {
 	["autoToggleNotify"] = "%s is now %s.",
 	["changedNotify"] = "changed %s to %s.",
 	["giveNotify"] = "you now have '%s'.",
+	["gotoTpSuccess"] = "teleported to %s.",
+	["playerNotFound"] = "cannot find player '%s'.",
 	["teamColorChanged"] = "changed team color to %s. (can only be applied when auto reset is enabled.)",
 	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!",
 	["respawnNotify"] = "character respawned successfully.",
@@ -106,8 +105,7 @@ local function autoCrim()
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
-		firetouchinterest(spawnPart, rootPart, 0)
-		firetouchinterest(spawnPart, rootPart, 1)
+		firetouchinterest(spawnPart, rootPart, 0); firetouchinterest(spawnPart, rootPart, 1)
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
@@ -140,10 +138,10 @@ local function killPlr(arg1)
 	if typeof(arg1) == "table" then
 		for _, plr in ipairs(arg1) do
 			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
-			if not targetPart or config.killConf.killBlacklist[plr.Name] then continue end
+			if not targetPart or config.killConf.killBlacklist[plr.Name] then continue end -- doesn't work with boronide
 			for _ = 1, 10 do
 				table.insert(shootPackets, {
-					["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
+					["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
 					["Distance"] = 0,
 					["Cframe"] = CFrame.new(),
 					["Hit"] = targetPart
@@ -155,7 +153,7 @@ local function killPlr(arg1)
 		if not targetPart then return end
 		for _ = 1, 10 do
 			table.insert(shootPackets, {
-				["RayObject"] = Ray.new(Vector3.new(), Vector3.new()),
+				["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
 				["Distance"] = 0,
 				["Cframe"] = CFrame.new(),
 				["Hit"] = targetPart
@@ -167,12 +165,13 @@ local function killPlr(arg1)
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
-	shoot:FireServer(shootPackets, gunObj); reload:FireServer(gunObj)
+	shoot:FireServer(shootPackets, gunObj)
+	reload:FireServer(gunObj)
 end
 local function countTable(tableArg)
 	local count = 0
 	for _ in pairs(tableArg) do
-		count += 1
+		count = count + 1 -- doesn't work with boronide
 	end
 	return count
 end
@@ -208,6 +207,7 @@ local function stringFindPlayer(strArg, allowSets)
 				return plr == player and nil or plr
 			end
 		end
+		msgNotify(string.format(msgOutputs.playerNotFound, strArg))
 	end
 end
 local function msgPrefixMatch(message)
@@ -316,7 +316,7 @@ commands = {
 			partToTp = ((targetPlr and targetPlr.Character) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) or cframePlaces[args[1]] or nil
 			if partToTp then
 				character:PivotTo(targetPlr and (partToTp.CFrame * CFrame.new(0, 0, 2)) or partToTp)
-				msgNotify(string.format(msgOutputs.goto.tpSuccess, (targetPlr and targetPlr.Name or args[1])))
+				msgNotify(string.format(msgOutputs.gotoTpSuccess, (targetPlr and targetPlr.Name or args[1])))
 			end
 		end
 	},
@@ -407,8 +407,8 @@ commands = {
 			end
 		end
 	},
-	["jumppower"] = {
-		["aliases"] = {"jp"},
+	["jump-power"] = {
+		["aliases"] = {"jp", "jumppower"},
 		["desc"] = "modifies jump power.",
 		["func"] = function(_, args)
 			local _, result = pcall(tonumber, args[1])
@@ -416,8 +416,8 @@ commands = {
 			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.jumpPower)))
 		end
 	},
-	["walkspeed"] = {
-		["aliases"] = {"ws"},
+	["walk-speed"] = {
+		["aliases"] = {"ws", "walkspeed"},
 		["desc"] = "modifies walkspeed.",
 		["func"] = function(_, args)
 			local _, result = pcall(tonumber, args[1])
