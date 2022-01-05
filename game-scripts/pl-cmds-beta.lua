@@ -29,7 +29,7 @@ local config = {
 	},
 	["killAura"] = {
 		["enabled"] = false,
-		["range"] = 10,
+		["range"] = 25,
 	},
 	["prefix"] = ";",
 	["walkSpeed"] = 16,
@@ -65,14 +65,15 @@ local msgOutputs = {
 	["argumentError"] = "argument %s should be a %s.",
 	["autoToggleNotify"] = "%s is now %s.",
 	["changedNotify"] = "changed %s to %s.",
-	["teamColorChanged"] = "changed team color to %s",
+	["giveNotify"] = "you now have '%s'.",
+	["teamColorChanged"] = "changed team color to %s. (can only be applied when auto reset is enabled.)",
 	["loadedMsg"] = "%s loaded, prefix is '%s' enjoy!",
 	["respawnNotify"] = "character respawned successfully.",
 	["unknownCommand"] = "command '%s' cannot be found."
 }
 local colorMappings = {
 	["black"] = BrickColor.new("Really black"),
-	["blue"] = BrickColor.new("Dark blue"),
+	["blue"] = BrickColor.new("Navy blue"),
 	["gray"] = BrickColor.new("Dark grey metallic"),
 	["green"] = BrickColor.new("Forest green"),
 	["red"] = BrickColor.new("Bright red"),
@@ -84,7 +85,15 @@ local cframePlaces = {
 	["policeroom"] = CFrame.new(835, 99, 2270),
 	["crimbase"] = CFrame.new(-945, 95, 2055)
 }
+local itemPickups = {
+	["ak47"] = workspace.Prison_ITEMS.giver["AK-47"].ITEMPICKUP,
+	["knife"] = workspace.Prison_ITEMS.single["Crude Knife"].ITEMPICKUP,
+	["m4a1"] = workspace.Prison_ITEMS.giver.M4A1.ITEMPICKUP,
+	["m9"] = workspace.Prison_ITEMS.giver.M9.ITEMPICKUP,
+	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
+}
 local isKilling = false
+local currentTeamColor
 local cmdAliases = table.create(0)
 local diedConnection, oldNamecall, commands
 -- functions
@@ -97,14 +106,15 @@ local function autoCrim()
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
-		firetouchinterest(spawnPart, rootPart, 0); firetouchinterest(spawnPart, rootPart, 1)
+		firetouchinterest(spawnPart, rootPart, 0)
+		firetouchinterest(spawnPart, rootPart, 1)
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
 local function respawnSelf(bypassToggle)
 	if (bypassToggle or config.utils.autoSpawn) and rootPart then
 		local oldPos = rootPart.CFrame
-		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or player.TeamColor.Name))
+		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or (currentTeamColor and currentTeamColor.Name or player.TeamColor.Name)))
 		rootPart.CFrame = oldPos
 	end
 end
@@ -158,6 +168,13 @@ local function killPlr(arg1)
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
 	shoot:FireServer(shootPackets, gunObj); reload:FireServer(gunObj)
+end
+local function countTable(tableArg)
+	local count = 0
+	for _ in pairs(tableArg) do
+		count += 1
+	end
+	return count
 end
 local function msgNotify(msg)
 	starterGui:SetCore("ChatMakeSystemMessage", {
@@ -275,9 +292,20 @@ commands = {
 			local msgResult = ""
 			for cmdName, cmdData in pairs(commands) do
 				cmdName = config.prefix .. cmdName
-				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (#cmdData.aliases ~= 0 and string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/")) or cmdName), cmdData.desc)
+				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (countTable(cmdData.aliases) ~= 0 and string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/")) or cmdName), cmdData.desc)
 			end
 			msgNotify(string.format(msgOutputs.commandsOutput.listing, msgResult))
+		end
+	},
+	["getitem"] = {
+		["aliases"] = {"give"},
+		["desc"] = "gives you the item that you want.",
+		["func"] = function(_, args)
+			local itemPickupPart = args[1] and itemPickups[args[1]] or nil
+			if itemPickupPart then
+				itemGive:InvokeServer(itemPickupPart)
+				msgNotify(string.format(msgOutputs.giveNotify, itemPickupPart.Parent.Name))
+			end
 		end
 	},
 	["goto"] = {
@@ -322,7 +350,7 @@ commands = {
 		["func"] = function(_, args)
 			if args[1] == "range" then
 				local _, result = pcall(tonumber, args[2])
-				config.killAura.range = ((result and result < 15) and result or config.killAura.range)
+				config.killAura.range = ((result and result <= 25) and result or config.killAura.range)
 				msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "range", config.killAura.range)))
 			elseif args[1] == "toggle" then
 				config.killAura.enabled = not config.killAura.enabled
@@ -336,14 +364,14 @@ commands = {
 		["func"] = function(_, args)
 			local targetPlr = args[2] and stringFindPlayer(args[2]) or nil
 			if targetPlr and (args[1] == "add" or args[1] == "remove") then
-				config.killConf.killBlacklist[targetPlr.Name] = (args[1] == "add" and true or args[1] == "remove" and false or config.killConf.killBlacklist[targetPlr.Name])
+				config.killConf.killBlacklist[targetPlr.Name] = (args[1] == "add" and true or args[1] == "remove" and false)
 				msgNotify(string.format(msgOutputs["kill-bl"][(config.killConf.killBlacklist[targetPlr.Name] and "plrAdd" or "plrRemove")], targetPlr.Name))
 			elseif args[1] == "list" then
 				local listResult = ""
-				for plrName in pairs(config.killConf.killBlacklist) do
-					listResult = listResult .. plrName .. "\n"
+				for plrName, blValue in pairs(config.killConf.killBlacklist) do
+					listResult = listResult .. string.format("%s: %s\n", plrName, blValue)
 				end
-				msgNotify(#config.killConf.killBlacklist ~= 0 and string.format(msgOutputs["kill-bl"].list, listResult) or msgOutputs["kill-bl"].listEmpty)
+				msgNotify(countTable(config.killConf.killBlacklist) ~= 0 and string.format(msgOutputs["kill-bl"].list, listResult) or msgOutputs["kill-bl"].listEmpty)
 			end
 		end
 	},
@@ -363,7 +391,7 @@ commands = {
 		["aliases"] = {"re", "reset"},
 		["desc"] = "respawns you in your current position.",
 		["func"] = function()
-			respawnSelf(true, true)
+			respawnSelf(true)
 			msgNotify(msgOutputs.respawnNotify)
 		end
 	},
@@ -371,9 +399,9 @@ commands = {
 		["aliases"] = {"tcolor"},
 		["desc"] = "changes team color.",
 		["func"] = function(_, args)
-			local selcColor = colorMappings[args[1]]
+			local selcColor = colorMappings[args[1]] or "default"
 			if selcColor then
-				player.TeamColor = selcColor
+				currentTeamColor = (selcColor ~= "default" and selcColor or nil)
 				respawnSelf()
 				msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
 			end
@@ -418,8 +446,12 @@ runService.Heartbeat:Connect(function()
 	end
 	if config.killAura.enabled and rootPart then
 		for _, plr in ipairs(players:GetPlayers()) do
-			if plr ~= player and not config.killConf.killBlacklist[plr.Name] and (plr:DistanceFromCharacter(rootPart.Position) < config.killAura.range) then
-				for _ = 1, 10 do punch:FireServer(plr) end
+			if plr ~= player then
+				local plrChar = plr.Character
+				local _rootPart, _humanoid = plrChar and character:FindFirstChild("HumanoidRootPart") or nil, plrChar and character:FindFirstChildWhichIsA("Humanoid")
+				if not config.killConf.killBlacklist[plr.Name] and ((_humanoid and _humanoid.Health ~= 0) and (_rootPart and player:DistanceFromCharacter(_rootPart.Position) < config.killAura.range)) then
+					punch:FireServer(plr)
+				end
 			end
 		end
 	end
