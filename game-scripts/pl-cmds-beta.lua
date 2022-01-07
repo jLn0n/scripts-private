@@ -312,11 +312,11 @@ commands = {
 		["aliases"] = {"to"},
 		["desc"] = "teleports to place/player.",
 		["func"] = function(_, args)
-			local targetPlr, partToTp = stringFindPlayer(args[1])
-			partToTp = ((targetPlr and targetPlr.Character) and targetPlr.Character:FindFirstChild("HumanoidRootPart")) or cframePlaces[args[1]] or nil
-			if partToTp then
-				character:PivotTo(targetPlr and (partToTp.CFrame * CFrame.new(0, 0, 2)) or partToTp)
-				msgNotify(string.format(msgOutputs.gotoTpSuccess, (targetPlr and targetPlr.Name or args[1])))
+			local localStoredVar = cframePlaces[args[1]] or stringFindPlayer(args[1])
+			localStoredVar = (typeof(localStoredVar) == "Instance") and ((localStoredVar and localStoredVar.Character) and localStoredVar.Character:FindFirstChild("HumanoidRootPart")) or localStoredVar
+			if localStoredVar then
+				character:PivotTo((typeof(localStoredVar) == "Instance") and localStoredVar.CFrame or localStoredVar)
+				msgNotify(string.format(msgOutputs.gotoTpSuccess, ((typeof(localStoredVar) == "Instance") and localStoredVar.Name or args[1])))
 			end
 		end
 	},
@@ -329,7 +329,7 @@ commands = {
 		end
 	},
 	["kill"] = {
-		["aliases"] = {},
+		["aliases"] = {"begone"},
 		["desc"] = "kills player(s).",
 		["func"] = function(_, args)
 			if args[1] == "all" then
@@ -381,7 +381,7 @@ commands = {
 		["func"] = function(_, args)
 			if args[1] then
 				config.prefix = args[1]
-				msgNotify(string.format(msgOutputs.prefix.change, args[2]))
+				msgNotify(string.format(msgOutputs.prefix.change, args[1]))
 			else
 				msgNotify(string.format(msgOutputs.prefix.notify, config.prefix))
 			end
@@ -466,4 +466,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.3", config.prefix))
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.4", config.prefix))
