@@ -316,7 +316,7 @@ commands = {
 			localStoredVar = (typeof(localStoredVar) == "Instance") and ((localStoredVar and localStoredVar.Character) and localStoredVar.Character:FindFirstChild("HumanoidRootPart")) or localStoredVar
 			if localStoredVar then
 				character:PivotTo((typeof(localStoredVar) == "Instance") and localStoredVar.CFrame or localStoredVar)
-				msgNotify(string.format(msgOutputs.gotoTpSuccess, ((typeof(localStoredVar) == "Instance") and localStoredVar.Name or args[1])))
+				msgNotify(string.format(msgOutputs.gotoTpSuccess, ((typeof(localStoredVar) == "Instance") and localStoredVar.Parent.Name or args[1])))
 			end
 		end
 	},
