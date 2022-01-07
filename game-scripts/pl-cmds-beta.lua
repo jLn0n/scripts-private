@@ -92,9 +92,8 @@ local itemPickups = {
 	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
 }
 local isKilling = false
-local currentTeamColor
 local cmdAliases = table.create(0)
-local diedConnection, oldNamecall, commands
+local currentTeamColor, commands, diedConnection, oldNamecall
 -- functions
 local function isSelfNeutral()
 	local plrTeamName = player.TeamColor.Name
@@ -109,10 +108,10 @@ local function autoCrim()
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
-local function respawnSelf(bypassToggle)
+local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
 	if (bypassToggle or config.utils.autoSpawn) and rootPart then
 		local oldPos = rootPart.CFrame
-		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or (currentTeamColor and currentTeamColor.Name or player.TeamColor.Name)))
+		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or ((not dontUseCustomTeamColor and currentTeamColor) and currentTeamColor.Name or player.TeamColor.Name)))
 		rootPart.CFrame = oldPos
 	end
 end
@@ -138,14 +137,15 @@ local function killPlr(arg1)
 	if typeof(arg1) == "table" then
 		for _, plr in ipairs(arg1) do
 			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
-			if not targetPart or config.killConf.killBlacklist[plr.Name] then continue end -- doesn't work with boronide
-			for _ = 1, 10 do
-				table.insert(shootPackets, {
-					["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
-					["Distance"] = 0,
-					["Cframe"] = CFrame.new(),
-					["Hit"] = targetPart
-				})
+			if targetPart and not config.killConf.killBlacklist[plr.Name] then
+				for _ = 1, 10 do
+					table.insert(shootPackets, {
+						["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
+						["Distance"] = 0,
+						["Cframe"] = CFrame.new(),
+						["Hit"] = targetPart
+					})
+				end
 			end
 		end
 	else
@@ -171,7 +171,7 @@ end
 local function countTable(tableArg)
 	local count = 0
 	for _ in pairs(tableArg) do
-		count = count + 1 -- doesn't work with boronide
+		count = count + 1
 	end
 	return count
 end
@@ -391,7 +391,7 @@ commands = {
 		["aliases"] = {"re", "reset"},
 		["desc"] = "respawns you in your current position.",
 		["func"] = function()
-			respawnSelf(true)
+			respawnSelf(true, true)
 			msgNotify(msgOutputs.respawnNotify)
 		end
 	},
