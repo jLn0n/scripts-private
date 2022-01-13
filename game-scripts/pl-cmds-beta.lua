@@ -1,4 +1,3 @@
--- this is how i f***ing write code
 -- services
 local players = game:GetService("Players")
 local repStorage = game:GetService("ReplicatedStorage")
@@ -164,7 +163,8 @@ local function killPlr(arg1)
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
-	shoot:FireServer(shootPackets, gunObj);reload:FireServer(gunObj)
+	shoot:FireServer(shootPackets, gunObj)
+	reload:FireServer(gunObj)
 end
 local function countTable(tableArg)
 	local count = 0
@@ -232,11 +232,11 @@ local function cmdMsgParse(_player, message)
 	if prefixMatch then
 		message = string.gsub(message, prefixMatch, "", 1)
 		local args = string.split(message, " ")
-		local cmdName = getCommandParentName(args[1])
-		local cmdData = commands[cmdName]
+		local cmdName = getCommandParentName(args[1]) or args[1]
 		table.remove(args, 1)
-		if cmdData then
-			if table.getn(args) == 0 and cmdData.usage then
+		if commands[cmdName] then
+			local cmdData = commands[cmdName]
+			if (table.getn(args) == 0 and cmdData.usage) then
 				msgNotify(string.format(msgOutputs.commandsOutput.usageNotify, config.prefix .. cmdName .. " " .. cmdData.usage))
 			else
 				cmdData.callback(_player, args)
@@ -450,18 +450,23 @@ runService.Heartbeat:Connect(function()
 	if humanoid then
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
-	if config.killAura.enabled and rootPart then
+end)
+coroutine.resume(coroutine.create(function()
+	while config.killAura.enabled do
+		local killingPlayers = table.create(0)
 		for _, plr in ipairs(players:GetPlayers()) do
 			if plr ~= player then
 				local plrChar = plr.Character
-				local _rootPart, _humanoid = plrChar and character:FindFirstChild("HumanoidRootPart") or nil, plrChar and character:FindFirstChildWhichIsA("Humanoid")
+				local _rootPart, _humanoid = plrChar and plrChar:FindFirstChild("HumanoidRootPart") or nil, plrChar and plrChar:FindFirstChildWhichIsA("Humanoid") or nil
 				if not config.killConf.killBlacklist[plr.Name] and ((_humanoid and _humanoid.Health ~= 0) and (_rootPart and player:DistanceFromCharacter(_rootPart.Position) < config.killAura.range)) then
-					for _ = 1, 25 do punch:FireServer(plr) end
+					table.insert(killingPlayers, plr)
 				end
 			end
 		end
+		killPlr(killingPlayers)
+		task.wait(.25)
 	end
-end)
+end))
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	local message = ...
 	local namecallMethod = getnamecallmethod()
@@ -472,4 +477,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	end
 	return oldNamecall(self, ...)
 end))
-msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.5", config.prefix))
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.5b", config.prefix))
