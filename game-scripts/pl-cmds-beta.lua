@@ -9,10 +9,9 @@ local character = player.Character
 local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 -- events
-local shoot, reload, punch, itemGive, teamChange, loadChar =
+local shoot, reload, itemGive, teamChange, loadChar =
 	repStorage:FindFirstChild("ShootEvent"),
 	repStorage:FindFirstChild("ReloadEvent"),
-	repStorage:FindFirstChild("meleeEvent"),
 	workspace.Remote:FindFirstChild("ItemHandler"),
 	workspace.Remote:FindFirstChild("TeamEvent"),
 	workspace.Remote:FindFirstChild("loadchar")
@@ -128,7 +127,7 @@ local function invisSelf(bypassToggle)
 		character:PivotTo(oldPos)
 	end
 end
-local function makeShootPackets(shootPackets, targetPart) -- what a magic has gotten into this piece of code lol
+local function makeShootPackets(shootPackets, targetPart)
 	for _ = 1, 10 do
 		table.insert(shootPackets, {
 			["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
@@ -137,7 +136,7 @@ local function makeShootPackets(shootPackets, targetPart) -- what a magic has go
 			["Hit"] = targetPart
 		})
 	end
-	return shootPackets -- if u dont know the context that i am talking about then comment out this line and kill command will not work anymore
+	return shootPackets
 end
 local function killPlr(arg1)
 	local gunObj = player.Backpack:FindFirstChild("M9")
@@ -444,14 +443,15 @@ player.CharacterAdded:Connect(function(spawnedCharacter)
 		if diedConnection then diedConnection:Disconnect() end
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 	end
-	task.defer(invisSelf); task.defer(autoCrim)
+	task.defer(invisSelf)
+	task.defer(autoCrim)
 end)
 runService.Heartbeat:Connect(function()
 	if humanoid then
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
 end)
-coroutine.resume(coroutine.create(function()
+task.defer(function()
 	while config.killAura.enabled do
 		local killingPlayers = table.create(0)
 		for _, plr in ipairs(players:GetPlayers()) do
@@ -466,15 +466,15 @@ coroutine.resume(coroutine.create(function()
 		killPlr(killingPlayers)
 		task.wait(.25)
 	end
-end))
-oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-	local message = ...
+end)
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
+	local self, message = ...
 	local namecallMethod = getnamecallmethod()
 
 	if (not checkcaller() and (self.ClassName == "RemoteEvent" and self.Name == "SayMessageRequest") and namecallMethod == "FireServer") and msgPrefixMatch(message) then
 		task.spawn(cmdMsgParse, player, message)
 		return
 	end
-	return oldNamecall(self, ...)
+	return oldNamecall(...)
 end))
 msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.5b", config.prefix))
