@@ -49,7 +49,7 @@ local espUtil = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/
 local nearPlrs = table.create(0)
 local plrEspList = table.create(0)
 local espTextFormat = "Name: %s|Health: %s / %s|Distance: %s"
-local espTextCount = 1
+local espTextCount = 0
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
@@ -66,6 +66,17 @@ local function getAimPart(hitboxFolder)
 			return hitbox
 		end
 	end
+end
+local function getEnabledEspTextFormatResult() -- very long function name lol
+	local result = ""
+	for value in string.gmatch(espTextFormat, "[^|]+") do
+		--value = string.gsub(value, "|", "\0")
+		local _toggleName = string.split(value, ":")[1]
+		local _enabled = config.Esp[_toggleName]
+		espTextCount = _enabled and espTextCount + 1 or espTextCount
+		result = result .. (_enabled and "\n" or "")
+	end
+	return result
 end
 local function getNearestPlrByCursor()
 	table.clear(nearPlrs)
@@ -173,13 +184,7 @@ runService.Heartbeat:Connect(function()
 	end
 end)
 runService.RenderStepped:Connect(function()
-	local textFormat = string.gsub(espTextFormat, "|", function(value)
-		value = string.gsub(value, "|", "")
-		local _split = string.split(value, ":")
-		local _enabled = config.Esp[_split[1]]
-		espTextCount = _enabled and (espTextCount >= 3 and espTextCount or espTextCount + 1) or espTextCount
-		return _enabled and (value .. "\0\r\n") or ""
-	end)
+	local textFormat = getEnabledEspTextFormatResult()
 	for _, plr in ipairs(players:GetPlayers()) do
 		if plr == player then continue end
 		if not plrEspList[plr.Name] then
@@ -208,7 +213,7 @@ runService.RenderStepped:Connect(function()
 					humanoid and humanoid.MaxHealth or "NaN",
 					rootPart and math.floor(player:DistanceFromCharacter(rootPart.Position)) or "NaN"
 				),
-				textOffset = 16 * (espTextCount - 1),
+				textOffset = 16 * (espTextCount == 0 and 1 or espTextCount),
 				teamCheck = config.Esp.TeamCheck,
 				visibility = {
 					box = config.Esp.Enabled,
@@ -217,7 +222,7 @@ runService.RenderStepped:Connect(function()
 				}
 			})
 			espData:updateRender()
-			espTextCount = 1
+			espTextCount = 0
 		else
 			espData:remove()
 			plrEspList[plrName] = nil
