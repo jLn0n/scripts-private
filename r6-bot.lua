@@ -13,7 +13,7 @@ assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.L
 do -- config initialization
 	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
 	_G.Settings.HeadName = _G.Settings.HeadName or "MediHood"
-	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(-35, -25.05, 0)
+	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(0, -30, 0)
 	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
 	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
 end
@@ -85,22 +85,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character"):Wait()
-	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-
-	for _, object in ipairs(character:GetChildren()) do
-		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
-		if object then
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, Vector3.new(1, 1, 1) * math.huge, _G.Settings.Velocity
-			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = object, object
-		end
-	end
-
-	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+if _G.Settings.UseBuiltinNetless then
+	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
@@ -110,7 +96,20 @@ if _G.Settings.UseBuiltinNetless then player:GetPropertyChangedSignal("Character
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.OnContact)
 			end
 		end
+		sethiddenproperty(player, "MaximumSimulationRadius", math.huge)
+		sethiddenproperty(player, "SimulationRadius", 9e9)
 	end)
+
+	player:GetPropertyChangedSignal("Character"):Wait()
+	for _, object in ipairs(character:GetChildren()) do
+		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+		if object then
+			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
+			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, Vector3.new(1, 1, 1) * math.huge, _G.Settings.Velocity
+			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
+			BodyVel.Parent, BodyAngVel.Parent = object, object
+		end
+	end
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
