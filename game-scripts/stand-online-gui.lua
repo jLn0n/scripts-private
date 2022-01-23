@@ -13,7 +13,7 @@ local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.c
 local itemsList = {
 	{"Rokakaka", "rokaFruit"},
 	{"Stand Arrow", "standArrow"},
-	{"Spooky Arrow", "spookArrow"},
+	{"Gift", "giftArrow"},
 	{"Refined Arrow", "refArrow"},
 	{"Requiem Arrow", "reqArrow"},
 	{"Heavenly Diary", "diaryBook"},
