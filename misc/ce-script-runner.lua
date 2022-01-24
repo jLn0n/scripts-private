@@ -719,7 +719,7 @@ rbx.dump_function = function(f)
 			end
 		end
 
-		writer:writeByte(0); -- function/source string id
+		writer:writeByte("[string \"Source\"]"); -- function/source string id
 
 		writer:writeByte(1); -- line info
 		writer:writeString(_debugInfo); -- debug info
