@@ -1,2 +1,2 @@
-# created-scripts
-die
+# scripts-private
+what do i put in here?
