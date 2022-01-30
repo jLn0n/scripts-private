@@ -548,7 +548,7 @@ rbx.transpile = function(proto)
 		at = at + 1;
 	end
 
-	for _,rel in pairs(relocations) do
+	for _, rel in pairs(relocations) do
 
 		if new_sizes[rel.to_index] and new_sizes[rel.from_index] then
 			local dist = new_sizes[rel.to_index] - new_sizes[rel.from_index];
@@ -572,7 +572,6 @@ rbx.transpile = function(proto)
 	end
 	]]
 
-
 	for i = 1, 3 do
 		if open_reg[i] then
 			rbxProto.maxStackSize = rbxProto.maxStackSize + 1;
@@ -588,7 +587,6 @@ end
 rbx.dump_function = function(f)
 	local bytecode = {};
 	local protoTable, stringTable = celua.deserialize(f);
-	local _debugInfo = stringTable[1]
 	table.remove(stringTable, 1); -- remove lua string (debug info)
 
 	local mainProtoId = #protoTable;
@@ -622,7 +620,7 @@ rbx.dump_function = function(f)
 			local bytes = {val & 0xff, (val >> 8) & 0xff, (val >> 16) & 0xff, (val >> 24) & 0xff};
 			writer:writeBytes(bytes);
 		end
-
+		
 		function writer:writeDouble(val)
 			local bytes = {}
 			local str = string.pack("<d", val);
@@ -657,15 +655,16 @@ rbx.dump_function = function(f)
 	for _index, proto in pairs(protoTable) do
 		local rbxProto = rbx.transpile(proto);
 
-		for i, v in pairs(proto.upValueNames) do
-			if v == "_ENV" then
-				proto.nups = proto.nups - 1;
+		for index = 1, #proto.upValueNames do
+			local upvalueName = proto.upValueNames[index]
+			if upValueName == "_ENV" then
+				proto.nups = proto.nups - 1
 			end
 		end
 
 		writer:writeByte(rbxProto.maxStackSize);
 		writer:writeByte(proto.numParams);
-		writer:writeByte(#proto.upValueNames); -- proto.nups not accurate...must fix later =-D
+		writer:writeByte(#proto.upValueNames - 1); -- proto.nups not accurate...must fix later =-D
 		writer:writeByte(proto.isVarArg);
 
 		writer:writeCompressedInt(rbxProto.sizeCode);
@@ -719,10 +718,34 @@ rbx.dump_function = function(f)
 			end
 		end
 
-		writer:writeByte("[string \"Source\"]"); -- function/source string id
+		if rbxProto.sizeCode ~= 0 then -- function/source string id
+			writer:writeInt(rbxProto.sizeCode)
+			for index = 1, rbxProto.sizeCode do
+				local _name = util.int_to_bytes(rbxProto.code[index])[1]
+				writer:writeInt(_name)
+			end
+		else
+			writer:writeInt(0)
+		end
 
-		writer:writeByte(1); -- line info
-		writer:writeString(_debugInfo); -- debug info
+		writer:writeInt(#proto.locVars) -- line info
+		for index = 1, #proto.locVars do
+			local locVar = proto.locVars[index]
+
+			writer:writeString(locVar.name)
+
+			writer:writeInt(locVar.startpc)
+			writer:writeInt(locVar.endpc)
+		end
+
+		writer:writeInt(#proto.upValueNames) -- debug info
+		for index = 1, #proto.upValueNames do
+			local upvalueName = proto.upValueNames[index]
+			if upValueName ~= "_ENV" then
+				print(proto.upValueNames[index])
+				writer:writeString(proto.upValueNames[index])
+			end
+		end
 	end
 
 	writer:writeCompressedInt(mainProtoId - 1);
@@ -1023,6 +1046,24 @@ loader.start = function()
 		return util.read_int32(instance + 8);
 	end
 
+	rbx.functions.get_instance_descriptor = function(instance)
+		return util.read_int32(instance + 12);
+	end
+
+	rbx.functions.get_instance_class = function(instance)
+		local descriptor = rbx.functions.get_instance_descriptor(instance);
+		local ptr = util.read_int32(descriptor + 4);
+		if ptr then
+			local fl = util.read_int32(ptr + 0x14);
+			if fl == 0x1F then
+				ptr = util.read_int32(ptr);
+			end
+			return util.read_string(ptr);
+		else
+			return "???";
+		end
+	end
+
 	rbx.functions.get_instance_children = function(instance)
 		local instances = {};
 		local children_ptr = util.read_int32(instance + rbx.offsets.instance_children);
@@ -1039,6 +1080,15 @@ loader.start = function()
 		return instances;
 	end
 
+	rbx.functions.find_first_class = function(instance, classname)
+		for _,v in pairs(rbx.functions.get_instance_children(instance)) do
+			if rbx.functions.get_instance_class(v) == classname then
+				return v;
+			end
+		end
+		return 0;
+	end
+
 	rbx.functions.find_first_child = function(instance, name)
 		for _,v in pairs(rbx.functions.get_instance_children(instance)) do
 			if rbx.functions.get_instance_name(v) == name then
@@ -1051,14 +1101,14 @@ loader.start = function()
 	rbx.data_model = rbx.functions.get_instance_parent(rbx.network_client);
 	print("DataModel: " .. string.format("%08X", rbx.data_model));
 
-	rbx.script_context = rbx.functions.find_first_child(rbx.data_model, "Script Context");
+	rbx.script_context = rbx.functions.find_first_class(rbx.data_model, "ScriptContext");
 	if rbx.script_context == 0 then
 		error('Could not locate Script Context')
 	end
 	print("ScriptContext: " .. string.format("%08X", rbx.script_context));
 
 	rbx.local_player = 0;
-	rbx.players_service = rbx.functions.find_first_child(rbx.data_model, "Players");
+	rbx.players_service = rbx.functions.find_first_class(rbx.data_model, "Players");
 	if rbx.players_service == 0 then
 		error('Could not locate Players')
 	end
