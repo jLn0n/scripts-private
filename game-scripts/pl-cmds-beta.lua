@@ -207,7 +207,8 @@ local function stringFindPlayer(strArg, allowSets)
 		end
 		return result
 	elseif strArg == "random" then
-		return playersList[math.random(1, #playersList)]
+		local chosenPlr = playersList[math.random(1, #playersList)]
+		return chosenPlr == player and chosenPlr or stringFindPlayer(strArg)
 	else
 		for _, plr in ipairs(playersList) do
 			local atMatch = string.match(strArg, "^@")
