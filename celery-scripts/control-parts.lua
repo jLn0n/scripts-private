@@ -17,7 +17,7 @@ local function initFloaties(object)
 	local bodyPos, bodyGyro = Instance.new("BodyPosition"), Instance.new("BodyGyro")
 	bodyPos.D, bodyGyro.D = 50, 300
 	bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.new(4e5, 4e6, 4e5), Vector3.new(4e5, 4e6, 4e5)
-	bodyPos.P, bodyGyro.P = 1500, 5000
+	bodyPos.P, bodyGyro.P = 2500, 5000
 	bodyPos.Parent, bodyGyro.Parent = object, object
 	return bodyPos, bodyGyro
 end
@@ -47,9 +47,9 @@ inputService.InputBegan:Connect(function(input)
 					player.Character:MoveTo(partThingy.Position)
 				end
 			elseif inputService:IsKeyDown(Enum.KeyCode.Z) and controlledPart then
-				controlledPart.Position = mouse.Hit.Position
-				task.wait()
 				currentPickedPos = mouse.Hit.Position
+				task.wait()
+				rnet.sendposition(controlledPart.Position)
 			end
 		end
 	end
