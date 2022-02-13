@@ -15,14 +15,14 @@ local function initFloaties(object)
 		_object:Destroy()
 	end
 	local bodyPos, bodyGyro = Instance.new("BodyPosition"), Instance.new("BodyGyro")
-	bodyPos.D, bodyGyro.D = 50, 300
+	bodyPos.D, bodyGyro.D = 25, 300
 	bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.new(4e5, 4e6, 4e5), Vector3.new(4e5, 4e6, 4e5)
 	bodyPos.P, bodyGyro.P = 2500, 5000
 	bodyPos.Parent, bodyGyro.Parent = object, object
 	return bodyPos, bodyGyro
 end
 -- main
-partHolder.Anchored, partHolder.Transparency, partHolder.Size, partHolder.Parent = true, .5, Vector3.new(2.5, .05, 2.5), workspace
+partHolder.Anchored, partHolder.Transparency, partHolder.Parent = true, .5, workspace
 inputService.InputBegan:Connect(function(input)
 	if not inputService:GetFocusedTextBox() then
 		if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -60,6 +60,6 @@ while true do task.wait()
 		cPartBodyPos.Position, cPartBodyGyro.CFrame = currentPickedPos, CFrame.new()
 		partHolder.Position, partHolder.Size = controlledPart.Position - (Vector3.yAxis * ((controlledPart.Size.Y + partHolder.Size.Y) / 2)), Vector3.new(controlledPart.Size.X, .05, controlledPart.Size.Z)
 		controlledPart.Velocity, controlledPart.RotVelocity = (Vector3.yAxis * 25.05), Vector3.zero
-		controlledPart.Velocity, controlledPart.RotVelocity = -(Vector3.yAxis * 25.05), Vector3.zero
+		controlledPart.Velocity, controlledPart.RotVelocity = -(Vector3.yAxis * 20.05), Vector3.zero
 	end
 end
