@@ -17,7 +17,7 @@ local function initFloaties(object)
 	local bodyPos, bodyGyro = Instance.new("BodyPosition"), Instance.new("BodyGyro")
 	bodyPos.D, bodyGyro.D = 25, 300
 	bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.new(4e5, 4e6, 4e5), Vector3.new(4e5, 4e6, 4e5)
-	bodyPos.P, bodyGyro.P = 2500, 5000
+	bodyPos.P, bodyGyro.P = 1250, 5000
 	bodyPos.Parent, bodyGyro.Parent = object, object
 	return bodyPos, bodyGyro
 end
@@ -37,9 +37,9 @@ inputService.InputBegan:Connect(function(input)
 				if partThingy and targetPart and not targetPart.Anchored and #targetPart:GetJoints() == 0 then
 					controlledPart, currentPickedPos = targetPart, partThingy.Position
 					for _ = 1, 5 do
-						rnet.sendposition(targetPart.Position)
+						rnet.sendphysics(CFrame.new(targetPart.Position))
 						targetPart.Position = partThingy.Position
-						rnet.sendposition(partThingy.Position)
+						rnet.sendphysics(CFrame.new(partThingy.Position))
 						task.wait()
 					end
 					targetPart.Position = currentPickedPos
@@ -48,8 +48,9 @@ inputService.InputBegan:Connect(function(input)
 				end
 			elseif inputService:IsKeyDown(Enum.KeyCode.Z) and controlledPart then
 				currentPickedPos = mouse.Hit.Position
-				task.wait()
-				rnet.sendposition(controlledPart.Position)
+				for _= 1, 5 do task.wait()
+					rnet.sendphysics(CFrame.new(controlledPart.Position))
+				end
 			end
 		end
 	end
