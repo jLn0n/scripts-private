@@ -33,13 +33,13 @@ local hitboxes = workspace.Hitboxes
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
-local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.RecoilCamHandler)
+local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.CamRecoilHandler)
 -- variables
-local frameworkUpvals do
-	for _, plrscript in ipairs(player.PlayerScripts:GetChildren()) do
-		local scriptRunning, scriptEnv = pcall(getsenv, plrscript)
+local frameworkUpvals, weaponryFramework do
+	for _, plrScript in ipairs(player.PlayerScripts:GetChildren()) do
+		local scriptRunning, scriptEnv = pcall(getsenv, plrScript)
 		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
-			frameworkUpvals = scriptEnv.CheckIsToolValid
+			frameworkUpvals, weaponryFramework = scriptEnv.CheckIsToolValid, plrScript
 			break
 		end
 	end
@@ -97,6 +97,9 @@ local function getNearestPlrByCursor()
 		return (x.dist < y.dist)
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
+end
+local function getRayDirection(originPos, posVec3)
+	return (posVec3 - originPos).Unit * 1000
 end
 -- ui init
 local mainWindow = ui_library.new("Weaponry Fucker")
@@ -169,7 +172,7 @@ end)
 settings_sect:addKeybind("UI Toggle", Enum.KeyCode.RightControl, function()
 	mainWindow:toggle()
 end)
-credits_sect:addButton("Owlhub for OwlESP")
+credits_sect:addButton("Owlhub for OwlESP(but modified)")
 credits_sect:addButton("GreenDeno for VenyxUI")
 mainWindow:SelectPage(mainWindow.pages[1], true)
 -- main
@@ -229,16 +232,20 @@ runService.RenderStepped:Connect(function()
 		end
 	end
 end)
-local oldCastMouse, oldRecoilFunc = rayCastClient.CastRayMouse, recoilHandler.accelerate
-rayCastClient.CastRayMouse = function(_camera, x, y)
-	if config.SilentAim.Enabled then -- silent aim
-		local nearestPlr = getNearestPlrByCursor()
-		if nearestPlr then
-			local newVec2 = camera:WorldToViewportPoint(nearestPlr.aimPart.Position)
-			x, y = newVec2.X, newVec2.Y
+local oldRecoilFunc = recoilHandler.accelerate
+local oldNamecall do
+	oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
+		local namecallMethod, callingScript = getnamecallmethod(), getcallingscript()
+		if not checkcaller() and (config.SilentAim.Enabled and namecallMethod == "Raycast" and callingScript == weaponryFramework) then
+			local nearestPlr = getNearestPlrByCursor()
+			if nearestPlr then
+				local args = {...}
+				args[3] = getRayDirection(args[2], nearestPlr.aimPart.Position)
+				return oldNamecall(unpack(args))
+			end
 		end
-	end
-	return oldCastMouse(_camera, x, y)
+		return oldNamecall(...)
+	end))
 end
 recoilHandler.accelerate = function(...)
 	return not config.NoRecoil and oldRecoilFunc(...) or nil -- no recoil
