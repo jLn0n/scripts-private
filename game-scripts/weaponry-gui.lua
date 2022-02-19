@@ -35,17 +35,17 @@ local mouse = player:GetMouse()
 -- modules
 local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.CamRecoilHandler)
 -- variables
-local frameworkUpvals, weaponryFramework do
+local frameworkUpvals do
 	for _, plrScript in ipairs(player.PlayerScripts:GetChildren()) do
 		local scriptRunning, scriptEnv = pcall(getsenv, plrScript)
 		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
-			frameworkUpvals, weaponryFramework = scriptEnv.CheckIsToolValid, plrScript
+			frameworkUpvals = scriptEnv.CheckIsToolValid
 			break
 		end
 	end
 end
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
-local espUtil = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-util.lua"))()
+local espUtil = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-lib.lua"))()
 local nearPlrs = table.create(0)
 local plrEspList = table.create(0)
 local espTextFormat = "Name: %s|Health: %s / %s|Distance: %s"
@@ -53,7 +53,7 @@ local espTextCount = 0
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
-	return plrArg ~= player and (plrArg.Neutral and true or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
@@ -70,7 +70,6 @@ end
 local function getEnabledEspTextFormatResult() -- very long function name lol
 	local result = ""
 	for value in string.gmatch(espTextFormat, "[^|]+") do
-		--value = string.gsub(value, "|", "\0")
 		local _toggleName = string.split(value, ":")[1]
 		local _enabled = config.Esp[_toggleName]
 		espTextCount = _enabled and espTextCount + 1 or espTextCount
@@ -232,20 +231,15 @@ runService.RenderStepped:Connect(function()
 		end
 	end
 end)
-local oldRecoilFunc = recoilHandler.accelerate
-local oldNamecall do
-	oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
-		local namecallMethod, callingScript = getnamecallmethod(), getcallingscript()
-		if not checkcaller() and (config.SilentAim.Enabled and namecallMethod == "Raycast" and callingScript == weaponryFramework) then
-			local nearestPlr = getNearestPlrByCursor()
-			if nearestPlr then
-				local args = {...}
-				args[3] = getRayDirection(args[2], nearestPlr.aimPart.Position)
-				return oldNamecall(unpack(args))
-			end
+local oldRaycastFunc, oldRecoilFunc = rayCastClient.RayCast, recoilHandler.accelerate
+rayCastClient.RayCast = function(rayObj)
+	if config.SilentAim.Enabled then -- silent aim
+		local nearestPlr = getNearestPlrByCursor()
+		if nearestPlr then
+			rayObj = Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position))
 		end
-		return oldNamecall(...)
-	end))
+	end
+	return oldRaycastFunc(rayObj)
 end
 recoilHandler.accelerate = function(...)
 	return not config.NoRecoil and oldRecoilFunc(...) or nil -- no recoil
