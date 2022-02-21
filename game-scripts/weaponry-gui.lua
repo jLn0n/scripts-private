@@ -45,11 +45,7 @@ local frameworkUpvals do
 	end
 end
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
-local espUtil = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/esp-lib.lua"))()
 local nearPlrs = table.create(0)
-local plrEspList = table.create(0)
-local espTextFormat = "Name: %s|Health: %s / %s|Distance: %s"
-local espTextCount = 0
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
@@ -66,16 +62,6 @@ local function getAimPart(hitboxFolder)
 			return hitbox
 		end
 	end
-end
-local function getEnabledEspTextFormatResult() -- very long function name lol
-	local result = ""
-	for value in string.gmatch(espTextFormat, "[^|]+") do
-		local _toggleName = string.split(value, ":")[1]
-		local _enabled = config.Esp[_toggleName]
-		espTextCount = _enabled and espTextCount + 1 or espTextCount
-		result = result .. (_enabled and "\n" or "")
-	end
-	return result
 end
 local function getNearestPlrByCursor()
 	table.clear(nearPlrs)
@@ -183,61 +169,14 @@ runService.Heartbeat:Connect(function()
 		if config.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
 		if config.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
 		weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.Enabled and config.MultipleBullets.AmmoCount or 1 -- multiple bullets
-	end
-end)
-runService.RenderStepped:Connect(function()
-	local textFormat = getEnabledEspTextFormatResult()
-	for _, plr in ipairs(players:GetPlayers()) do
-		if plr == player then continue end
-		if not plrEspList[plr.Name] then
-			plrEspList[plr.Name] = espUtil.new(plr, {
-				color = Color3.new(255, 255, 255),
-				teamCheck = config.Esp.TeamCheck,
-				visibility = {
-					box = config.Esp.Enabled,
-					tracer = config.Esp.Enabled and config.Esp.Tracers,
-					text = config.Esp.Enabled
-				}
-			})
-		end
-	end
-	for plrName, espData in pairs(plrEspList) do
-		local plrObj = players:FindFirstChild(plrName)
-		if plrObj then
-			local plrChar = plrObj.Character
-			local humanoid, rootPart = plrChar and plrChar:FindFirstChildWhichIsA("Humanoid"), plrChar and plrChar:FindFirstChild("HumanoidRootPart")
-			espData:updateConfig({
-				character = plrChar,
-				color = Color3.new(255, 255, 255),
-				text = string.format(textFormat,
-					plrObj.Name,
-					humanoid and humanoid.Health or "NaN",
-					humanoid and humanoid.MaxHealth or "NaN",
-					rootPart and math.floor(player:DistanceFromCharacter(rootPart.Position)) or "NaN"
-				),
-				textOffset = 16 * (espTextCount == 0 and 1 or espTextCount),
-				teamCheck = config.Esp.TeamCheck,
-				visibility = {
-					box = config.Esp.Enabled,
-					tracer = config.Esp.Enabled and config.Esp.Tracers,
-					text = config.Esp.Enabled and config.Esp.Name
-				}
-			})
-			espData:updateRender()
-			espTextCount = 0
-		else
-			espData:remove()
-			plrEspList[plrName] = nil
-		end
+		table.clear(weaponData.PauseDebounce)
 	end
 end)
 local oldRaycastFunc, oldRecoilFunc = rayCastClient.RayCast, recoilHandler.accelerate
 rayCastClient.RayCast = function(rayObj)
 	if config.SilentAim.Enabled then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		if nearestPlr then
-			rayObj = Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position))
-		end
+		rayObj = not nearestPlr and rayObj or Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position))
 	end
 	return oldRaycastFunc(rayObj)
 end
