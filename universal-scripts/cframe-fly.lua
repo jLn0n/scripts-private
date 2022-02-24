@@ -5,9 +5,11 @@ local inputService = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
+local humanoid = character:FindFirstChild("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
 -- variables
+local cameraLookVector = Vector3.zero
 local flyObj = {
 	enabled = false,
 	flySpeed = 50,
@@ -38,6 +40,7 @@ end)
 camera:GetPropertyChangedSignal("CFrame"):Connect(function()
 	if flyObj.enabled then
 		rootPart.CFrame = CFrame.new(rootPart.CFrame.Position, (rootPart.CFrame.Position + camera.CFrame.LookVector))
+		cameraLookVector = camera.CFrame.LookVector
 	end
 end)
 runService.Heartbeat:Connect(function(deltaTime)
@@ -46,6 +49,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 		local pressResult = ((flyObj.navigation.forward and calcFront) or (flyObj.navigation.backward and -calcFront) or (flyObj.navigation.rightward and calcRight) or (flyObj.navigation.leftward and -calcRight))
 		rootPart.CFrame = (rootPart.CFrame + (pressResult or Vector3.zero))
 		-- TODO: the character should be in air still while not controlling the fly thingy
-		rootPart:ApplyImpulse((pressResult or camera.CFrame.LookVector) * rootPart:GetMass())
+		rootPart.AssemblyLinearVelocity = ((pressResult or (cameraLookVector * (.025 / flyObj.flySpeed))) * rootPart:GetMass()) * workspace.Gravity
+		humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
 	end
 end)
