@@ -641,7 +641,7 @@ rbx.dump_function = function(f)
 		end
 	end
 
-	writer:writeByte(1);
+	writer:writeByte(2);
 	writer:writeCompressedInt(#stringTable);
 
 	for _, str in pairs(stringTable) do
@@ -718,34 +718,10 @@ rbx.dump_function = function(f)
 			end
 		end
 
-		if rbxProto.sizeCode ~= 0 then -- function/source string id
-			writer:writeInt(rbxProto.sizeCode)
-			for index = 1, rbxProto.sizeCode do
-				local _name = util.int_to_bytes(rbxProto.code[index])[1]
-				writer:writeInt(_name)
-			end
-		else
-			writer:writeInt(0)
-		end
-
-		writer:writeInt(#proto.locVars) -- line info
-		for index = 1, #proto.locVars do
-			local locVar = proto.locVars[index]
-
-			writer:writeString(locVar.name)
-
-			writer:writeInt(locVar.startpc)
-			writer:writeInt(locVar.endpc)
-		end
-
-		writer:writeInt(#proto.upValueNames) -- debug info
-		for index = 1, #proto.upValueNames do
-			local upvalueName = proto.upValueNames[index]
-			if upValueName ~= "_ENV" then
-				print(proto.upValueNames[index])
-				writer:writeString(proto.upValueNames[index])
-			end
-		end
+		writer:writeCompressedInt(0) -- function line defined
+		writer:writeByte(0) -- function/source string id
+		writer:writeByte(0) -- line info
+		writer:writeByte(0) -- debug info
 	end
 
 	writer:writeCompressedInt(mainProtoId - 1);
