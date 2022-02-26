@@ -11,7 +11,7 @@ local camera = workspace.CurrentCamera
 -- variables
 local flyObj = {
 	enabled = false,
-	flySpeed = 50,
+	flySpeed = 15,
 	keyInput = Enum.KeyCode.E,
 	navigation = {
 		forward = false,
@@ -47,9 +47,9 @@ runService.Heartbeat:Connect(function(deltaTime)
 	if flyObj.enabled then
 		local calcFront, calcRight = (camera.CFrame.LookVector * (deltaTime * flyObj.flySpeed)), (camera.CFrame.RightVector * (deltaTime * flyObj.flySpeed))
 		local pressResult = ((flyObj.navigation.forward and calcFront) or (flyObj.navigation.backward and -calcFront) or (flyObj.navigation.rightward and calcRight) or (flyObj.navigation.leftward and -calcRight))
-		rootPart.CFrame = (rootPart.CFrame + (pressResult or Vector3.zero))
+		rootPart.CFrame += pressResult or Vector3.zero
 		-- TODO: the character should be in air still while not controlling the fly thingy
-		rootPart.AssemblyLinearVelocity = (pressResult or camera.CFrame.LookVector * (rootPart:GetMass() * deltaTime))
+		rootPart.AssemblyLinearVelocity = (if pressResult then pressResult * workspace.Gravity else rootPart.AssemblyLinearVelocity)
 		for _, animObj in pairs(humanoid:GetPlayingAnimationTracks()) do animObj:Stop() end
 	end
 end)
