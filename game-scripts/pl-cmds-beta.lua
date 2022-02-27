@@ -64,6 +64,11 @@ local msgOutputs = {
 		["plrAdd"] = "added %s to whitelist, player wouldn't be killed anymore.",
 		["plrRemove"] = "removed %s whitelist, player will be killed again.",
 	},
+	["loop-kill"] = {
+		["plrAdd"] = "added %s to loop-kill list.",
+		["plrRemove"] = "removed %s to loop-kill list.",
+		["allPlrs"] = "%s all players to loop-kill list."
+	},
 	["prefix"] = {
 		["notify"] = "current prefix is '%s'.",
 		["change"] = "changed prefix to '%s'.",
@@ -114,7 +119,8 @@ local function autoCrim()
 		local spawnPart = workspace:FindFirstChild("Criminals Spawn"):FindFirstChildWhichIsA("SpawnLocation")
 		local oldSpawnPos = spawnPart.CFrame
 		spawnPart.CFrame = rootPart.CFrame
-		firetouchinterest(spawnPart, rootPart, 0); firetouchinterest(spawnPart, rootPart, 1)
+		firetouchinterest(spawnPart, rootPart, 0)
+		firetouchinterest(spawnPart, rootPart, 1)
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
@@ -128,7 +134,8 @@ end
 local function invisSelf(bypassToggle)
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
 		local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
-		character:PivotTo(CFrame.new(Vector3.one * 1e10)); task.wait(.25)
+		character:PivotTo(CFrame.new(Vector3.one * 1e10))
+		task.wait(.25)
 		rootPart.Anchored = true
 		character.Parent = nil
 		rootPart:Destroy()
@@ -190,9 +197,9 @@ local function msgNotify(msg)
 end
 local function teamSetsMatched(strArg)
 	return (
-		(strArg == "cops" or strArg == "guards") and "Bright blue" or
-		(strArg == "crims" or strArg == "criminals") and "Really red" or
-		(strArg == "inmates" or strArg == "prisoners") and "Bright orange" or nil
+		if (strArg == "cops" or strArg == "guards") then "Bright blue"
+		elseif (strArg == "crims" or strArg == "criminals") then "Really red"
+		elseif (strArg == "inmates" or strArg == "prisoners") then "Bright orange" else false
 	)
 end
 local function stringFindPlayer(strArg, allowSets)
@@ -206,9 +213,9 @@ local function stringFindPlayer(strArg, allowSets)
 			end
 		end
 		return result
-	elseif strArg == "random" then
+	elseif strArg == "random" and #playersList <= 1 then
 		local chosenPlr = playersList[math.random(1, #playersList)]
-		return chosenPlr == player and chosenPlr or stringFindPlayer(strArg)
+		return chosenPlr ~= player and chosenPlr or stringFindPlayer(strArg)
 	else
 		for _, plr in ipairs(playersList) do
 			local atMatch = string.match(strArg, "^@")
@@ -353,7 +360,7 @@ commands = {
 				local targetPlr = stringFindPlayer(args[1], true)
 				if targetPlr then
 					killPlr(targetPlr)
-					msgNotify(string.format(msgOutputs.kill.targetPlr, (type(targetPlr) ~= "table" and targetPlr.Name or args[1])))
+					msgNotify(string.format(msgOutputs.kill.targetPlr, (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
 				end
 			end
 		end
@@ -361,7 +368,7 @@ commands = {
 	["kill-aura"] = {
 		["aliases"] = {"kaura"},
 		["desc"] = "kills player(s) near your character.",
-		["usage"] = "<[toggle | range | killmode]: string> <range: number (if range) or [punch | gun(experimental)]: string (if killmode)>",
+		["usage"] = "<[toggle | range | killmode]: string> <range: number (if range) or [punch | gun]: string (if killmode)>",
 		["callback"] = function(_, args)
 			if args[1] == "range" then
 				local _, result = pcall(tonumber, args[2])
@@ -399,17 +406,27 @@ commands = {
 	["loop-kill"] = {
 		["aliases"] = {"lkill"},
 		["desc"] = "loopkills player(s)",
-		["usage"] = "<[toggle | add | remove | clear | list]: string> <player: string (if add or remove)>",
+		["usage"] = "<[toggle | add | remove | list]: string> <player: string (if add or remove)>",
 		["callback"] = function(_, args)
 			if (args[1] == "add" or args[1] == "remove") then
-				local targetPlr = args[2] and stringFindPlayer(args[2]) or nil
-				if targetPlr then
-					config.loopKill.list[targetPlr.Name] = (args[1] == "add" and true or args[1] == "remove" and false)
-					msgNotify(string.format(msgOutputs["kill-bl"][(config.loopKill.list[targetPlr.Name] and "plrAdd" or "plrRemove")], targetPlr.Name))
-				end
-			elseif args[1] == "clear" then
-				for plrName in pairs(config.loopKill.list) do
-					config.loopKill.list[plrName] = false
+				if args[2] == "all" then
+					for _, plr in ipairs(players:GetPlayers()) do
+						if plr == player then continue end
+						config.loopKill.list[plr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[plr.Name])
+					end
+					msgNotify(string.format(msgOutputs["loop-kill"].allPlrs, (if args[1] == "add" then "added" elseif args[1] == "remove" then "remove" else false)))
+				else
+					local targetPlr = args[2] and stringFindPlayer(args[2], true) or nil
+					if targetPlr then
+						if typeof(targetPlr) == "table" then
+							for _, plr in ipairs(targetPlr) do
+								config.loopKill.list[plr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[plr.Name])
+							end
+						else
+							config.loopKill.list[targetPlr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[targetPlr.Name])
+						end
+						msgNotify(string.format(msgOutputs["loop-kill"][(if args[1] == "add" then "plrAdd" elseif args[1] == "remove" then "plrRemove" else false)], (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
+					end
 				end
 			elseif args[1] == "toggle" then
 				config.loopKill.enabled = not config.loopKill.enabled
@@ -522,21 +539,21 @@ task.spawn(function()
 		end
 	end
 end)
-task.spawn(function() -- very shitty loopkill ngl
+task.spawn(function() -- this loopkill code sucks because it hangs the server
 	local killingPlayers = table.create(0)
 	while true do task.wait()
 		if config.loopKill.enabled then
 			for _, plr in ipairs(players:GetPlayers()) do
 				local _humanoid = plr.Character and plr.Character:FindFirstChild("Humanoid") or nil
-				if config.loopKill.list[plr.Name] and (not plr.Character:FindFirstChildWhichIsA("ForceField") and _humanoid.Health ~= 0) then
+				if config.loopKill.list[plr.Name] and ((plr.Character and not plr.Character:FindFirstChildWhichIsA("ForceField")) and (_humanoid and _humanoid.Health ~= 0)) then
 					table.insert(killingPlayers, plr)
 				end
 			end
 			if #killingPlayers ~= 0 then
 				killPlr(killingPlayers)
 				table.clear(killingPlayers)
-				task.wait(.25)
 			end
+			task.wait(.5)
 		end
 	end
 end)
