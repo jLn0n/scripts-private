@@ -1,7 +1,7 @@
 --[[
 	pl-cmds.lua, v0.1.7
-	open-source now because skid is steal me code
-	touch some grass dude
+	:shrug:
+	use fluxus if ur executor doesn't support if-then-else expression
 --]]
 -- services
 local players = game:GetService("Players")
@@ -94,10 +94,15 @@ local colorMappings = {
 	["white"] = BrickColor.new("Institutional white"),
 	["yellow"] = BrickColor.new("Fire Yellow"),
 }
-local cframePlaces = { -- i should add more places because yes
-	["nexus"] = CFrame.new(920, 98, 2450),
-	["policeroom"] = CFrame.new(835, 99, 2270),
-	["crimbase"] = CFrame.new(-945, 95, 2055)
+local cframePlaces = {
+	["armory"] = CFrame.new(835, 99, 2270),
+	["cafeteria"] = CFrame.new(877, 100, 2256),
+	["crimbase"] = CFrame.new(-942, 94, 2055),
+	["gatetower"] = CFrame.new(502, 126, 2306),
+	["nexus"] = CFrame.new(888, 100, 2388),
+	["policeroom"] = CFrame.new(789, 100, 2260),
+	["tower"] = CFrame.new(822, 131, 2588),
+	["yard"] = CFrame.new(791, 98, 2498),
 }
 local itemPickups = {
 	["ak47"] = workspace.Prison_ITEMS.giver["AK-47"].ITEMPICKUP,
@@ -156,11 +161,14 @@ local function makeShootPackets(shootPackets, targetPart)
 	return shootPackets
 end
 local function killPlr(arg1)
-	local gunObj = player.Backpack:FindFirstChild("M9")
+	local gunObj = player.Backpack:FindFirstChild("M9") or (player.Character and player.Character:FindFirstChild("M9"))
 	local shootPackets = table.create(0)
 	if not gunObj then
 		itemGive:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
 		gunObj = player.Backpack:FindFirstChild("M9")
+		humanoid:EquipTool(gunObj)
+		gunObj:FindFirstChild("Handle"):BreakJoints()
+		humanoid:UnequipTools()
 	end
 	if typeof(arg1) == "table" then
 		for _, plr in ipairs(arg1) do
@@ -178,7 +186,8 @@ local function killPlr(arg1)
 		teamChange:FireServer("Medium stone grey"); isKilling = false
 		task.defer((not config.utils.autoCriminal and teamChange.FireServer or autoCrim), teamChange, "Bright orange")
 	end
-	shoot:FireServer(shootPackets, gunObj); reload:FireServer(gunObj)
+	shoot:FireServer(shootPackets, gunObj)
+	reload:FireServer(gunObj)
 end
 local function countTable(tableArg)
 	local count = 0
@@ -213,7 +222,7 @@ local function stringFindPlayer(strArg, allowSets)
 			end
 		end
 		return result
-	elseif strArg == "random" and #playersList <= 1 then
+	elseif strArg == "random" and #playersList >= 1 then
 		local chosenPlr = playersList[math.random(1, #playersList)]
 		return chosenPlr ~= player and chosenPlr or stringFindPlayer(strArg)
 	else
@@ -235,6 +244,7 @@ local function getCommandParentName(cmdName)
 		result = commands[cmdName] and cmdName or nil
 		if not result then
 			for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
+				if typeof(cmdAliasList) ~= "table" then continue end
 				if table.find(cmdAliasList, cmdName) then
 					result = cmdAliasParent
 					break
@@ -268,7 +278,7 @@ end
 --[==[[ commands
 	command template:
 	["example"] = {
-		["aliases"] = {},
+		["aliases"] = {}, -- nil is acceptable
 		["desc"] = "",
 		["usage"] = "<arg1: string | [sarg1 | sarg2]: string | arg2: number (if sarg2)>", -- optional
 		["callback"] = function(speaker, args)
@@ -441,7 +451,7 @@ commands = {
 		end
 	},
 	["prefix"] = {
-		["aliases"] = {},
+		["aliases"] = nil,
 		["desc"] = "changes/says current prefix.",
 		["callback"] = function(_, args)
 			if args[1] then
@@ -512,7 +522,7 @@ runService.Heartbeat:Connect(function()
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
 end)
-task.spawn(function()
+task.spawn(function() -- kill-aura
 	local killingPlayers = table.create(0)
 	while true do task.wait()
 		if config.killAura.enabled then
@@ -539,7 +549,7 @@ task.spawn(function()
 		end
 	end
 end)
-task.spawn(function() -- this loopkill code sucks because it hangs the server
+task.spawn(function() -- loop-kill
 	local killingPlayers = table.create(0)
 	while true do task.wait()
 		if config.loopKill.enabled then
@@ -553,7 +563,7 @@ task.spawn(function() -- this loopkill code sucks because it hangs the server
 				killPlr(killingPlayers)
 				table.clear(killingPlayers)
 			end
-			task.wait(.5)
+			task.wait(.75)
 		end
 	end
 end)
