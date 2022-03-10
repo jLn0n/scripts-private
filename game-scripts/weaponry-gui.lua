@@ -1,26 +1,28 @@
 -- config
 local config = {
-	["AlwaysAuto"] = false,
-	["InfAmmo"] = false,
-	["NoRecoil"] = false,
-	["NoSpread"] = false,
-	["MultipleBullets"] = {
-		["Enabled"] = false,
-		["AmmoCount"] = 1
+	["WeaponMods"] = {
+		["AlwaysAuto"] = false,
+		["InfAmmo"] = false,
+		["NoRecoil"] = false,
+		["NoSpread"] = false,
+		["MultipliedBullets"] = 1
 	},
 	["SilentAim"] = {
-		["Enabled"] = false,
+		["Toggle"] = false,
 		["AimPart"] = "Head",
 		["Distance"] = 250,
 		["VisibleCheck"] = false,
 	},
 	["Esp"] = {
-		["Enabled"] = false,
-		["Name"] = true,
-		["Health"] = true,
-		["Distance"] = true,
+		["Toggle"] = false,
+		["Names"] = true,
+		["Boxes"] = true,
 		["Tracers"] = true,
 		["TeamCheck"] = true,
+		["Colors"] = {
+			["Team"] = Color3.new(0, 255, 0),
+			["Enemy"] = Color3.new(255, 0, 0),
+		}
 	}
 }
 -- services
@@ -44,7 +46,8 @@ local frameworkUpvals do
 		end
 	end
 end
-local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
+local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
+local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
 local nearPlrs = table.create(0)
 -- functions
 local function checkPlr(plrArg)
@@ -71,7 +74,7 @@ local function getNearestPlrByCursor()
 		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
-		if checkPlr(plr) and (config.SilentAim.VisibleCheck and (onScreen and inLineOfSite(p_dPart.Position, plr.Character)) or true) and distance <= config.SilentAim.Distance then
+		if checkPlr(plr) and (config.SilentAim.VisibleCheck and (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) and distance <= config.SilentAim.Distance then
 			table.insert(nearPlrs, {
 				aimPart = p_dPart,
 				dist = distance,
@@ -86,100 +89,105 @@ end
 local function getRayDirection(originPos, posVec3)
 	return (posVec3 - originPos).Unit * 1000
 end
+local function mergeTable(table1, table2)
+	for key, value in pairs(table2) do
+		if typeof(value) == "table" and typeof(table1[key] or false) == "table" then
+			mergeTable(table1[key], value)
+		else
+			table1[key] = value
+		end
+	end
+	return table1
+end
+local function initValueUpdater(objName, func)
+	local objThingy = uiLibrary.Toggles[objName] or uiLibrary.Options[objName]
+	local tableParent, tableName do
+		local configPaths = string.split(objName, ".")
+		local currentTable = config
+		tableName = configPaths[#configPaths]
+		for index = 1, #configPaths do
+			currentTable = currentTable[configPaths[index]]
+			if index == #configPaths - 1 then
+				tableParent = currentTable
+				break
+			end
+		end
+	end
+	objThingy:SetValue(tableParent[tableName])
+	objThingy:OnChanged(function()
+		tableParent[tableName] = objThingy.Value
+		if func then return func(tableParent[tableName]) end
+	end)
+end
 -- ui init
-local mainWindow = ui_library.new("Weaponry Fucker")
+local mainWindow = uiLibrary:CreateWindow("weaponry-gui.lua")
+local mainTab = mainWindow:AddTab("Main")
 
-local main_page = mainWindow:addPage("Main Page")
-local misc_page = mainWindow:addPage("Misc")
+local tabbox1 = mainTab:AddLeftTabbox("sAimTabbox")
+local tabbox2 = mainTab:AddLeftTabbox("weaponModsTabbox")
+local tabbox3 = mainTab:AddRightTabbox("espTabbox")
+local tabbox4 = mainTab:AddRightTabbox("creditsTabbox")
 
-local weaponMods_sect = main_page:addSection("Weapon Mods")
-local aiming_sect = main_page:addSection("Aim Settings")
-local esp_sect = main_page:addSection("ESP Settings")
-local settings_sect = misc_page:addSection("Settings")
-local credits_sect = misc_page:addSection("Credits")
+local silentAimTab = tabbox1:AddTab("Silent Aim")
+local weaponModsTab = tabbox2:AddTab("Weapon Mods")
+local espTab = tabbox3:AddTab("ESP Settings")
+local creditsTab = tabbox4:AddTab("Credits")
 
-weaponMods_sect:addToggle("Always Auto", config.AlwaysAuto, function(value)
-	config.AlwaysAuto = value
-end)
-weaponMods_sect:addToggle("Infinite Ammo", config.InfAmmo, function(value)
-	config.InfAmmo = value
-end)
-weaponMods_sect:addToggle("No Recoil", config.NoRecoil, function(value)
-	config.NoRecoil = value
-end)
-weaponMods_sect:addToggle("No Spread", config.NoSpread, function(value)
-	config.NoSpread = value
-end)
-weaponMods_sect:addToggle("Multiple Bullets", config.MultipleBullets.Enabled, function(value)
-	config.MultipleBullets.Enabled = value
-end)
-weaponMods_sect:addSlider("Bullets Count", config.MultipleBullets.AmmoCount, 0, 50, function(value)
-	config.MultipleBullets.AmmoCount = value
-end)
+silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
+silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
+silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = {"Head", "Body", "Legs", "Random"}})
+silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 1000, Rounding = 0})
 
-aiming_sect:addToggle("Silent Aim", config.SilentAim.Enabled, function(value)
-	config.SilentAim.Enabled = value
-end)
-aiming_sect:addDropdown("Aim Part", {
-	"Head",
-	"Body",
-	"Legs",
-	"Random"
-}, function(value)
-	config.SilentAim.AimPart = value
-end)
-aiming_sect:addToggle("Visibility Check", config.SilentAim.VisibleCheck, function(value)
-	config.SilentAim.VisibleCheck = value
-end)
-aiming_sect:addSlider("Distance", config.SilentAim.Distance, 0, 500, function(value)
-	config.SilentAim.Distance = value
-end)
+weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
+weaponModsTab:AddToggle("WeaponMods.InfAmmo", {Text = "Infinite Ammo"})
+weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
+weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
+weaponModsTab:AddSlider("WeaponMods.MultipliedBullets", {Text = "Multiplied Bullets", Default = 0, Min = 0, Max = 50, Rounding = 0})
 
-esp_sect:addToggle("Enable", config.Esp.Enabled, function(value)
-	config.Esp.Enabled = value
-end)
-esp_sect:addToggle("Tracers", config.Esp.Tracers, function(value)
-	config.Esp.Tracers = value
-end)
-esp_sect:addToggle("Name", config.Esp.Name, function(value)
-	config.Esp.Name = value
-end)
-esp_sect:addToggle("Health", config.Esp.Health, function(value)
-	config.Esp.Health = value
-end)
-esp_sect:addToggle("Distance", config.Esp.Distance, function(value)
-	config.Esp.Distance = value
-end)
-esp_sect:addToggle("Team Check", config.Esp.TeamCheck, function(value)
-	config.Esp.TeamCheck = value
-end)
+espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
+espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
+espTab:AddToggle("Esp.Names", {Text = "Names"})
+espTab:AddToggle("Esp.Tracers", {Text = "Tracers"})
+espTab:AddToggle("Esp.TeamCheck", {Text = "Team Check"})
+espTab:AddLabel("Team Color"):AddColorPicker("Esp.Colors.Team", {Default = Color3.new()})
+espTab:AddLabel("Enemy Color"):AddColorPicker("Esp.Colors.Enemy", {Default = Color3.new()})
 
-settings_sect:addKeybind("UI Toggle", Enum.KeyCode.RightControl, function()
-	mainWindow:toggle()
-end)
-credits_sect:addButton("Owlhub for OwlESP(but modified)")
-credits_sect:addButton("GreenDeno for VenyxUI")
-mainWindow:SelectPage(mainWindow.pages[1], true)
+creditsTab:AddLabel("Linoria Hub for Linoria UI Library")
+creditsTab:AddLabel("Kiriot22 for the ESP Library")
+
+for objThingyName in pairs(mergeTable(uiLibrary.Toggles, uiLibrary.Options)) do
+	initValueUpdater(objThingyName, (objThingyName == "Esp.Toggle" and function(value)
+		espLibrary:Toggle(value)
+	end or nil))
+end
+-- esp init
+espLibrary.TeamColor = false
+espLibrary.Overrides.GetColor = function(_character)
+	local _plr = game:GetService("Players"):GetPlayerFromCharacter(_character)
+	if _plr then
+		return (_plr.Neutral or player.TeamColor ~= _plr.TeamColor) and config.Esp.Colors.Enemy or config.Esp.Colors.Team
+	end
+end
 -- main
 runService.Heartbeat:Connect(function()
 	local weaponsData = debug.getupvalue(frameworkUpvals, 1)
 	for _, weaponData in pairs(weaponsData) do
 		if weaponData.FriendlyName == "Knife" then continue end
-		if config.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
-		if config.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
-		if config.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
-		weaponData.WeaponStats.FireMode.Round = config.MultipleBullets.Enabled and config.MultipleBullets.AmmoCount or 1 -- multiple bullets
-		table.clear(weaponData.PauseDebounce)
+		if config.WeaponMods.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
+		if config.WeaponMods.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
+		if config.WeaponMods.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
+		weaponData.WeaponStats.FireMode.Round = config.WeaponMods.MultipliedBullets > 0 and config.WeaponMods.MultipliedBullets or 1 -- multiple bullets
 	end
+	espLibrary.Boxes, espLibrary.Names, espLibrary.TeamMates = config.Esp.Boxes, config.Esp.Names, config.Esp.TeamCheck
 end)
 local oldRaycastFunc, oldRecoilFunc = rayCastClient.RayCast, recoilHandler.accelerate
 rayCastClient.RayCast = function(rayObj)
-	if config.SilentAim.Enabled then -- silent aim
+	if config.SilentAim.Toggle then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
 		rayObj = not nearestPlr and rayObj or Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position))
 	end
 	return oldRaycastFunc(rayObj)
 end
 recoilHandler.accelerate = function(...)
-	return not config.NoRecoil and oldRecoilFunc(...) or nil -- no recoil
+	return not config.WeaponMods.NoRecoil and oldRecoilFunc(...) or nil -- no recoil
 end
