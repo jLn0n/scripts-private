@@ -113,11 +113,11 @@ local function initValueUpdater(objName, func)
 			end
 		end
 	end
-	objThingy:SetValue(tableParent[tableName])
 	objThingy:OnChanged(function()
 		tableParent[tableName] = objThingy.Value
 		if func then return func(tableParent[tableName]) end
 	end)
+	objThingy:SetValue(tableParent[tableName])
 end
 -- ui init
 local mainWindow = uiLibrary:CreateWindow("weaponry-gui.lua")
@@ -142,7 +142,7 @@ weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
 weaponModsTab:AddToggle("WeaponMods.InfAmmo", {Text = "Infinite Ammo"})
 weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
 weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
-weaponModsTab:AddSlider("WeaponMods.MultipliedBullets", {Text = "Multiplied Bullets", Default = 0, Min = 0, Max = 50, Rounding = 0})
+weaponModsTab:AddSlider("WeaponMods.MultipliedBullets", {Text = "Multiplied Bullets", Default = 1, Min = 1, Max = 50, Rounding = 0})
 
 espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
 espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
@@ -176,7 +176,7 @@ runService.Heartbeat:Connect(function()
 		if config.WeaponMods.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
 		if config.WeaponMods.NoSpread then weaponData.CurrentAccuracy = 0 end -- no spread
 		if config.WeaponMods.AlwaysAuto then weaponData.WeaponStats.FireMode.Name = "Auto" end -- always auto
-		weaponData.WeaponStats.FireMode.Round = config.WeaponMods.MultipliedBullets > 0 and config.WeaponMods.MultipliedBullets or 1 -- multiple bullets
+		weaponData.WeaponStats.FireMode.Round = config.WeaponMods.MultipliedBullets
 	end
 	espLibrary.Boxes, espLibrary.Names, espLibrary.TeamMates = config.Esp.Boxes, config.Esp.Names, config.Esp.TeamCheck
 end)
