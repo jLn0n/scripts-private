@@ -113,11 +113,11 @@ local function initValueUpdater(objName, func)
 			end
 		end
 	end
+	task.defer(objThingy.SetValue, objThingy, tableParent[tableName])
 	objThingy:OnChanged(function()
 		tableParent[tableName] = objThingy.Value
 		if func then return func(tableParent[tableName]) end
 	end)
-	objThingy:SetValue(tableParent[tableName])
 end
 -- ui init
 local mainWindow = uiLibrary:CreateWindow("weaponry-gui.lua")
