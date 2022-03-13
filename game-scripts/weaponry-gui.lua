@@ -37,39 +37,45 @@ local mouse = player:GetMouse()
 -- modules
 local rayCastClient, recoilHandler = require(repStorage.ClientModules.RayCastClient), require(repStorage.ClientModules.CamRecoilHandler)
 -- variables
-local frameworkUpvals do
+local scriptUpvals do
 	for _, plrScript in ipairs(player.PlayerScripts:GetChildren()) do
 		local scriptRunning, scriptEnv = pcall(getsenv, plrScript)
 		if (scriptRunning and scriptEnv) and (scriptEnv.InspectWeapon and scriptEnv.CheckIsToolValid) then
-			frameworkUpvals = scriptEnv.CheckIsToolValid
+			scriptUpvals = scriptEnv.CheckIsToolValid
 			break
 		end
 	end
 end
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
-local nearPlrs = table.create(0)
+local nearPlrs, plrPartsList = table.create(0), table.create(0)
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
-	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and hitboxes:FindFirstChild(plrArg.UserId) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
 end
-local function getAimPart(hitboxFolder)
-	if not hitboxFolder then return nil end
-	if config.SilentAim.AimPart == "Random" then return hitboxFolder:GetChildren()[math.random(1, 3)] end
-	for _, hitbox in ipairs(hitboxFolder:GetChildren()) do
-		if string.match(hitbox.Name, config.SilentAim.AimPart) then
-			return hitbox
+local function getAimPart(plrChar)
+	if not plrChar then return end
+	if config.SilentAim.AimPart == "Random" then
+		if #plrPartsList == 0 then -- there's should be a better way of doing this but i dont wanna waste lines of code
+			local partsList = uiLibrary.Options["SilentAim.AimPart"].Values
+			table.foreachi(partsList, function(index, value)
+				plrPartsList[index] = value
+			end)
+			table.remove(plrPartsList, 1)
 		end
+		return plrChar:FindFirstChild(plrPartsList[math.random(1, #plrPartsList)])
+	else
+		return plrChar:FindFirstChild(config.SilentAim.AimPart)
 	end
 end
 local function getNearestPlrByCursor()
 	table.clear(nearPlrs)
 	for _, plr in ipairs(players:GetPlayers()) do
-		local p_dPart = getAimPart(hitboxes:FindFirstChild(plr.UserId))
+		local p_dPart = getAimPart(plr.Character)
 		if not p_dPart then continue end
 		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
@@ -113,14 +119,14 @@ local function initValueUpdater(objName, func)
 			end
 		end
 	end
-	task.defer(objThingy.SetValue, objThingy, tableParent[tableName])
+	objThingy:SetValue(tableParent[tableName]);
 	objThingy:OnChanged(function()
 		tableParent[tableName] = objThingy.Value
 		if func then return func(tableParent[tableName]) end
 	end)
 end
 -- ui init
-local mainWindow = uiLibrary:CreateWindow("weaponry-gui.lua")
+local mainWindow = uiLibrary:CreateWindow("weaponry-gui.lua | Made by: jLn0n")
 local mainTab = mainWindow:AddTab("Main")
 
 local tabbox1 = mainTab:AddLeftTabbox("sAimTabbox")
@@ -135,7 +141,7 @@ local creditsTab = tabbox4:AddTab("Credits")
 
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
 silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
-silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = {"Head", "Body", "Legs", "Random"}})
+silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = {"Random", "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}})
 silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 1000, Rounding = 0})
 
 weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
@@ -170,7 +176,7 @@ espLibrary.Overrides.GetColor = function(_character)
 end
 -- main
 runService.Heartbeat:Connect(function()
-	local weaponsData = debug.getupvalue(frameworkUpvals, 1)
+	local weaponsData = debug.getupvalue(scriptUpvals, 1)
 	for _, weaponData in pairs(weaponsData) do
 		if weaponData.FriendlyName == "Knife" then continue end
 		if config.WeaponMods.InfAmmo then weaponData.CurrentAmmo = weaponData.WeaponStats.MaxAmmo end -- infinite ammo
@@ -184,10 +190,11 @@ local oldRaycastFunc, oldRecoilFunc = rayCastClient.RayCast, recoilHandler.accel
 rayCastClient.RayCast = function(rayObj)
 	if config.SilentAim.Toggle then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		rayObj = not nearestPlr and rayObj or Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position))
+		rayObj = nearestPlr and Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position)) or rayObj
 	end
 	return oldRaycastFunc(rayObj)
 end
 recoilHandler.accelerate = function(...)
 	return not config.WeaponMods.NoRecoil and oldRecoilFunc(...) or nil -- no recoil
 end
+task.defer(uiLibrary.Notify, uiLibrary, "weaponry-gui.lua is now loaded!", 2.5)
