@@ -31,7 +31,6 @@ local runService = game:GetService("RunService")
 local repStorage = game:GetService("ReplicatedStorage")
 -- objects
 local camera = workspace.CurrentCamera
-local hitboxes = workspace.Hitboxes
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
@@ -48,29 +47,18 @@ local scriptUpvals do
 end
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
-local nearPlrs, plrPartsList = table.create(0), table.create(0)
+local nearPlrs, plrPartsList = table.create(0), {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
 	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
-	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, hitboxes, ...}) == 0
+	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, workspace.Hitboxes, ...}) == 0
 end
 local function getAimPart(plrChar)
 	if not plrChar then return end
-	if config.SilentAim.AimPart == "Random" then
-		if #plrPartsList == 0 then -- there's should be a better way of doing this but i dont wanna waste lines of code
-			local partsList = uiLibrary.Options["SilentAim.AimPart"].Values
-			table.foreachi(partsList, function(index, value)
-				plrPartsList[index] = value
-			end)
-			table.remove(plrPartsList, 1)
-		end
-		return plrChar:FindFirstChild(plrPartsList[math.random(1, #plrPartsList)])
-	else
-		return plrChar:FindFirstChild(config.SilentAim.AimPart)
-	end
+	return plrChar:FindFirstChild((config.SilentAim.AimPart == "Random" and plrPartsList[math.random(1, #plrPartsList)] or config.SilentAim.AimPart))
 end
 local function getNearestPlrByCursor()
 	table.clear(nearPlrs)
@@ -91,9 +79,6 @@ local function getNearestPlrByCursor()
 		return (x.dist < y.dist)
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
-end
-local function getRayDirection(originPos, posVec3)
-	return (posVec3 - originPos).Unit * 1000
 end
 local function mergeTable(table1, table2)
 	for key, value in pairs(table2) do
@@ -142,7 +127,7 @@ local creditsTab = tabbox4:AddTab("Credits")
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
 silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
 silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = {"Random", "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}})
-silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 1000, Rounding = 0})
+silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 5000, Rounding = 0})
 
 weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
 weaponModsTab:AddToggle("WeaponMods.InfAmmo", {Text = "Infinite Ammo"})
@@ -190,7 +175,7 @@ local oldRaycastFunc, oldRecoilFunc = rayCastClient.RayCast, recoilHandler.accel
 rayCastClient.RayCast = function(rayObj)
 	if config.SilentAim.Toggle then -- silent aim
 		local nearestPlr = getNearestPlrByCursor()
-		rayObj = nearestPlr and Ray.new(rayObj.Origin, getRayDirection(rayObj.Origin, nearestPlr.aimPart.Position)) or rayObj
+		rayObj = (nearestPlr and Ray.new(rayObj.Origin, (nearestPlr.aimPart.Position - rayObj.Origin).Unit * 1000) or rayObj)
 	end
 	return oldRaycastFunc(rayObj)
 end
