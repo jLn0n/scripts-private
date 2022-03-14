@@ -110,6 +110,10 @@ task.defer(function() -- initializing reanimation after the code below ran
 end)
 
 if _G.Settings.UseBuiltinNetless then
+	settings().Physics.AllowSleep = false
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.ThrottleAdjustTime = -math.huge
+
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
@@ -134,10 +138,10 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 end)
 
 for _, object in ipairs(accessories) do
-	print(object.Name, object:FindFirstChild("Handle"))
 	object = object:FindFirstChild("Handle")
-	if object then
-		align101(object, botChar:FindFirstChild(object.Parent.Name))
+	local staticObj = botChar:FindFirstChild(object.Parent.Name)
+	if object and staticObj then
+		align101(object, staticObj:FindFirstChild("Handle"))
 	end
 end
 align101(bodyParts.Head, botChar.Head)
