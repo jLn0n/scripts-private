@@ -4,6 +4,7 @@
 --]]
 -- variablesc
 local obfTemplates = {
+	["simbuscatorWatermark"] = "--[[\n\t%s,\n\tobfuscated with simbuscator.lua\n--]]\n",
 	["varsList"] = [==[local {fenv}=loadstring("{fenv_return}")();local {string_gsub}={fenv}("{gsub_str}");local {string_char}={fenv}("{char_str}");local {tostring}={fenv}("{tostr_str}");local {tonumber}={fenv}("{tonum_str}");local {loadstring}={fenv}("{loadstr_str}");local {math_min}={fenv}("{mmin_str}");]==],
 	["minifiedHexToStr"] = [==[local function {hextostr_func}({hextostr_func_arg1}) return {string_gsub}({hextostr_func_arg1}, "{enc_str1}", function({func_inner1_arg1}) return {string_char}(({tonumber}({func_inner1_arg1}, {enc_number1}) or 0) / {dec_offsetint}) end) end;]==],
 	["loadstringProxy"] = [==[local function {loadstr_proxy_func}({loadstr_proxy_func_arg1}) return {loadstring}({string_gsub}({hextostr_func}({loadstr_proxy_func_arg1}), "|", ""), "{source_name}")() end;]==],
@@ -131,9 +132,10 @@ local function obfuscateScript(outputArg, sourceName)
 		local tablePos = math.random(1, 4) + 1
 		table.insert(resultData, tablePos, generateJunkCode(generatedOptions))
 	end
-	table.insert(resultData, 1, formatString(obfTemplates.varsList, generatedOptions))
-	table.insert(resultData, 2, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
-	table.insert(resultData, 3, formatString(obfTemplates.loadstringProxy, generatedOptions))
+	table.insert(resultData, 1, string.format(obfTemplates.simbuscatorWatermark, sourceName))
+	table.insert(resultData, 2, formatString(obfTemplates.varsList, generatedOptions))
+	table.insert(resultData, 3, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
+	table.insert(resultData, 4, formatString(obfTemplates.loadstringProxy, generatedOptions))
 	table.insert(resultData, (math.random(1, #resultData) + 3), formatString(obfTemplates.loadstringScript, generatedOptions))
 	for index = 1, #resultData do
 		obfResult ..= resultData[index] or ""
