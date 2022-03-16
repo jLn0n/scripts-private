@@ -126,7 +126,7 @@ local function obfuscateScript(outputArg, sourceName)
 		loadstr_proxy_func = generateRandString(12),
 		loadstr_proxy_func_arg1 = generateRandString(8),
 		source_name = stringToHex(sourceName),
-		source = stringToHex(outputArg, "|", offsetInt),
+		source = stringToHex(outputArg, "­", offsetInt),
 	}
 	for _ = 1, (math.random(1, 8) * 4) do
 		local tablePos = math.random(1, 4) + 1
