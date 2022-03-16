@@ -1,13 +1,13 @@
 --[[
 	simbuscator.lua
-	just a simple obfuscator without any protections in lua
+	just a simple obfuscator without any protections in lua for lua
 --]]
 -- variablesc
 local obfTemplates = {
 	["simbuscatorWatermark"] = "--[[\n\t%s,\n\tobfuscated with simbuscator.lua\n--]]\n",
 	["varsList"] = [==[local {fenv}=loadstring("{fenv_return}")();local {string_gsub}={fenv}("{gsub_str}");local {string_char}={fenv}("{char_str}");local {tostring}={fenv}("{tostr_str}");local {tonumber}={fenv}("{tonum_str}");local {loadstring}={fenv}("{loadstr_str}");local {math_min}={fenv}("{mmin_str}");]==],
 	["minifiedHexToStr"] = [==[local function {hextostr_func}({hextostr_func_arg1}) return {string_gsub}({hextostr_func_arg1}, "{enc_str1}", function({func_inner1_arg1}) return {string_char}(({tonumber}({func_inner1_arg1}, {enc_number1}) or 0) / {dec_offsetint}) end) end;]==],
-	["loadstringProxy"] = [==[local function {loadstr_proxy_func}({loadstr_proxy_func_arg1}) return {loadstring}({string_gsub}({hextostr_func}({loadstr_proxy_func_arg1}), "|", ""), "{source_name}")() end;]==],
+	["loadstringProxy"] = [==[local function {loadstr_proxy_func}({loadstr_proxy_func_arg1}) return {loadstring}({string_gsub}({hextostr_func}({loadstr_proxy_func_arg1}), "{str_seperator}", ""), "{source_name}")() end;]==],
 	["loadstringScript"] = [==[{loadstr_proxy_func}("{source}");]==],
 	junkCodes = {
 		[==[local function {var_name}() return ({integer} == {integer_enc1}) end;]==],
@@ -43,12 +43,8 @@ local function scrambleNumber(number)
 end
 local function formatString(templateStr, options, func)
 	local stringResult = templateStr
-	for _name in pairs(options) do
-		stringResult = string.gsub(stringResult, string.format("{%s?}", _name), function(name)
-			name = string.gsub(name, "{", "")
-			name = string.gsub(name, "}", "")
-			return (typeof(func) == "function" and func(name) or options[name])
-		end)
+	for name in pairs(options) do
+		stringResult = string.gsub(stringResult, string.format("{%s?}", name), (typeof(func) == "function" and func(name) or options[name]))
 	end
 	return stringResult
 end
@@ -100,8 +96,8 @@ local function obfuscateScript(outputArg, sourceName)
 	math.randomseed(os.clock())
 	outputArg = string.gsub(outputArg, "\t", "")
 	local resultData = table.create(0)
+	local offsetInt, strSeperator = math.random(8, 32) * 8, "­"
 	local obfResult = ""
-	local offsetInt = math.random(8, 32) * 8
 	local generatedOptions = {
 		string_char = generateRandString(12),
 		string_gsub = generateRandString(12),
@@ -126,9 +122,10 @@ local function obfuscateScript(outputArg, sourceName)
 		loadstr_proxy_func = generateRandString(12),
 		loadstr_proxy_func_arg1 = generateRandString(8),
 		source_name = stringToHex(sourceName),
-		source = stringToHex(outputArg, "­", offsetInt),
+		str_seperator = strSeperator,
+		source = stringToHex(outputArg, strSeperator, offsetInt),
 	}
-	for _ = 1, (math.random(1, 8) * 4) do
+	for _ = 1, (math.random(1, 8) * 8) do
 		local tablePos = math.random(1, 4) + 1
 		table.insert(resultData, tablePos, generateJunkCode(generatedOptions))
 	end
