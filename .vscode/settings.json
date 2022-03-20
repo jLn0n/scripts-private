@@ -1,0 +1,14 @@
+{
+    "robloxLsp.diagnostics.globals": [
+        "setsimulationradius",
+        "sethiddenproperty",
+        "hookfunction",
+        "firetouchinterest",
+        "hookmetamethod",
+        "newcclosure",
+        "getnamecallmethod",
+        "checkcaller",
+        "fireclickdetector",
+        "getsenv"
+    ]
+}
