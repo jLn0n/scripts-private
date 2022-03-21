@@ -6,14 +6,14 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
+local rootPart = character.HumanoidRootPart
 -- init
-assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
-assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
+assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[\n["r6-bot.lua"]: Please reset to be able to run the script again]]))
+assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["r6-bot.lua"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -30, 0) else _G.Settings.Velocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -35, 0) else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 end
@@ -101,8 +101,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	rootPart:BreakJoints()
-	partToAnchor.Anchored = true
+	rootPart.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
@@ -126,7 +125,6 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
-		rootPart.Velocity, rootPart.RotVelocity = _G.Settings.Velocity, (Vector3.yAxis * 480)
 		player.ReplicationFocus = workspace
 	end)
 end
@@ -156,4 +154,3 @@ align101(bodyParts["Left Arm"], botChar["Left Arm"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Left Leg"], botChar["Left Leg"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Right Arm"], botChar["Right Arm"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Right Leg"], botChar["Right Leg"], nil, Vector3.xAxis * 90)
-align101(rootPart, botChar.HumanoidRootPart)
