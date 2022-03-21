@@ -2,25 +2,25 @@
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
-local uis = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local hRootPart = character.HumanoidRootPart
+local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
 -- init
 assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", player.UserId)), string.format([[\n["R6-SEMIBOT.LUA"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-SEMIBOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
-	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
-	_G.Settings.HeadName = _G.Settings.HeadName or "NinjaMaskOfShadows"
-	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(-35, 25.05, 0)
-	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
-	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
+	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
+	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -30, 0) else _G.Settings.Velocity)
+	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
+	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
-local charOldPos = hRootPart.CFrame
+local botChar = game:GetObjects("rbxassetid://6843243348")[1]
+local charOldPos = rootPart.CFrame
 local accessories, bodyParts = table.create(0), {
 	["Head"] = character:FindFirstChild(_G.Settings.HeadName),
 	["Torso"] = character:FindFirstChild("SeeMonkey"),
@@ -31,21 +31,20 @@ local accessories, bodyParts = table.create(0), {
 	["Right Arm"] = character:FindFirstChild("Right Arm"),
 	["Right Leg"] = character:FindFirstChild("Right Leg"),
 }
--- main
-local botChar = game:GetObjects("rbxassetid://6843243348")[1]
-botChar.Name = string.format("%s-reanimation", player.UserId)
-for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
-
+-- functions
 local function onCharRemoved()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
-	botChar:Destroy()
 	player.Character = character
 	player.Character:BreakJoints()
 	player.Character = nil
+	botChar:Destroy()
 end
+-- main
+botChar.Name = string.format("%s-reanimation", player.UserId)
+for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 
 task.defer(function() -- initializing reanimation after the code below ran
-	hRootPart.Anchored = true
+	partToAnchor.Anchored = true
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
 	animScript.Disabled = true
@@ -70,6 +69,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 			object:Destroy()
 		end
 	end
+	rootPart:BreakJoints()
+	rootPart.Transparency, rootPart.Color = 0, Color3.fromRGB(255)
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and not botChar:FindFirstChild(object.Name) then
 			local fakeAccessory = object:Clone()
@@ -81,7 +82,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 			table.insert(accessories, object)
 		end
 	end
-	botChar.Parent = character
+	player.Character, botChar.Parent = botChar, workspace
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
 	starterGui:SetCore("SendNotification", {
@@ -93,21 +94,10 @@ end)
 
 if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-
-	for _, object in pairs(bodyParts) do
-		object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
-		if object then
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, Vector3.new(1, 1, 1) * math.huge, _G.Settings.Velocity
-			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = object, object
-		end
-	end
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 
 	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
-		for _, object in pairs(bodyParts) do
+		for _, object in pairs(character:GetChildren()) do
 			object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
 			if object then
 				object.Massless, object.CanCollide = true, false
@@ -115,10 +105,15 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
+		rootPart.Velocity, rootPart.RotVelocity = _G.Settings.Velocity, Vector3.zero
+		player.ReplicationFocus = workspace
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	rootPart.CFrame = botChar.HumanoidRootPart.CFrame
 	for PartName, object in pairs(bodyParts) do
 		object = object and ((object:IsA("Accessory") and object:FindFirstChild("Handle")) and object.Handle or object:IsA("BasePart") and object or nil)
 		if object then
@@ -139,10 +134,5 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			object.Handle.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 			object.Handle.CFrame = botChar[object.Name].Handle.CFrame
 		end
-	end
-	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
-	botChar.Humanoid:Move(humanoid.MoveDirection, false)
-	if uis:IsKeyDown(Enum.KeyCode.Space) and uis:GetFocusedTextBox() == nil then
-		botChar.Humanoid.Jump = true
 	end
 end)
