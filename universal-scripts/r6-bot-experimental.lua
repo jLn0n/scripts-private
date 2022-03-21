@@ -6,7 +6,7 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart = character.HumanoidRootPart
+local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
 -- init
 assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
@@ -62,7 +62,7 @@ local function align101(part, parent, position, orientation)
 	attachment.Parent, _attachment.Parent = parent, part
 	alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
 	alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
-	attachment.Position, attachment.Orientation = position or Vector3.new(), orientation or Vector3.new()
+	attachment.Position, attachment.Orientation = position or Vector3.zero, orientation or Vector3.zero
 end
 -- main
 botChar.Name = string.format("%s-reanimation", player.UserId)
@@ -75,13 +75,6 @@ task.defer(function() -- initializing reanimation after the code below ran
 	animScript.Disabled = false
 	botChar.HumanoidRootPart.CFrame = charOldPos
 	plrFace.Parent, plrFace.Transparency = botChar.Head, 1
-
-	do
-		local bodyPos = Instance.new("BodyPosition")
-		bodyPos.D, bodyPos.P, bodyPos.MaxForce = 15, 1500, Vector3.one * 4e5
-		bodyPos.Parent = rootPart
-		rootPart.Transparency = 0
-	end
 
 	for PartName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
@@ -108,6 +101,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
+	rootPart:BreakJoints()
+	partToAnchor.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
@@ -131,20 +126,18 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
+		rootPart.Velocity, rootPart.RotVelocity = _G.Settings.Velocity, (Vector3.yAxis * 480)
 		player.ReplicationFocus = workspace
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			object:FindFirstChild("Handle").LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 		end
-	end
-	if rootPart:FindFirstChildWhichIsA("BodyPosition") then
-		rootPart.BodyPosition.Position = (botChar.HumanoidRootPart.Position + (Vector3.yAxis * 5))
-		rootPart.CanCollide, rootPart.RotVelocity = false, (Vector3.yAxis * 480)
 	end
 end)
 
@@ -163,3 +156,4 @@ align101(bodyParts["Left Arm"], botChar["Left Arm"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Left Leg"], botChar["Left Leg"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Right Arm"], botChar["Right Arm"], nil, Vector3.xAxis * 90)
 align101(bodyParts["Right Leg"], botChar["Right Leg"], nil, Vector3.xAxis * 90)
+align101(rootPart, botChar.HumanoidRootPart)
