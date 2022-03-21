@@ -2,10 +2,10 @@
 	simbuscator.lua
 	just a simple obfuscator without any protections in lua for lua
 --]]
--- variablesc
+-- variables
 local obfTemplates = {
 	["simbuscatorWatermark"] = "--[[\n\t%s,\n\tobfuscated with simbuscator.lua\n--]]\n",
-	["varsList"] = [==[local {fenv}=loadstring("{fenv_return}")();local {string_gsub}={fenv}("{gsub_str}");local {string_char}={fenv}("{char_str}");local {tostring}={fenv}("{tostr_str}");local {tonumber}={fenv}("{tonum_str}");local {loadstring}={fenv}("{loadstr_str}");local {math_min}={fenv}("{mmin_str}");]==],
+	["varsList"] = [==[local {fenv}=function({fenv_temp_arg1})return getfenv()["{loadstr_str}"]({fenv_temp_arg1})end;{fenv}={fenv}("{fenv_return}")();local {string_gsub},{string_char},{tostring},{tonumber},{loadstring},{math_min}={fenv}("{gsub_str}"),{fenv}("{char_str}"),{fenv}("{tostr_str}"),{fenv}("{tonum_str}"),{fenv}("{loadstr_str}"),{fenv}("{mmin_str}");]==],
 	["minifiedHexToStr"] = [==[local function {hextostr_func}({hextostr_func_arg1}) return {string_gsub}({hextostr_func_arg1}, "{enc_str1}", function({func_inner1_arg1}) return {string_char}(({tonumber}({func_inner1_arg1}, {enc_number1}) or 0) / {dec_offsetint}) end) end;]==],
 	["loadstringProxy"] = [==[local function {loadstr_proxy_func}({loadstr_proxy_func_arg1}) return {loadstring}({string_gsub}({hextostr_func}({loadstr_proxy_func_arg1}), "{str_seperator}", ""), "{source_name}")() end;]==],
 	["loadstringScript"] = [==[{loadstr_proxy_func}("{source}");]==],
@@ -84,8 +84,8 @@ local function generateJunkCode(addedOptions)
 		var_result = "",
 		var_name_arg1 = generateRandString(8),
 		var_name_arg2 = generateRandString(8),
-		integer = math.random(1, 64),
-		integer_enc1 = scrambleNumber(math.random(1, 64)),
+		integer = math.random(1, 256),
+		integer_enc1 = scrambleNumber(math.random(1, 1024)),
 	})
 	stringResult = formatString(stringResult, generatedOptions, function(optionName)
 		return (optionName == "var_result" and generateRandomConstant() or nil)
@@ -93,11 +93,10 @@ local function generateJunkCode(addedOptions)
 	return stringResult
 end
 local function obfuscateScript(outputArg, sourceName)
-	math.randomseed(os.clock())
+	math.randomseed(os.clock() + math.random(1, 16))
 	outputArg = string.gsub(outputArg, "\t", "")
 	local resultData = table.create(0)
-	local offsetInt, strSeperator = math.random(8, 32) * 8, "­"
-	local obfResult = ""
+	local offsetInt, strSeperator = math.random(8, 64) * 8, "­"
 	local generatedOptions = {
 		string_char = generateRandString(12),
 		string_gsub = generateRandString(12),
@@ -114,6 +113,7 @@ local function obfuscateScript(outputArg, sourceName)
 		tonum_str = stringToHex("tonumber"),
 		tostr_str = stringToHex("tostring"),
 		hextostr_func = generateRandString(12),
+		fenv_temp_arg1 = generateRandString(8),
 		hextostr_func_arg1 = generateRandString(8),
 		func_inner1_arg1 = generateRandString(8),
 		enc_str1 = stringToHex("[%x]+"),
@@ -125,22 +125,23 @@ local function obfuscateScript(outputArg, sourceName)
 		str_seperator = strSeperator,
 		source = stringToHex(outputArg, strSeperator, offsetInt),
 	}
-	for _ = 1, (math.random(1, 8) * 8) do
-		local tablePos = math.random(1, 4) + 1
+	for _ = 1, math.random(8, 32) do
+		local tablePos = math.random(1, 6)
 		table.insert(resultData, tablePos, generateJunkCode(generatedOptions))
 	end
 	table.insert(resultData, 1, string.format(obfTemplates.simbuscatorWatermark, sourceName))
-	table.insert(resultData, 2, formatString(obfTemplates.varsList, generatedOptions))
-	table.insert(resultData, 3, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
-	table.insert(resultData, 4, formatString(obfTemplates.loadstringProxy, generatedOptions))
-	table.insert(resultData, (math.random(1, #resultData) + 3), formatString(obfTemplates.loadstringScript, generatedOptions))
+	table.insert(resultData, 3, formatString(obfTemplates.varsList, generatedOptions))
+	table.insert(resultData, 4, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
+	table.insert(resultData, 5, formatString(obfTemplates.loadstringProxy, generatedOptions))
+	table.insert(resultData, 6, formatString(obfTemplates.loadstringScript, generatedOptions))
 	for index = 1, #resultData do
-		obfResult ..= resultData[index] or ""
+		if resultData[index] then continue end
+		table.remove(resultData, index)
 	end
-	return obfResult
+	return table.concat(resultData)
 end
 -- main
 local source = [==[
 	print("Hello World!")
 ]==]
-print(obfuscateScript(source, "weaponry-gui.lua"))
+print(obfuscateScript(source, "print.lua"))
