@@ -9,8 +9,6 @@ local rootPart, torso = character:FindFirstChild("HumanoidRootPart"), character:
 -- variables
 local states = {
 	["animPlaying"] = "idle",
-	["isAttacking"] = false,
-	["mode"] = 1,
 }
 local motorsList
 -- functions
@@ -36,8 +34,12 @@ motorsList = {
 }
 
 _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(input, gameProcessed)
-	if input.UserInputType == Enum.UserInputType.Keyboard and (not inputService:GetFocusedTextBox() and gameProcessed) then
+	if (not inputService:GetFocusedTextBox() and gameProcessed) then
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			
+		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
 
+		end
 	end
 end)
 
