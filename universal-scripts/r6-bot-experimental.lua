@@ -6,14 +6,14 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart = character.HumanoidRootPart
+local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
 -- init
-assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[\n["r6-bot.lua"]: Please reset to be able to run the script again]]))
-assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["r6-bot.lua"]: Sorry, This script will only work on R6 character rig]]))
+assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
+assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -35, 0) else _G.Settings.Velocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -30, 0) else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 end
@@ -31,6 +31,7 @@ local accessories, bodyParts = table.create(0), {
 	["Right Arm"] = character:FindFirstChild("Hat1"),
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
+local bodyPos, flingAtt
 -- functions
 local function onCharRemoved()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
@@ -89,6 +90,12 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
+	for _, motorObj in ipairs(partToAnchor:GetChildren()) do
+		if (not motorObj:IsA("Motor6D") or motorObj.Name == "Neck") then continue end
+		motorObj.Part1:Destroy()
+		motorObj:Destroy()
+	end
+
 	for _, object in ipairs(character:GetChildren()) do
 		if (object:IsA("Accessory") and not botChar:FindFirstChild(object.Name)) then
 			accessories[object.Name] = object
@@ -101,7 +108,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	rootPart.Anchored = true
+	task.defer(rootPart.BreakJoints, rootPart)
+	partToAnchor.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
@@ -125,18 +133,26 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
+		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.one * 6942069)
 		player.ReplicationFocus = workspace
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+	bodyPos.Position = (botChar.HumanoidRootPart.Position + flingAtt.Position)
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and object:FindFirstChild("Handle") then
 			object:FindFirstChild("Handle").LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 		end
 	end
+end)
+
+task.defer(function()
+	bodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
+	flingAtt.Name = "Fling"
+	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.one * 4e5, 5, 1e6
+	bodyPos.Parent, flingAtt.Parent = rootPart, rootPart
 end)
 
 task.defer(table.foreach, accessories, function(accessoryName, accessoryObj)
