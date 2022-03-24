@@ -33,7 +33,6 @@ local accessories, bodyParts = table.create(0), {
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
 local bodyPos, flingAtt
-local flingShouldRun = false
 -- functions
 local function onCharRemoved()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
@@ -43,19 +42,18 @@ local function onCharRemoved()
 	botChar:Destroy()
 end
 
-local function align101(part, parent, position, orientation)
+local function initWelder(part, parent, position, orientation)
 	if not (part or parent) then return end
 	part = (part and part:IsA("Accessory")) and part.Handle or part
 	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
 	local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
 	local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
 	alignPos.ApplyAtCenterOfMass = true
-	alignPos.MaxForce = 9e9
+	alignPos.MaxForce = 1e10
 	alignPos.MaxVelocity = math.huge
 	alignPos.ReactionForceEnabled = false
 	alignPos.Responsiveness = 200
 	alignPos.RigidityEnabled = false
-	alignPos.Visible = true
 	alignOrt.MaxTorque = math.huge
 	alignOrt.MaxAngularVelocity = math.huge
 	alignOrt.ReactionTorqueEnabled = false
@@ -124,7 +122,8 @@ end)
 
 if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
+	settings().Physics.ThrottleAdjustTime = -math.huge
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
@@ -141,13 +140,13 @@ if _G.Settings.UseBuiltinNetless then
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-	if flingShouldRun then
-		bodyPos.Position = (_G.Settings.FlingEnabled and (botChar.HumanoidRootPart.Position + flingAtt.Position) or Vector3.one * 256)
-	end
+	bodyPos.Position = (botChar.HumanoidRootPart.Position + (_G.Settings.FlingEnabled and flingAtt.Position or Vector3.yAxis * 5))
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 	for _, object in ipairs(character:GetChildren()) do
-		if object:IsA("Accessory") and object:FindFirstChild("Handle") then
-			object:FindFirstChild("Handle").LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
+		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+		if object then
+			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
+			--local bodyPos, bodyGyro = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro")
 		end
 	end
 end)
@@ -157,22 +156,20 @@ task.defer(function()
 	flingAtt.Name = "Fling"
 	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.one * 4e5, 5, 1e6
 	bodyPos.Parent, flingAtt.Parent = rootPart, botChar.HumanoidRootPart
-	task.wait(5)
-	flingShouldRun = true
 end)
 
 task.defer(table.foreach, accessories, function(accessoryName, accessoryObj)
 	local staticAccObj = botChar:FindFirstChild(accessoryName)
 	if accessoryObj and staticAccObj then
-		align101(accessoryObj, staticAccObj)
+		initWelder(accessoryObj, staticAccObj)
 	end
 end)
 
-align101(bodyParts.Head, botChar.Head)
-align101(bodyParts.Torso, botChar.Torso)
-align101(bodyParts.Torso1, botChar.Torso, Vector3.yAxis * .5, Vector3.yAxis * 90)
-align101(bodyParts.Torso2, botChar.Torso, -Vector3.yAxis * .5, Vector3.yAxis * 90)
-align101(bodyParts["Left Arm"], botChar["Left Arm"], nil, Vector3.xAxis * 90)
-align101(bodyParts["Left Leg"], botChar["Left Leg"], nil, Vector3.xAxis * 90)
-align101(bodyParts["Right Arm"], botChar["Right Arm"], nil, Vector3.xAxis * 90)
-align101(bodyParts["Right Leg"], botChar["Right Leg"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts.Head, botChar.Head)
+initWelder(bodyParts.Torso, botChar.Torso)
+initWelder(bodyParts.Torso1, botChar.Torso, Vector3.yAxis * .5, Vector3.yAxis * 90)
+initWelder(bodyParts.Torso2, botChar.Torso, -Vector3.yAxis * .5, Vector3.yAxis * 90)
+initWelder(bodyParts["Left Arm"], botChar["Left Arm"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Left Leg"], botChar["Left Leg"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Right Arm"], botChar["Right Arm"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Right Leg"], botChar["Right Leg"], nil, Vector3.xAxis * 90)
