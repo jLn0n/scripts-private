@@ -155,7 +155,7 @@ end)
 task.defer(function()
 	bodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
 	flingAtt.Name = "Fling"
-	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.new(4e5, 4e6, 4e5), 5, 1e6
+	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.one * 4e5, 5, 1e6
 	bodyPos.Parent, flingAtt.Parent = rootPart, botChar.HumanoidRootPart
 	task.wait(5)
 	flingShouldRun = true
