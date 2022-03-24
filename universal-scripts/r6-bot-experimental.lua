@@ -16,6 +16,7 @@ do -- config initialization
 	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -30, 0) else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
+	_G.Settings.FlingEnabled = (if typeof(_G.Settings.FlingEnabled) ~= "boolean" then true else _G.Settings.FlingEnabled)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
@@ -32,6 +33,7 @@ local accessories, bodyParts = table.create(0), {
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
 local bodyPos, flingAtt
+local flingShouldRun = false
 -- functions
 local function onCharRemoved()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
@@ -139,7 +141,9 @@ if _G.Settings.UseBuiltinNetless then
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-	bodyPos.Position = (botChar.HumanoidRootPart.Position + flingAtt.Position)
+	if flingShouldRun then
+		bodyPos.Position = (_G.Settings.FlingEnabled and (botChar.HumanoidRootPart.Position + flingAtt.Position) or Vector3.one * 256)
+	end
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 	for _, object in ipairs(character:GetChildren()) do
 		if object:IsA("Accessory") and object:FindFirstChild("Handle") then
@@ -151,8 +155,10 @@ end)
 task.defer(function()
 	bodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
 	flingAtt.Name = "Fling"
-	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.one * 4e5, 5, 1e6
+	bodyPos.MaxForce, bodyPos.D, bodyPos.P = Vector3.new(4e5, 4e6, 4e5), 5, 1e6
 	bodyPos.Parent, flingAtt.Parent = rootPart, botChar.HumanoidRootPart
+	task.wait(5)
+	flingShouldRun = true
 end)
 
 task.defer(table.foreach, accessories, function(accessoryName, accessoryObj)
