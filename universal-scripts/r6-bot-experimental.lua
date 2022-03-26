@@ -13,10 +13,11 @@ assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.LUA
 do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(25.05, -30, 0) else _G.Settings.Velocity)
-	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
-	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 	_G.Settings.FlingEnabled = (if typeof(_G.Settings.FlingEnabled) ~= "boolean" then true else _G.Settings.FlingEnabled)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(-25.05, 30, 0) else _G.Settings.Velocity)
+	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
+	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
+	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
@@ -34,17 +35,42 @@ local accessories, bodyParts = table.create(0), {
 }
 local flingBodyPos, flingAtt
 -- functions
+local function orientationToAngles(vect3)
+	return math.rad(vect3.X), math.rad(vect3.Y), math.rad(vect3.Z)
+end
+
 local function initWelder(part, parent, position, orientation)
 	if not (part or parent) then return end
 	part = (part and part:IsA("Accessory")) and part.Handle or part
 	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
-	local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
-	attachment.Name = "Offset"
-	attachment.Position, attachment.Orientation = (position or Vector3.zero), (orientation or Vector3.zero)
-	bodyPos.D, bodyGyro.D = 975, 2250
-	bodyPos.P, bodyGyro.P = 1e6, 1e6
-	bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.one * 4e5, Vector3.one * 4e5
-	bodyPos.Parent, bodyGyro.Parent, attachment.Parent = part, part, part
+	if _G.Settings.UseBodyMovers then
+		local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
+		attachment.Name = "Offset"
+		attachment.Position, attachment.Orientation = (position or Vector3.zero), (orientation or Vector3.zero)
+		bodyPos.D, bodyGyro.D = 1250, 2500
+		bodyPos.P, bodyGyro.P = 1e6, 1e6
+		bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.one * math.huge, Vector3.one * math.huge
+		bodyPos.Parent, bodyGyro.Parent, attachment.Parent = part, part, part
+	else
+		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
+		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
+		alignPos.ApplyAtCenterOfMass = true
+		alignPos.MaxForce = 1e10
+		alignPos.MaxVelocity = math.huge
+		alignPos.ReactionForceEnabled = false
+		alignPos.Responsiveness = 200
+		alignPos.RigidityEnabled = false
+		alignOrt.MaxTorque = math.huge
+		alignOrt.MaxAngularVelocity = math.huge
+		alignOrt.ReactionTorqueEnabled = false
+		alignOrt.Responsiveness = 200
+		alignOrt.RigidityEnabled = false
+		alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
+		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
+		alignPos.Parent, alignOrt.Parent = part, part
+		attachment.Parent, _attachment.Parent = parent, part
+		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToAngles(orientation or Vector3.zero))
+	end
 end
 
 local function getInstance(inst, instName) -- uhh this thing uses string.find
@@ -61,10 +87,6 @@ local function onCharRemoved()
 	player.Character:BreakJoints()
 	player.Character = nil
 	botChar:Destroy()
-end
-
-local function orientationToAngles(vect3)
-	return math.rad(vect3.X), math.rad(vect3.Y), math.rad(vect3.Z)
 end
 -- main
 botChar.Name = string.format("%s-reanimation", player.UserId)
@@ -143,7 +165,8 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 			end
 		end
-		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.one * 6942069)
+		local x, y, z = math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)
+		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(x, y, z) * 6942069)
 		player.ReplicationFocus = workspace
 	end)
 end
@@ -156,9 +179,11 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		if object then
 			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 			local bodyPos, bodyGyro, offsetAtt = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro"), object:FindFirstChild("Offset")
-			local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
-			botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
-			bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToAngles(offsetAtt.Orientation)))
+			if bodyPos and bodyGyro and offsetAtt then
+				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
+				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToAngles(offsetAtt.Orientation)))
+			end
 		end
 	end
 end)
