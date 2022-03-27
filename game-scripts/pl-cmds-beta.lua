@@ -1,5 +1,5 @@
 --[[
-	pl-cmds.lua, v0.1.7
+	pl-cmds.lua, v0.1.8
 	:shrug:
 	use fluxus if ur executor doesn't support if-then-else expression
 --]]
@@ -111,7 +111,8 @@ local itemPickups = {
 	["m9"] = workspace.Prison_ITEMS.giver.M9.ITEMPICKUP,
 	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
 }
-local isKilling = false
+local isKilling, isInvis = false, false
+local currentOrigRootPart = rootPart
 local cmdAliases = table.create(0)
 local currentTeamColor, commands, diedConnection, oldNamecall
 -- functions
@@ -136,17 +137,29 @@ local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
 		rootPart.CFrame = oldPos
 	end
 end
-local function invisSelf(bypassToggle)
+local function toggleInvisSelf(bypassToggle) -- TODO: make this work
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
-		local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
-		character:PivotTo(CFrame.new(Vector3.one * 1e10))
-		task.wait(.25)
-		rootPart.Anchored = true
-		character.Parent = nil
-		rootPart:Destroy()
-		rootPart, cloneRootPart.Parent = cloneRootPart, character
-		character.Parent = workspace
-		character:PivotTo(oldPos)
+		if isInvis then
+			character.Parent = nil
+			currentOrigRootPart.CFrame = rootPart.CFrame
+			rootPart:Destroy()
+			rootPart = currentOrigRootPart
+			rootPart.Name = "HumanoidRootPart"
+			rootPart.Anchored = false
+		else
+			local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
+			character:PivotTo(CFrame.new(Vector3.one * 1e10))
+			task.wait(.25)
+			rootPart.Anchored = true
+			character.Parent = nil
+			rootPart.Name, rootPart.Parent = "OrigRootPart", workspace
+			rootPart:BreakJoints()
+			rootPart, cloneRootPart.Parent = cloneRootPart, character
+			character.Parent = workspace
+			currentOrigRootPart.Parent = character
+			character:PivotTo(oldPos)
+		end
+		isInvis = not isInvis
 	end
 end
 local function makeShootPackets(shootPackets, targetPart)
@@ -154,14 +167,14 @@ local function makeShootPackets(shootPackets, targetPart)
 		table.insert(shootPackets, {
 			["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
 			["Distance"] = 0,
-			["Cframe"] = CFrame.new(),
+			["Cframe"] = CFrame.identity,
 			["Hit"] = targetPart
 		})
 	end
 	return shootPackets
 end
 local function killPlr(arg1)
-	local gunObj = player.Backpack:FindFirstChild("M9") or (player.Character and player.Character:FindFirstChild("M9"))
+	local gunObj = player.Backpack:FindFirstChild("M9") or (player.Character and character:FindFirstChild("M9"))
 	local shootPackets = table.create(0)
 	if not gunObj then
 		itemGive:InvokeServer(workspace.Prison_ITEMS.giver.M9.ITEMPICKUP)
@@ -189,7 +202,7 @@ local function killPlr(arg1)
 	shoot:FireServer(shootPackets, gunObj)
 	reload:FireServer(gunObj)
 end
-local function countTable(tableArg)
+local function countDictionary(tableArg)
 	local count = 0
 	for _ in pairs(tableArg) do
 		count += 1
@@ -301,7 +314,7 @@ commands = {
 		["callback"] = function()
 			config.utils.invisibility = not config.utils.invisibility
 			msgNotify(config.utils.invisibility and msgOutputs.invisible.enabled or msgOutputs.invisible.disabled)
-			invisSelf()
+			toggleInvisSelf()
 		end
 	},
 	["auto-respawn"] = {
@@ -320,7 +333,7 @@ commands = {
 			local msgResult = ""
 			for cmdName, cmdData in pairs(commands) do
 				cmdName = config.prefix .. cmdName
-				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (countTable(cmdData.aliases) ~= 0 and string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/")) or cmdName), cmdData.desc)
+				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (if not cmdData.aliases or countDictionary(cmdData.aliases) == 0 then cmdName else string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/"))), cmdData.desc)
 			end
 			msgNotify(string.format(msgOutputs.listNotify, "commands", msgResult))
 		end
@@ -340,22 +353,34 @@ commands = {
 	["goto"] = {
 		["aliases"] = {"to"},
 		["desc"] = "teleports to place/player.",
-		["usage"] = "<player or [nexus | crimbase | policeroom]: string>",
+		["usage"] = " <[player or place]: string> <[player/place target]: string>",
 		["callback"] = function(_, args)
-			local localStoredVar = cframePlaces[args[1]] or stringFindPlayer(args[1])
-			localStoredVar = (typeof(localStoredVar) == "Instance") and ((localStoredVar and localStoredVar.Character) and localStoredVar.Character:FindFirstChild("HumanoidRootPart")) or localStoredVar
-			if localStoredVar then
-				character:PivotTo(((typeof(localStoredVar) == "Instance") and localStoredVar.CFrame or localStoredVar) * CFrame.new(Vector3.zAxis * 4))
-				msgNotify(string.format(msgOutputs.gotoTpSuccess, ((typeof(localStoredVar) == "Instance") and localStoredVar.Parent.Name or args[1])))
+			local _v1
+			if args[1] == "place" then
+				local placeCFrame = cframePlaces[args[2]]
+				if placeCFrame then
+					character:PivotTo(placeCFrame * CFrame.new(Vector3.zAxis * 4))
+					_v1 = args[2]
+				end
+			elseif args[1] == "player" or args[1] == "plr" then
+				local plrRootPart = stringFindPlayer(args[1])
+				plrRootPart = ((plrRootPart and plrRootPart.Character) and plrRootPart.Character:FindFirstChild("HumanoidRootPart") or nil)
+				if plrRootPart then
+					character:PivotTo(plrRootPart.CFrame * CFrame.new(Vector3.zAxis * 4))
+					_v1 = plrRootPart.Parent.Name
+				end
 			end
+			msgNotify(string.format(msgOutputs.gotoTpSuccess, _v1))
 		end
 	},
-	["invisible"] = {
-		["aliases"] = {"invis"},
-		["desc"] = "makes your character invisible.",
-		["callback"] = function()
-			invisSelf(true)
-			msgNotify(msgOutputs.invisible.notify)
+	["jump-power"] = {
+		["aliases"] = {"jp", "jumppower"},
+		["desc"] = "modifies jump power.",
+		["usage"] = "<jumppower: number>",
+		["callback"] = function(_, args)
+			local _, result = pcall(tonumber, args[1])
+			config.jumpPower = result or config.jumpPower
+			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.jumpPower)))
 		end
 	},
 	["kill"] = {
@@ -382,7 +407,7 @@ commands = {
 		["callback"] = function(_, args)
 			if args[1] == "range" then
 				local _, result = pcall(tonumber, args[2])
-				config.killAura.range = ((result and result <= 25) and result or config.killAura.range)
+				config.killAura.range = (if result and result <= 25 then result else (if typeof(result) == "number" then 25 else config.killAura.range))
 				msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "range", config.killAura.range)))
 			elseif args[1] == "toggle" then
 				config.killAura.enabled = not config.killAura.enabled
@@ -409,7 +434,7 @@ commands = {
 				for plrName, blValue in pairs(config.killConf.killBlacklist) do
 					listResult = listResult .. string.format("%s: %s\n", plrName, blValue)
 				end
-				msgNotify(countTable(config.killConf.killBlacklist) ~= 0 and string.format(msgOutputs.listNotify, "blacklisted player(s)", listResult) or msgOutputs.emptyNotify)
+				msgNotify(countDictionary(config.killConf.killBlacklist) ~= 0 and string.format(msgOutputs.listNotify, "blacklisted player(s)", listResult) or msgOutputs.emptyNotify)
 			end
 		end
 	},
@@ -446,7 +471,7 @@ commands = {
 				for plrName, blValue in pairs(config.loopKill.list) do
 					listResult = listResult .. string.format("%s: %s\n", plrName, blValue)
 				end
-				msgNotify(countTable(config.loopKill.list) ~= 0 and string.format(msgOutputs.listNotify, "loopkilled player(s)", listResult) or msgOutputs.emptyNotify)
+				msgNotify(countDictionary(config.loopKill.list) ~= 0 and string.format(msgOutputs.listNotify, "loopkilled player(s)", listResult) or msgOutputs.emptyNotify)
 			end
 		end
 	},
@@ -482,14 +507,12 @@ commands = {
 			end
 		end
 	},
-	["jump-power"] = {
-		["aliases"] = {"jp", "jumppower"},
-		["desc"] = "modifies jump power.",
-		["usage"] = "<jumppower: number>",
-		["callback"] = function(_, args)
-			local _, result = pcall(tonumber, args[1])
-			config.jumpPower = result or config.jumpPower
-			msgNotify((not result and string.format(msgOutputs.argumentError, "1", "number") or string.format(msgOutputs.changedNotify, "jumppower", config.jumpPower)))
+	["toggle-invisible"] = {
+		["aliases"] = {"toggle-invis"},
+		["desc"] = "makes your character invisible.",
+		["callback"] = function()
+			toggleInvisSelf(true)
+			msgNotify(msgOutputs.invisible.notify)
 		end
 	},
 	["walk-speed"] = {
@@ -511,11 +534,13 @@ player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.CharacterAdded:Connect(function(spawnedCharacter)
 	character = spawnedCharacter
 	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
+	isInvis, currentOrigRootPart = false, rootPart
+	if diedConnection then diedConnection:Disconnect() end
 	if config.utils.autoSpawn then
-		if diedConnection then diedConnection:Disconnect() end
 		diedConnection = humanoid.Died:Connect(respawnSelf)
 	end
-	task.defer(invisSelf);task.defer(autoCrim)
+	task.defer(toggleInvisSelf)
+	task.delay(1, autoCrim)
 end)
 runService.Heartbeat:Connect(function()
 	if humanoid then
@@ -577,4 +602,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
 	end
 	return oldNamecall(...)
 end))
-msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.7", config.prefix))
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.8", config.prefix))
