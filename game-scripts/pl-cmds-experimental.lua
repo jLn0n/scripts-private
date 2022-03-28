@@ -135,13 +135,6 @@ local function autoCrim()
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
-local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
-	if (bypassToggle or config.utils.autoSpawn) and rootPart then
-		local oldPos = rootPart.CFrame
-		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or ((not dontUseCustomTeamColor and currentTeamColor) and currentTeamColor.Name or player.TeamColor.Name)))
-		rootPart.CFrame = oldPos
-	end
-end
 local function toggleInvisSelf(bypassToggle)
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
 		if not isInvis then
@@ -151,7 +144,7 @@ local function toggleInvisSelf(bypassToggle)
 			currentInvisChar.Name, currentInvisChar.Parent = "invis-" .. currentInvisChar.Name, workspace
 			character, rootPart, humanoid = currentInvisChar, currentInvisChar:FindFirstChild("HumanoidRootPart"), currentInvisChar:FindFirstChild("Humanoid")
 			player.Character = currentInvisChar
-			currentCameraSubject, humanoid.DisplayName, humanoid.HealthDisplayType = humanoid, "", Enum.HumanoidHealthDisplayType.AlwaysOff
+			currentCameraSubject, humanoid.DisplayName, humanoid.HealthDisplayType = humanoid, " ", Enum.HumanoidHealthDisplayType.AlwaysOff
 		else
 			local currentPlrPos = character:GetPivot()
 			character, rootPart, humanoid = origChar, origChar:FindFirstChild("HumanoidRootPart"), origChar:FindFirstChild("Humanoid")
@@ -166,6 +159,14 @@ local function toggleInvisSelf(bypassToggle)
 		character.Animate.Disabled = true
 		character.Animate.Disabled = false
 		isInvis = not isInvis
+	end
+end
+local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
+	if (bypassToggle or config.utils.autoSpawn) and rootPart then
+		if isInvis then toggleInvisSelf(true) end
+		local oldPos = rootPart.CFrame
+		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or ((not dontUseCustomTeamColor and currentTeamColor) and currentTeamColor.Name or player.TeamColor.Name)))
+		rootPart.CFrame = oldPos
 	end
 end
 local function makeShootPackets(shootPackets, targetPart)
@@ -268,7 +269,7 @@ local function getCommandParentName(cmdName)
 		result = commands[cmdName] and cmdName or nil
 		if not result then
 			for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
-				if typeof(cmdAliasList) ~= "table" or table.find(cmdAliasList, cmdName) then continue end
+				if not (typeof(cmdAliasList) == "table" and table.find(cmdAliasList, cmdName)) then continue end
 				result = cmdAliasParent
 				break
 			end
