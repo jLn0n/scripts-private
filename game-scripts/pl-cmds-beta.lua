@@ -9,6 +9,7 @@ local repStorage = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
 -- objects
+local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character:FindFirstChildWhichIsA("Humanoid")
@@ -52,9 +53,8 @@ local msgOutputs = {
 		["unknownCommand"] = "command '%s' cannot be found."
 	},
 	["invisible"] = {
-		["enabled"] = "invisibility is now enabled, nobody can see u now but don't seat on any seats or you will be visible again from the seat.",
-		["disabled"] = "invisibility is now disabled, anyone can see u now.",
-		["notify"] = "you are now invisible to other players."
+		["enabled"] = ", nobody can see you now",
+		["disabled"] = ", anyone can see you now",
 	},
 	["kill"] = {
 		["allPlrs"] = "killed all players.",
@@ -112,10 +112,17 @@ local itemPickups = {
 	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
 }
 local isKilling, isInvis = false, false
-local currentOrigRootPart = rootPart
+local currentInvisChar, origChar, currentCameraSubject
 local cmdAliases = table.create(0)
 local currentTeamColor, commands, diedConnection, oldNamecall
 -- functions
+local function countDictionary(tableArg)
+	local count = 0
+	for _ in pairs(tableArg) do
+		count += 1
+	end
+	return count
+end
 local function isSelfNeutral()
 	local plrTeamName = player.TeamColor.Name
 	return not (plrTeamName == "Bright blue" or plrTeamName == "Really red" or plrTeamName == "Bright orange")
@@ -137,28 +144,29 @@ local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
 		rootPart.CFrame = oldPos
 	end
 end
-local function toggleInvisSelf(bypassToggle) -- TODO: make this work
+local function toggleInvisSelf(bypassToggle)
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
-		if isInvis then
-			character.Parent = nil
-			currentOrigRootPart.CFrame = rootPart.CFrame
-			rootPart:Destroy()
-			rootPart = currentOrigRootPart
-			rootPart.Name = "HumanoidRootPart"
-			rootPart.Anchored = false
+		if not isInvis then
+			currentInvisChar = character:Clone()
+			character:MoveTo(Vector3.yAxis * (math.pi * 1e10))
+			character.Parent = game:GetService("Lighting")
+			currentInvisChar.Name, currentInvisChar.Parent = "invis-" .. currentInvisChar.Name, workspace
+			character, rootPart, humanoid = currentInvisChar, currentInvisChar:FindFirstChild("HumanoidRootPart"), currentInvisChar:FindFirstChild("Humanoid")
+			player.Character = currentInvisChar
+			currentCameraSubject, humanoid.DisplayName = humanoid, ""
 		else
-			local cloneRootPart, oldPos = rootPart:Clone(), character:GetPivot()
-			character:PivotTo(CFrame.new(Vector3.one * 1e10))
-			task.wait(.25)
-			rootPart.Anchored = true
-			character.Parent = nil
-			rootPart.Name, rootPart.Parent = "OrigRootPart", workspace
-			rootPart:BreakJoints()
-			rootPart, cloneRootPart.Parent = cloneRootPart, character
+			local currentPlrPos = character:GetPivot()
+			character, rootPart, humanoid = origChar, origChar:FindFirstChild("HumanoidRootPart"), origChar:FindFirstChild("Humanoid")
+			rootPart.Anchored = false
+			player.Character = character
+			currentCameraSubject = humanoid
 			character.Parent = workspace
-			currentOrigRootPart.Parent = character
-			character:PivotTo(oldPos)
+			character:PivotTo(currentPlrPos)
+			currentInvisChar:Destroy()
+			currentInvisChar = nil
 		end
+		character.Animate.Disabled = true
+		character.Animate.Disabled = false
 		isInvis = not isInvis
 	end
 end
@@ -202,13 +210,6 @@ local function killPlr(arg1)
 	shoot:FireServer(shootPackets, gunObj)
 	reload:FireServer(gunObj)
 end
-local function countDictionary(tableArg)
-	local count = 0
-	for _ in pairs(tableArg) do
-		count += 1
-	end
-	return count
-end
 local function msgNotify(msg)
 	starterGui:SetCore("ChatMakeSystemMessage", {
 		Text = string.format("[pl-cmds.lua]: %s", msg),
@@ -216,6 +217,20 @@ local function msgNotify(msg)
 		Font = Enum.Font.SourceSansBold,
 		FontSize = Enum.FontSize.Size32,
 	})
+end
+local function onCharacterSpawned(spawnedCharacter)
+	if not isInvis and spawnedCharacter ~= currentInvisChar then
+		spawnedCharacter.Archivable = true
+		character = spawnedCharacter
+		humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
+		isInvis, currentInvisChar, origChar, currentCameraSubject = false, nil, character, humanoid
+		if diedConnection then diedConnection:Disconnect() end
+		if config.utils.autoSpawn then
+			diedConnection = humanoid.Died:Connect(respawnSelf)
+		end
+		task.defer(toggleInvisSelf)
+		task.delay(1, autoCrim)
+	end
 end
 local function teamSetsMatched(strArg)
 	return (
@@ -369,6 +384,8 @@ commands = {
 					character:PivotTo(plrRootPart.CFrame * CFrame.new(Vector3.zAxis * 4))
 					_v1 = plrRootPart.Parent.Name
 				end
+			else
+				msgNotify(string.format(msgOutputs.argumentError, "1", "player/place"))
 			end
 			msgNotify(string.format(msgOutputs.gotoTpSuccess, _v1))
 		end
@@ -512,7 +529,8 @@ commands = {
 		["desc"] = "makes your character invisible.",
 		["callback"] = function()
 			toggleInvisSelf(true)
-			msgNotify(msgOutputs.invisible.notify)
+			local toggleName = (isInvis and "enabled" or "disabled")
+			msgNotify(string.format(msgOutputs.autoToggleNotify, "invisiblity", toggleName .. msgOutputs.invisible[toggleName]))
 		end
 	},
 	["walk-speed"] = {
@@ -531,21 +549,12 @@ for cmdName, cmdData in pairs(commands) do
 	cmdAliases[cmdName] = cmdData.aliases
 end
 player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
-player.CharacterAdded:Connect(function(spawnedCharacter)
-	character = spawnedCharacter
-	humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
-	isInvis, currentOrigRootPart = false, rootPart
-	if diedConnection then diedConnection:Disconnect() end
-	if config.utils.autoSpawn then
-		diedConnection = humanoid.Died:Connect(respawnSelf)
-	end
-	task.defer(toggleInvisSelf)
-	task.delay(1, autoCrim)
-end)
+player.CharacterAdded:Connect(onCharacterSpawned)
 runService.Heartbeat:Connect(function()
 	if humanoid then
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
 	end
+	camera.CameraSubject = currentCameraSubject
 end)
 task.spawn(function() -- kill-aura
 	local killingPlayers = table.create(0)
@@ -603,3 +612,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
 	return oldNamecall(...)
 end))
 msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.8", config.prefix))
+onCharacterSpawned(character)
