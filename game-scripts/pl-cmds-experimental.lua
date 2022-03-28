@@ -12,16 +12,14 @@ local starterGui = game:GetService("StarterGui")
 local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local character = player.Character
-local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-local rootPart = character:FindFirstChild("HumanoidRootPart")
+local humanoid, rootPart
 -- events
-local punch, shoot, reload, itemGive, teamChange, loadChar =
-	repStorage:FindFirstChild("meleeEvent"),
-	repStorage:FindFirstChild("ShootEvent"),
-	repStorage:FindFirstChild("ReloadEvent"),
-	workspace.Remote:FindFirstChild("ItemHandler"),
-	workspace.Remote:FindFirstChild("TeamEvent"),
-	workspace.Remote:FindFirstChild("loadchar")
+local punch = repStorage:FindFirstChild("meleeEvent")
+local shoot = repStorage:FindFirstChild("ShootEvent")
+local reload = repStorage:FindFirstChild("ReloadEvent")
+local itemGive = workspace.Remote:FindFirstChild("ItemHandler")
+local teamChange = workspace.Remote:FindFirstChild("TeamEvent")
+local loadChar = workspace.Remote:FindFirstChild("loadchar")
 -- variables
 local config = {
 	["killAura"] = {
@@ -86,6 +84,7 @@ local msgOutputs = {
 	["respawnNotify"] = "character respawned successfully.",
 }
 local colorMappings = {
+	["default"] = BrickColor.new("Bright orange"),
 	["black"] = BrickColor.new("Really black"),
 	["blue"] = BrickColor.new("Navy blue"),
 	["gray"] = BrickColor.new("Dark grey metallic"),
@@ -111,10 +110,9 @@ local itemPickups = {
 	["m9"] = workspace.Prison_ITEMS.giver.M9.ITEMPICKUP,
 	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
 }
-local isKilling, isInvis = false, false
-local currentInvisChar, origChar, currentCameraSubject
 local cmdAliases = table.create(0)
-local currentTeamColor, commands, diedConnection, oldNamecall
+local isKilling, isInvis = false, false
+local commands, currentCameraSubject, currentInvisChar, currentTeamColor, diedConnection, oldNamecall, origChar
 -- functions
 local function countDictionary(tableArg)
 	local count = 0
@@ -148,12 +146,12 @@ local function toggleInvisSelf(bypassToggle)
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
 		if not isInvis then
 			currentInvisChar = character:Clone()
-			character:MoveTo(Vector3.yAxis * (math.pi * 1e10))
+			character:MoveTo(Vector3.yAxis * (math.pi * 1e6))
 			character.Parent = game:GetService("Lighting")
 			currentInvisChar.Name, currentInvisChar.Parent = "invis-" .. currentInvisChar.Name, workspace
 			character, rootPart, humanoid = currentInvisChar, currentInvisChar:FindFirstChild("HumanoidRootPart"), currentInvisChar:FindFirstChild("Humanoid")
 			player.Character = currentInvisChar
-			currentCameraSubject, humanoid.DisplayName = humanoid, ""
+			currentCameraSubject, humanoid.DisplayName, humanoid.HealthDisplayType = humanoid, "", Enum.HumanoidHealthDisplayType.AlwaysOff
 		else
 			local currentPlrPos = character:GetPivot()
 			character, rootPart, humanoid = origChar, origChar:FindFirstChild("HumanoidRootPart"), origChar:FindFirstChild("Humanoid")
@@ -225,9 +223,7 @@ local function onCharacterSpawned(spawnedCharacter)
 		humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
 		isInvis, currentInvisChar, origChar, currentCameraSubject = false, nil, character, humanoid
 		if diedConnection then diedConnection:Disconnect() end
-		if config.utils.autoSpawn then
-			diedConnection = humanoid.Died:Connect(respawnSelf)
-		end
+		diedConnection = (config.utils.autoSpawn and humanoid.Died:Connect(respawnSelf) or nil)
 		task.defer(toggleInvisSelf)
 		task.delay(1, autoCrim)
 	end
@@ -272,17 +268,15 @@ local function getCommandParentName(cmdName)
 		result = commands[cmdName] and cmdName or nil
 		if not result then
 			for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
-				if typeof(cmdAliasList) ~= "table" then continue end
-				if table.find(cmdAliasList, cmdName) then
-					result = cmdAliasParent
-					break
-				end
+				if typeof(cmdAliasList) ~= "table" or table.find(cmdAliasList, cmdName) then continue end
+				result = cmdAliasParent
+				break
 			end
 		end
 	end
 	return result
 end
-local function cmdMsgParse(_player, message)
+local function cmdMsgParse(speaker, message)
 	message = string.lower(message)
 	local prefixMatch = msgPrefixMatch(message)
 
@@ -290,13 +284,13 @@ local function cmdMsgParse(_player, message)
 		message = string.gsub(message, prefixMatch, "", 1)
 		local args = string.split(message, " ")
 		local cmdName = getCommandParentName(args[1]) or args[1]
+		local cmdData = commands[cmdName]
 		table.remove(args, 1)
-		if commands[cmdName] then
-			local cmdData = commands[cmdName]
+		if cmdData then
 			if (#args == 0 and cmdData.usage) then
 				msgNotify(string.format(msgOutputs.commandsOutput.usageNotify, config.prefix .. cmdName .. " " .. cmdData.usage))
 			else
-				cmdData.callback(_player, args)
+				cmdData.callback(speaker, args)
 			end
 		else
 			msgNotify(string.format(msgOutputs.commandsOutput.unknownCommand, cmdName))
@@ -461,23 +455,24 @@ commands = {
 		["usage"] = "<[toggle | add | remove | list]: string> <player: string (if add or remove)>",
 		["callback"] = function(_, args)
 			if (args[1] == "add" or args[1] == "remove") then
+				local arg1Toggle = (if args[1] == "add" then true elseif args[1] == "remove" then false else nil)
 				if args[2] == "all" then
 					for _, plr in ipairs(players:GetPlayers()) do
 						if plr == player then continue end
-						config.loopKill.list[plr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[plr.Name])
+						config.loopKill.list[plr.Name] = (arg1Toggle or config.loopKill.list[plr.Name])
 					end
-					msgNotify(string.format(msgOutputs["loop-kill"].allPlrs, (if args[1] == "add" then "added" elseif args[1] == "remove" then "remove" else false)))
+					msgNotify(string.format(msgOutputs["loop-kill"].allPlrs, (arg1Toggle and "added" or "removed")))
 				else
 					local targetPlr = args[2] and stringFindPlayer(args[2], true) or nil
 					if targetPlr then
 						if typeof(targetPlr) == "table" then
 							for _, plr in ipairs(targetPlr) do
-								config.loopKill.list[plr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[plr.Name])
+								config.loopKill.list[plr.Name] = (arg1Toggle or config.loopKill.list[plr.Name])
 							end
 						else
-							config.loopKill.list[targetPlr.Name] = (if args[1] == "add" then true elseif args[1] == "remove" then false else config.loopKill.list[targetPlr.Name])
+							config.loopKill.list[targetPlr.Name] = (arg1Toggle or config.loopKill.list[targetPlr.Name])
 						end
-						msgNotify(string.format(msgOutputs["loop-kill"][(if args[1] == "add" then "plrAdd" elseif args[1] == "remove" then "plrRemove" else false)], (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
+						msgNotify(string.format(msgOutputs["loop-kill"][(arg1Toggle "plrAdd" or "plrRemove")], (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
 					end
 				end
 			elseif args[1] == "toggle" then
@@ -493,10 +488,9 @@ commands = {
 		end
 	},
 	["prefix"] = {
-		["aliases"] = nil,
 		["desc"] = "changes/says current prefix.",
 		["callback"] = function(_, args)
-			if args[1] then
+			if args[1] and string.len(args[1]) == 1 then
 				config.prefix = args[1]
 				msgNotify(string.format(msgOutputs.prefix.change, args[1]))
 			else
@@ -516,12 +510,9 @@ commands = {
 		["aliases"] = {"tcolor"},
 		["desc"] = "changes team color.",
 		["callback"] = function(_, args)
-			local selcColor = colorMappings[args[1]] or "default"
-			if selcColor then
-				currentTeamColor = (selcColor ~= "default" and selcColor or nil)
-				respawnSelf()
-				msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
-			end
+			currentTeamColor = colorMappings[args[1]]
+			respawnSelf()
+			msgNotify(string.format(msgOutputs.teamColorChanged, args[1]))
 		end
 	},
 	["toggle-invisible"] = {
@@ -548,8 +539,8 @@ commands = {
 for cmdName, cmdData in pairs(commands) do
 	cmdAliases[cmdName] = cmdData.aliases
 end
-player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 player.CharacterAdded:Connect(onCharacterSpawned)
+player:GetPropertyChangedSignal("TeamColor"):Connect(autoCrim)
 runService.Heartbeat:Connect(function()
 	if humanoid then
 		humanoid.WalkSpeed, humanoid.JumpPower = config.walkSpeed, config.jumpPower
@@ -597,7 +588,7 @@ task.spawn(function() -- loop-kill
 				killPlr(killingPlayers)
 				table.clear(killingPlayers)
 			end
-			task.wait(.75)
+			task.wait(.8)
 		end
 	end
 end)
@@ -611,5 +602,4 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
 	end
 	return oldNamecall(...)
 end))
-msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.8", config.prefix))
-onCharacterSpawned(character)
+msgNotify(string.format(msgOutputs.loadedMsg, "v0.1.8", config.prefix)); onCharacterSpawned(character)
