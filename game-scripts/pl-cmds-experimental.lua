@@ -110,16 +110,20 @@ local itemPickups = {
 	["m9"] = workspace.Prison_ITEMS.giver.M9.ITEMPICKUP,
 	["shotgun"] = workspace.Prison_ITEMS.giver["Remington 870"].ITEMPICKUP,
 }
-local cmdAliases = table.create(0)
+local connections, cmdAliases = table.create(0), table.create(0)
 local isKilling, isInvis = false, false
-local commands, currentCameraSubject, currentInvisChar, currentTeamColor, diedConnection, oldNamecall, origChar
+local commands, currentCameraSubject, currentInvisChar, currentTeamColor, oldNamecall, origChar
 -- functions
-local function countDictionary(tableArg)
+local function countTable(tableArg)
 	local count = 0
 	for _ in pairs(tableArg) do
 		count += 1
 	end
 	return count
+end
+local function bindFunc(func, ...)
+	local args = table.pack(...)
+	return function() return task.defer(func, unpack(args)) end
 end
 local function isSelfNeutral()
 	local plrTeamName = player.TeamColor.Name
@@ -135,17 +139,10 @@ local function autoCrim()
 		spawnPart.CFrame = oldSpawnPos
 	end
 end
-local function toggleInvisSelf(bypassToggle)
+local function toggleInvisSelf(bypassToggle, removeInvis)
 	if (bypassToggle or config.utils.invisibility) and (character and rootPart) then
-		if not isInvis then
-			currentInvisChar = character:Clone()
-			character:MoveTo(Vector3.yAxis * (math.pi * 1e6))
-			character.Parent = game:GetService("Lighting")
-			currentInvisChar.Name, currentInvisChar.Parent = "invis-" .. currentInvisChar.Name, workspace
-			character, rootPart, humanoid = currentInvisChar, currentInvisChar:FindFirstChild("HumanoidRootPart"), currentInvisChar:FindFirstChild("Humanoid")
-			player.Character = currentInvisChar
-			currentCameraSubject, humanoid.DisplayName, humanoid.HealthDisplayType = humanoid, " ", Enum.HumanoidHealthDisplayType.AlwaysOff
-		else
+		character.Animate.Disabled = true
+		if removeInvis or isInvis then
 			local currentPlrPos = character:GetPivot()
 			character, rootPart, humanoid = origChar, origChar:FindFirstChild("HumanoidRootPart"), origChar:FindFirstChild("Humanoid")
 			rootPart.Anchored = false
@@ -153,23 +150,32 @@ local function toggleInvisSelf(bypassToggle)
 			currentCameraSubject = humanoid
 			character.Parent = workspace
 			character:PivotTo(currentPlrPos)
+			connections["invisCharDied"]:Disconnect()
 			currentInvisChar:Destroy()
 			currentInvisChar = nil
+		else
+			currentInvisChar = character:Clone()
+			character:PivotTo(CFrame.new(Vector3.yAxis * (math.pi * 1e5)))
+			character.Parent = game:GetService("Lighting")
+			currentInvisChar.Name, currentInvisChar.Parent = "invis-" .. currentInvisChar.Name, workspace
+			character, rootPart, humanoid = currentInvisChar, currentInvisChar:FindFirstChild("HumanoidRootPart"), currentInvisChar:FindFirstChild("Humanoid")
+			player.Character = currentInvisChar
+			connections["invisCharDied"] = humanoid.Died:Connect(bindFunc(toggleInvisSelf, true, true))
+			currentCameraSubject, humanoid.DisplayDistanceType = humanoid, Enum.HumanoidDisplayDistanceType.None
 		end
-		character.Animate.Disabled = true
 		character.Animate.Disabled = false
-		isInvis = not isInvis
+		if not removeInvis then isInvis = not isInvis end
 	end
 end
 local function respawnSelf(bypassToggle, dontUseCustomTeamColor)
 	if (bypassToggle or config.utils.autoSpawn) and rootPart then
 		if isInvis then toggleInvisSelf(true) end
-		local oldPos = rootPart.CFrame
+		local oldPos = character:GetPivot()
 		loadChar:InvokeServer(player, (config.utils.autoCriminal and "Really red" or ((not dontUseCustomTeamColor and currentTeamColor) and currentTeamColor.Name or player.TeamColor.Name)))
-		rootPart.CFrame = oldPos
+		task.defer(character.PivotTo, character, oldPos)
 	end
 end
-local function makeShootPackets(shootPackets, targetPart)
+local function genShootPayload(shootPackets, targetPart)
 	for _ = 1, 10 do
 		table.insert(shootPackets, {
 			["RayObject"] = Ray.new(Vector3.zero, Vector3.zero),
@@ -194,12 +200,12 @@ local function killPlr(arg1)
 		for _, plr in ipairs(arg1) do
 			local targetPart = plr.Character and plr.Character:FindFirstChild("Head") or nil
 			if not (targetPart and not config.killConf.killBlacklist[plr.Name]) then continue end
-			makeShootPackets(shootPackets, targetPart)
+			genShootPayload(shootPackets, targetPart)
 		end
 	else
 		local targetPart = arg1.Character and arg1.Character:FindFirstChild("Head") or nil
 		if not targetPart then return end
-		makeShootPackets(shootPackets, targetPart)
+		genShootPayload(shootPackets, targetPart)
 	end
 	if not isSelfNeutral() then
 		isKilling = true
@@ -223,8 +229,8 @@ local function onCharacterSpawned(spawnedCharacter)
 		character = spawnedCharacter
 		humanoid, rootPart = character:WaitForChild("Humanoid"), character:WaitForChild("HumanoidRootPart")
 		isInvis, currentInvisChar, origChar, currentCameraSubject = false, nil, character, humanoid
-		if diedConnection then diedConnection:Disconnect() end
-		diedConnection = (config.utils.autoSpawn and humanoid.Died:Connect(respawnSelf) or nil)
+		if connections["diedConnection"] then connections["diedConnection"]:Disconnect() end
+		connections["diedConnection"] = (config.utils.autoSpawn and humanoid.Died:Connect(respawnSelf) or nil)
 		task.defer(toggleInvisSelf)
 		task.delay(1, autoCrim)
 	end
@@ -267,12 +273,11 @@ end
 local function getCommandParentName(cmdName)
 	local result do
 		result = commands[cmdName] and cmdName or nil
-		if not result then
-			for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
-				if not (typeof(cmdAliasList) == "table" and table.find(cmdAliasList, cmdName)) then continue end
-				result = cmdAliasParent
-				break
-			end
+		if result then return result end
+		for cmdAliasParent, cmdAliasList in pairs(cmdAliases) do
+			if not (typeof(cmdAliasList) == "table" and table.find(cmdAliasList, cmdName)) then continue end
+			result = cmdAliasParent
+			break
 		end
 	end
 	return result
@@ -343,7 +348,7 @@ commands = {
 			local msgResult = ""
 			for cmdName, cmdData in pairs(commands) do
 				cmdName = config.prefix .. cmdName
-				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (if not cmdData.aliases or countDictionary(cmdData.aliases) == 0 then cmdName else string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/"))), cmdData.desc)
+				msgResult = msgResult .. string.format(msgOutputs.commandsOutput.templateShow, (if not cmdData.aliases or countTable(cmdData.aliases) == 0 then cmdName else string.format("%s/%s", cmdName, table.concat(cmdData.aliases, "/"))), cmdData.desc)
 			end
 			msgNotify(string.format(msgOutputs.listNotify, "commands", msgResult))
 		end
@@ -446,7 +451,7 @@ commands = {
 				for plrName, blValue in pairs(config.killConf.killBlacklist) do
 					listResult = listResult .. string.format("%s: %s\n", plrName, blValue)
 				end
-				msgNotify(countDictionary(config.killConf.killBlacklist) ~= 0 and string.format(msgOutputs.listNotify, "blacklisted player(s)", listResult) or msgOutputs.emptyNotify)
+				msgNotify(countTable(config.killConf.killBlacklist) ~= 0 and string.format(msgOutputs.listNotify, "blacklisted player(s)", listResult) or msgOutputs.emptyNotify)
 			end
 		end
 	},
@@ -473,7 +478,7 @@ commands = {
 						else
 							config.loopKill.list[targetPlr.Name] = (arg1Toggle or config.loopKill.list[targetPlr.Name])
 						end
-						msgNotify(string.format(msgOutputs["loop-kill"][(arg1Toggle "plrAdd" or "plrRemove")], (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
+						msgNotify(string.format(msgOutputs["loop-kill"][(arg1Toggle and "plrAdd" or "plrRemove")], (if typeof(targetPlr) == "table" then args[2] else targetPlr.Name)))
 					end
 				end
 			elseif args[1] == "toggle" then
@@ -484,7 +489,7 @@ commands = {
 				for plrName, blValue in pairs(config.loopKill.list) do
 					listResult = listResult .. string.format("%s: %s\n", plrName, blValue)
 				end
-				msgNotify(countDictionary(config.loopKill.list) ~= 0 and string.format(msgOutputs.listNotify, "loopkilled player(s)", listResult) or msgOutputs.emptyNotify)
+				msgNotify(countTable(config.loopKill.list) ~= 0 and string.format(msgOutputs.listNotify, "loopkilled player(s)", listResult) or string.format(msgOutputs.emptyNotify, "loopkill list"))
 			end
 		end
 	},
