@@ -145,6 +145,7 @@ end)
 local oldRaycastFunc = clientRayCast.Raycast
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
 	local nearestPlr = getNearestPlrByCursor()
+	rayOrigin = camera.CFrame.Position
 	rayDirection = ((nearestPlr and config.SilentAim.Toggle) and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
 	return oldRaycastFunc(rayParams, rayOrigin, rayDirection)
 end
