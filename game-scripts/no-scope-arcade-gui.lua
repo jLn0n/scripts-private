@@ -1,8 +1,5 @@
 -- config
 local config = {
-	["WeaponMods"] = {
-		["AlwaysHit"] = false,
-	},
 	["SilentAim"] = {
 		["Toggle"] = false,
 		["AimPart"] = "Head",
@@ -72,17 +69,6 @@ local function getNearestPlrByCursor()
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
-local function hookRayResult(rayResult, hookingProperties)
-	if not (rayResult and hookingProperties) then return end
-	local metatable = getrawmetatable(rayResult)
-	local oldIndex = metatable.__index
-	setreadonly(metatable, false)
-
-	metatable.__index = newcclosure(function(self, index)
-		return hookingProperties[index] or oldIndex(self, index)
-	end)
-	setreadonly(metatable, true)
-end
 local function mergeTable(table1, table2)
 	for key, value in pairs(table2) do
 		if typeof(value) == "table" and typeof(table1[key] or false) == "table" then
@@ -118,16 +104,12 @@ local mainWindow = uiLibrary:CreateWindow("no-scope-arcade-gui.lua | Made by: jL
 local mainTab = mainWindow:AddTab("Main")
 
 local tabbox1 = mainTab:AddLeftTabbox("sAimTabbox")
-local tabbox2 = mainTab:AddLeftTabbox("weaponModsTabbox")
-local tabbox3 = mainTab:AddRightTabbox("espTabbox")
-local tabbox4 = mainTab:AddRightTabbox("creditsTabbox")
+local tabbox2 = mainTab:AddRightTabbox("espTabbox")
+local tabbox3 = mainTab:AddRightTabbox("creditsTabbox")
 
 local silentAimTab = tabbox1:AddTab("Silent Aim")
-local weaponModsTab = tabbox2:AddTab("Weapon Mods")
-local espTab = tabbox3:AddTab("ESP Settings")
-local creditsTab = tabbox4:AddTab("Credits")
-
-weaponModsTab:AddToggle("WeaponMods.AlwaysHit", {Text = "Always Hit"})
+local espTab = tabbox2:AddTab("ESP Settings")
+local creditsTab = tabbox3:AddTab("Credits")
 
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
 silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
@@ -162,18 +144,8 @@ runService.Heartbeat:Connect(function()
 end)
 local oldRaycastFunc = clientRayCast.Raycast
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
-	local nearestPlr, rayResult = getNearestPlrByCursor()
-	if nearestPlr then
-		local plrAimPart = nearestPlr.aimPart
-		rayResult = oldRaycastFunc(rayParams, rayOrigin, config.SilentAim.Toggle and ((plrAimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
-		if config.WeaponMods.AlwaysHit then
-			hookRayResult(rayResult, {
-				Instance = plrAimPart,
-				Material = plrAimPart,
-				Position = plrAimPart.Position
-			})
-		end
-	end
-	return rayResult or oldRaycastFunc(rayParams, rayOrigin, rayDirection)
+	local nearestPlr = getNearestPlrByCursor()
+	rayDirection = ((nearestPlr and config.SilentAim.Toggle) and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
+	return oldRaycastFunc(rayParams, rayOrigin, rayDirection)
 end
 task.defer(uiLibrary.Notify, uiLibrary, "no-scope-arcade-gui.lua is now loaded!", 2.5)
