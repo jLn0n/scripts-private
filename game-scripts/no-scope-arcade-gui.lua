@@ -25,7 +25,7 @@ local repStorage = game:GetService("ReplicatedStorage")
 local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
-local character = player.Character
+local character = player.Character or player.CharacterAdded:Wait()
 -- modules
 local clientRayCast = require(repStorage.GunSystem.Raycast)
 -- variables
@@ -72,6 +72,17 @@ local function getNearestPlrByCursor()
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
+local function hookRayResult(rayResult, hookingProperties)
+	if not (rayResult and hookingProperties) then return end
+	local metatable = getrawmetatable(rayResult)
+	local oldIndex = metatable.__index
+	setreadonly(metatable, false)
+
+	metatable.__index = newcclosure(function(self, index)
+		return hookingProperties[index] or oldIndex(self, index)
+	end)
+	setreadonly(metatable, true)
+end
 local function mergeTable(table1, table2)
 	for key, value in pairs(table2) do
 		if typeof(value) == "table" and typeof(table1[key] or false) == "table" then
@@ -103,7 +114,7 @@ local function initValueUpdater(objName, func)
 	end)
 end
 -- ui init
-local mainWindow = uiLibrary:CreateWindow("nsa-gui.lua | Made by: jLn0n")
+local mainWindow = uiLibrary:CreateWindow("no-scope-arcade-gui.lua | Made by: jLn0n")
 local mainTab = mainWindow:AddTab("Main")
 
 local tabbox1 = mainTab:AddLeftTabbox("sAimTabbox")
@@ -151,11 +162,18 @@ runService.Heartbeat:Connect(function()
 end)
 local oldRaycastFunc = clientRayCast.Raycast
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
-	local nearestPlr = getNearestPlrByCursor()
+	local nearestPlr, rayResult = getNearestPlrByCursor()
 	if nearestPlr then
-		rayOrigin = config.WeaponMods.AlwaysHit and nearestPlr.aimPart.Position or rayOrigin -- is this method working bruh?
-		rayDirection = config.SilentAim.Toggle and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection
+		local plrAimPart = nearestPlr.aimPart
+		rayResult = oldRaycastFunc(rayParams, rayOrigin, config.SilentAim.Toggle and ((plrAimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
+		if config.WeaponMods.AlwaysHit then
+			hookRayResult(rayResult, {
+				Instance = plrAimPart,
+				Material = plrAimPart,
+				Position = plrAimPart.Position
+			})
+		end
 	end
-	return oldRaycastFunc(rayParams, rayOrigin, rayDirection)
+	return rayResult or oldRaycastFunc(rayParams, rayOrigin, rayDirection)
 end
-task.defer(uiLibrary.Notify, uiLibrary, "nsa-gui.lua is now loaded!", 2.5)
+task.defer(uiLibrary.Notify, uiLibrary, "no-scope-arcade-gui.lua is now loaded!", 2.5)
