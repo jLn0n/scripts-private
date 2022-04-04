@@ -2,9 +2,10 @@
 local config = {
 	["SilentAim"] = {
 		["Toggle"] = false,
+		["Abusive"] = false,
+		["VisibleCheck"] = true,
 		["AimPart"] = "Head",
 		["Distance"] = 250,
-		["VisibleCheck"] = false,
 	},
 	["Esp"] = {
 		["Toggle"] = false,
@@ -15,6 +16,7 @@ local config = {
 	}
 }
 -- services
+local logService = game:GetService("LogService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local repStorage = game:GetService("ReplicatedStorage")
@@ -26,8 +28,10 @@ local character = player.Character or player.CharacterAdded:Wait()
 -- modules
 local clientRayCast = require(repStorage.GunSystem.Raycast)
 -- variables
+local nearestPlr
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
+local oldLogCache = logService:GetLogHistory()
 local nearPlrs, plrPartsList = table.create(0), (function()
 	local plrParts = table.create(0)
 	for _, object in ipairs(character:GetChildren()) do
@@ -43,7 +47,7 @@ local function checkPlr(plrArg)
 	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
-	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, ...}) == 0
+	return #camera.GetPartsObscuringTarget(camera, {originPos}, {camera, player.Character, ...}) == 0
 end
 local function getAimPart(plrChar)
 	if not plrChar then return end
@@ -57,9 +61,10 @@ local function getNearestPlrByCursor()
 		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
 		local distance = (mouseVec2 - posVec2).Magnitude
-		if checkPlr(plr) and (config.SilentAim.VisibleCheck and (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) and distance <= config.SilentAim.Distance then
+		if checkPlr(plr) and (not config.SilentAim.VisibleCheck or (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) and distance <= config.SilentAim.Distance then
 			table.insert(nearPlrs, {
 				aimPart = p_dPart,
+				character = plr.Character,
 				dist = distance,
 			})
 		end
@@ -112,6 +117,7 @@ local espTab = tabbox2:AddTab("ESP Settings")
 local creditsTab = tabbox3:AddTab("Credits")
 
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
+silentAimTab:AddToggle("SilentAim.Abusive", {Text = "Abusive"})
 silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
 silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = (function()
 	table.insert(plrPartsList, 1, "Random")
@@ -139,14 +145,42 @@ espLibrary.Overrides.GetColor = function()
 	return config.Esp.EnemyColor
 end
 -- main
+for _, connection in ipairs(getconnections(logService.MessageOut)) do
+	connection:Disable()
+end
+local oldNamecall do
+	oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+		local args = {...}
+		local namecallMethod = getnamecallmethod()
+
+		if not checkcaller() then
+			if namecallMethod == "FireServer" then
+				if (config.SilentAim.Toggle and config.SilentAim.Abusive) and (self.Name == "RemoteEvent" and args[2] == "Bullet") then
+					if nearestPlr then
+						args[3] = nearestPlr.character
+						args[4] = nearestPlr.aimPart
+						args[5] = nearestPlr.aimPart.Position
+					end
+				end
+			elseif (self == logService and namecallMethod == "GetLogHistory") then
+				return oldLogCache
+			elseif (self == player and namecallMethod == "Kick") then
+				return task.wait(9e9)
+			end
+		end
+		return oldNamecall(self, unpack(args))
+	end))
+end
 runService.Heartbeat:Connect(function()
+	nearestPlr = getNearestPlrByCursor()
 	espLibrary.Boxes, espLibrary.Names = config.Esp.Boxes, config.Esp.Names
 end)
 local oldRaycastFunc = clientRayCast.Raycast
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
-	local nearestPlr = getNearestPlrByCursor()
-	rayOrigin = camera.CFrame.Position
-	rayDirection = ((nearestPlr and config.SilentAim.Toggle) and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
+	if not config.SilentAim.Abusive then
+		rayOrigin = camera.CFrame.Position
+		rayDirection = ((nearestPlr and config.SilentAim.Toggle) and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
+	end
 	return oldRaycastFunc(rayParams, rayOrigin, rayDirection)
 end
 task.defer(uiLibrary.Notify, uiLibrary, "no-scope-arcade-gui.lua is now loaded!", 2.5)
