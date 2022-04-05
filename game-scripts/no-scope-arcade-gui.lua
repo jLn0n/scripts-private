@@ -1,5 +1,13 @@
 -- config
 local config = {
+	["WeaponMods"] = {
+		["AlwaysAuto"] = false,
+		["InfAmmo"] = false,
+		["NoRecoil"] = false,
+		["NoSpread"] = false,
+		["NoReload"] = false,
+		["FireRate"] = 0,
+	},
 	["SilentAim"] = {
 		["Toggle"] = false,
 		["Abusive"] = false,
@@ -24,18 +32,18 @@ local repStorage = game:GetService("ReplicatedStorage")
 local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
-local character = player.Character or player.CharacterAdded:Wait()
 -- modules
-local clientRayCast = require(repStorage.GunSystem.Raycast)
+local clientRayCast, gunModule = require(repStorage.GunSystem.Raycast), require(repStorage.GunSystem.GunClientAssets.Modules.Gun)
 -- variables
 local nearestPlr
+local oldLogCache = logService:GetLogHistory()
+local weaponSettings, weaponDataCache = table.create(0), table.create(0)
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
-local oldLogCache = logService:GetLogHistory()
 local nearPlrs, plrPartsList = table.create(0), (function()
 	local plrParts = table.create(0)
-	for _, object in ipairs(character:GetChildren()) do
-		if object:IsA("BasePart") and character.PrimaryPart ~= object then
+	for _, object in ipairs(player.Character:GetChildren()) do
+		if object:IsA("BasePart") and player.Character.PrimaryPart ~= object then
 			table.insert(plrParts, object.Name)
 		end
 	end
@@ -74,6 +82,13 @@ local function getNearestPlrByCursor()
 	end)
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
+local function shallowCopy(_table)
+	local copy = table.create(0)
+	for name, value in pairs(_table) do
+		copy[name] = value
+	end
+	return copy
+end
 local function mergeTable(table1, table2)
 	for key, value in pairs(table2) do
 		if typeof(value) == "table" and typeof(table1[key] or false) == "table" then
@@ -109,12 +124,14 @@ local mainWindow = uiLibrary:CreateWindow("no-scope-arcade-gui.lua | Made by: jL
 local mainTab = mainWindow:AddTab("Main")
 
 local tabbox1 = mainTab:AddLeftTabbox("sAimTabbox")
-local tabbox2 = mainTab:AddRightTabbox("espTabbox")
-local tabbox3 = mainTab:AddRightTabbox("creditsTabbox")
+local tabbox2 = mainTab:AddLeftTabbox("weaponModsTabbox")
+local tabbox3 = mainTab:AddRightTabbox("espTabbox")
+local tabbox4 = mainTab:AddRightTabbox("creditsTabbox")
 
 local silentAimTab = tabbox1:AddTab("Silent Aim")
-local espTab = tabbox2:AddTab("ESP Settings")
-local creditsTab = tabbox3:AddTab("Credits")
+local weaponModsTab = tabbox2:AddTab("Weapon Mods")
+local espTab = tabbox3:AddTab("ESP Settings")
+local creditsTab = tabbox4:AddTab("Credits")
 
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
 silentAimTab:AddToggle("SilentAim.Abusive", {Text = "Abusive"})
@@ -125,6 +142,13 @@ silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = (func
 	return plrPartsList
 end)()})
 silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 5000, Rounding = 0})
+
+weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
+weaponModsTab:AddToggle("WeaponMods.InfAmmo", {Text = "Infinite Ammo"})
+weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
+weaponModsTab:AddToggle("WeaponMods.NoReload", {Text = "No Reload"})
+weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
+weaponModsTab:AddSlider("WeaponMods.FireRate", {Text = "Firerate", Default = 0, Min = 0, Max = 1, Rounding = 2})
 
 espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
 espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
@@ -155,8 +179,8 @@ local oldNamecall do
 
 		if not checkcaller() then
 			if namecallMethod == "FireServer" then
-				if (config.SilentAim.Toggle and config.SilentAim.Abusive) and (self.Name == "RemoteEvent" and args[2] == "Bullet") then
-					if nearestPlr then
+				if (self.Name == "RemoteEvent" and args[2] == "Bullet") then
+					if (config.SilentAim.Toggle and config.SilentAim.Abusive) and nearestPlr then
 						args[3] = nearestPlr.character
 						args[4] = nearestPlr.aimPart
 						args[5] = nearestPlr.aimPart.Position
@@ -165,7 +189,7 @@ local oldNamecall do
 			elseif (self == logService and namecallMethod == "GetLogHistory") then
 				return oldLogCache
 			elseif (self == player and namecallMethod == "Kick") then
-				return task.wait(9e9)
+				return nil, task.wait(9e9)
 			end
 		end
 		return oldNamecall(self, unpack(args))
@@ -174,8 +198,26 @@ end
 runService.Heartbeat:Connect(function()
 	nearestPlr = getNearestPlrByCursor()
 	espLibrary.Boxes, espLibrary.Names = config.Esp.Boxes, config.Esp.Names
+	if weaponDataCache then
+		weaponSettings.FireRate = config.WeaponMods.FireRate
+		weaponSettings.Range = 9e7
+		weaponSettings.Automatic = (config.WeaponMods.AlwaysAuto and true or weaponDataCache.Automatic)
+		weaponSettings.ClipSize = (config.WeaponMods.InfAmmo and 9e7 or weaponDataCache.ClipSize)
+		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and 0 or weaponDataCache.RecoilMult)
+		weaponSettings.ReloadTime = (config.WeaponMods.NoReload and 0 or weaponDataCache.ReloadTime)
+		weaponSettings.Spread = (config.WeaponMods.NoSpread and 0 or weaponDataCache.Spread)
+	end
 end)
-local oldRaycastFunc = clientRayCast.Raycast
+local oldRaycastFunc, oldWeaponInit = clientRayCast.Raycast, gunModule.__index
+gunModule.__index = function(...) -- figure out how to fix this shit
+	local args = {...}
+	if typeof(args[1]) == "table" then
+		local copiedWeaponData = shallowCopy(args[1])
+		weaponDataCache = copiedWeaponData
+		args[1] = mergeTable(copiedWeaponData, weaponSettings)
+	end
+	return oldWeaponInit(unpack(args))
+end
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
 	if not config.SilentAim.Abusive then
 		rayOrigin = camera.CFrame.Position
