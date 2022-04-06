@@ -2,11 +2,11 @@
 local config = {
 	["WeaponMods"] = {
 		["AlwaysAuto"] = false,
-		["InfAmmo"] = false,
 		["NoRecoil"] = false,
 		["NoSpread"] = false,
 		["NoReload"] = false,
-		["FireRate"] = 0,
+		["Firerate"] = .1,
+		["FirerateToggle"] = false,
 	},
 	["SilentAim"] = {
 		["Toggle"] = false,
@@ -144,11 +144,11 @@ end)()})
 silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 5000, Rounding = 0})
 
 weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
-weaponModsTab:AddToggle("WeaponMods.InfAmmo", {Text = "Infinite Ammo"})
 weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
 weaponModsTab:AddToggle("WeaponMods.NoReload", {Text = "No Reload"})
 weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
-weaponModsTab:AddSlider("WeaponMods.FireRate", {Text = "Firerate", Default = 0, Min = 0, Max = 1, Rounding = 2})
+weaponModsTab:AddToggle("WeaponMods.FirerateToggle", {Text = "Toggle Firerate"})
+weaponModsTab:AddSlider("WeaponMods.Firerate", {Text = "Firerate", Default = .01, Min = .01, Max = 1, Rounding = 2})
 
 espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
 espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
@@ -199,24 +199,19 @@ runService.Heartbeat:Connect(function()
 	nearestPlr = getNearestPlrByCursor()
 	espLibrary.Boxes, espLibrary.Names = config.Esp.Boxes, config.Esp.Names
 	if weaponDataCache then
-		weaponSettings.FireRate = config.WeaponMods.FireRate
-		weaponSettings.Range = 9e7
+		weaponSettings.Range = 9e6
+		weaponSettings.FireRate = (config.WeaponMods.FirerateToggle and config.WeaponMods.Firerate or weaponDataCache.FireRate)
 		weaponSettings.Automatic = (config.WeaponMods.AlwaysAuto and true or weaponDataCache.Automatic)
-		weaponSettings.ClipSize = (config.WeaponMods.InfAmmo and 9e7 or weaponDataCache.ClipSize)
-		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and 0 or weaponDataCache.RecoilMult)
+		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and .015 or weaponDataCache.RecoilMult)
 		weaponSettings.ReloadTime = (config.WeaponMods.NoReload and 0 or weaponDataCache.ReloadTime)
 		weaponSettings.Spread = (config.WeaponMods.NoSpread and 0 or weaponDataCache.Spread)
 	end
 end)
-local oldRaycastFunc, oldWeaponInit = clientRayCast.Raycast, gunModule.__index
-gunModule.__index = function(...) -- figure out how to fix this shit
-	local args = {...}
-	if typeof(args[1]) == "table" then
-		local copiedWeaponData = shallowCopy(args[1])
-		weaponDataCache = copiedWeaponData
-		args[1] = mergeTable(copiedWeaponData, weaponSettings)
-	end
-	return oldWeaponInit(unpack(args))
+local oldRaycastFunc, oldWeaponFire = clientRayCast.Raycast, gunModule.Fire
+gunModule.Fire = function(weaponData) -- improve weapon mod data uploads
+	weaponDataCache = (weaponDataCache.Name ~= weaponData.Name and shallowCopy(weaponData) or weaponDataCache)
+	weaponData = mergeTable(weaponData, weaponSettings)
+	return oldWeaponFire(weaponData)
 end
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
 	if not config.SilentAim.Abusive then
