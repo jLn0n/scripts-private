@@ -2,6 +2,7 @@
 local config = {
 	["WeaponMods"] = {
 		["AlwaysAuto"] = false,
+		["NoEqDelay"] = false,
 		["NoRecoil"] = false,
 		["NoSpread"] = false,
 		["NoReload"] = false,
@@ -35,18 +36,17 @@ local mouse = player:GetMouse()
 -- modules
 local clientRayCast, gunModule = require(repStorage.GunSystem.Raycast), require(repStorage.GunSystem.GunClientAssets.Modules.Gun)
 -- variables
-local nearestPlr
-local oldLogCache = logService:GetLogHistory()
-local gunModuleFuncHooksNames = {"Equip", "Fire"}
-local weaponSettings, weaponDataCache = table.create(0), table.create(0)
+local nearestPlr, weaponDataCache
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
+local weaponSettings = table.create(0)
+local oldLogCache = logService:GetLogHistory()
+local gunModuleFuncNamesToHook = {"Equip", "Fire"}
 local nearPlrs, plrPartsList = table.create(0), (function()
 	local plrParts = table.create(0)
 	for _, object in ipairs(player.Character:GetChildren()) do
-		if object:IsA("BasePart") and player.Character.PrimaryPart ~= object then
-			table.insert(plrParts, object.Name)
-		end
+		if (player.Character.PrimaryPart == object and not object:IsA("BasePart")) then continue end
+		table.insert(plrParts, object.Name)
 	end
 	return plrParts
 end)()
@@ -145,11 +145,12 @@ end)()})
 silentAimTab:AddSlider("SilentAim.Distance", {Text = "Distance", Default = 1, Min = 1, Max = 5000, Rounding = 0})
 
 weaponModsTab:AddToggle("WeaponMods.AlwaysAuto", {Text = "Always Auto"})
+weaponModsTab:AddToggle("WeaponMods.NoEqDelay", {Text = "No Equip Delay"})
 weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
 weaponModsTab:AddToggle("WeaponMods.NoReload", {Text = "No Reload"})
 weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
 weaponModsTab:AddToggle("WeaponMods.FirerateToggle", {Text = "Toggle Firerate"})
-weaponModsTab:AddSlider("WeaponMods.Firerate", {Text = "Firerate (Lower than .15 can cause some issues)", Default = .01, Min = .01, Max = 1, Rounding = 2})
+weaponModsTab:AddSlider("WeaponMods.Firerate", {Text = "Firerate", Default = .01, Min = .01, Max = 1, Rounding = 2})
 
 espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
 espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
@@ -190,13 +191,13 @@ local oldNamecall do
 			elseif (self == logService and namecallMethod == "GetLogHistory") then
 				return oldLogCache
 			elseif (self == player and namecallMethod == "Kick") then
-				return nil, task.wait(9e9)
+				return task.wait(9e9)
 			end
 		end
 		return oldNamecall(self, unpack(args))
 	end))
 end
-for _, funcName in ipairs(gunModuleFuncHooksNames) do
+for _, funcName in ipairs(gunModuleFuncNamesToHook) do
 	local funcCache = rawget(gunModule, funcName)
 	if not funcCache then continue end
 	rawset(gunModule, funcName, function(weaponData)
@@ -207,9 +208,10 @@ for _, funcName in ipairs(gunModuleFuncHooksNames) do
 end
 runService.Heartbeat:Connect(function()
 	nearestPlr = getNearestPlrByCursor()
-	espLibrary.Boxes, espLibrary.Names = config.Esp.Boxes, config.Esp.Names
+	espLibrary.Boxes, espLibrary.Names, espLibrary.Tracers = config.Esp.Boxes, config.Esp.Names, config.Esp.Tracers
 	if weaponDataCache then
 		weaponSettings.Range = 9e6
+		weaponSettings.EquipTime = (config.WeaponMods.NoEqDelay and 0 or weaponDataCache.EquipTime)
 		weaponSettings.FireRate = (config.WeaponMods.FirerateToggle and config.WeaponMods.Firerate or weaponDataCache.FireRate)
 		weaponSettings.Automatic = (config.WeaponMods.AlwaysAuto and true or weaponDataCache.Automatic)
 		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and .025 or weaponDataCache.RecoilMult)
