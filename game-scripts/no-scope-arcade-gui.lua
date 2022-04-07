@@ -5,12 +5,12 @@ local config = {
 		["NoRecoil"] = false,
 		["NoSpread"] = false,
 		["NoReload"] = false,
-		["Firerate"] = .1,
+		["Firerate"] = .15,
 		["FirerateToggle"] = false,
 	},
 	["SilentAim"] = {
 		["Toggle"] = false,
-		["Abusive"] = false,
+		["AlwaysHit"] = false,
 		["VisibleCheck"] = true,
 		["AimPart"] = "Head",
 		["Distance"] = 250,
@@ -37,6 +37,7 @@ local clientRayCast, gunModule = require(repStorage.GunSystem.Raycast), require(
 -- variables
 local nearestPlr
 local oldLogCache = logService:GetLogHistory()
+local gunModuleFuncHooksNames = {"Equip", "Fire"}
 local weaponSettings, weaponDataCache = table.create(0), table.create(0)
 local uiLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/linoria-lib-ui.lua"))()
 local espLibrary = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/scripts/main/libraries/kiriot22-esp-library.lua"))()
@@ -134,7 +135,7 @@ local espTab = tabbox3:AddTab("ESP Settings")
 local creditsTab = tabbox4:AddTab("Credits")
 
 silentAimTab:AddToggle("SilentAim.Toggle", {Text = "Toggle"})
-silentAimTab:AddToggle("SilentAim.Abusive", {Text = "Abusive"})
+silentAimTab:AddToggle("SilentAim.AlwaysHit", {Text = "Always Hit"})
 silentAimTab:AddToggle("SilentAim.VisibleCheck", {Text = "Visibility Check"})
 silentAimTab:AddDropdown("SilentAim.AimPart", {Text = "Aim Part", Values = (function()
 	table.insert(plrPartsList, 1, "Random")
@@ -148,7 +149,7 @@ weaponModsTab:AddToggle("WeaponMods.NoRecoil", {Text = "No Recoil"})
 weaponModsTab:AddToggle("WeaponMods.NoReload", {Text = "No Reload"})
 weaponModsTab:AddToggle("WeaponMods.NoSpread", {Text = "No Spread"})
 weaponModsTab:AddToggle("WeaponMods.FirerateToggle", {Text = "Toggle Firerate"})
-weaponModsTab:AddSlider("WeaponMods.Firerate", {Text = "Firerate", Default = .01, Min = .01, Max = 1, Rounding = 2})
+weaponModsTab:AddSlider("WeaponMods.Firerate", {Text = "Firerate (Lower than .15 can cause some issues)", Default = .01, Min = .01, Max = 1, Rounding = 2})
 
 espTab:AddToggle("Esp.Toggle", {Text = "Toggle"})
 espTab:AddToggle("Esp.Boxes", {Text = "Boxes"})
@@ -180,7 +181,7 @@ local oldNamecall do
 		if not checkcaller() then
 			if namecallMethod == "FireServer" then
 				if (self.Name == "RemoteEvent" and args[2] == "Bullet") then
-					if (config.SilentAim.Toggle and config.SilentAim.Abusive) and nearestPlr then
+					if (config.SilentAim.Toggle and config.SilentAim.AlwaysHit) and nearestPlr then
 						args[3] = nearestPlr.character
 						args[4] = nearestPlr.aimPart
 						args[5] = nearestPlr.aimPart.Position
@@ -195,6 +196,15 @@ local oldNamecall do
 		return oldNamecall(self, unpack(args))
 	end))
 end
+for _, funcName in ipairs(gunModuleFuncHooksNames) do
+	local funcCache = rawget(gunModule, funcName)
+	if not funcCache then continue end
+	rawset(gunModule, funcName, function(weaponData)
+		weaponDataCache = (weaponDataCache.Name ~= weaponData.Name and shallowCopy(weaponData) or weaponDataCache)
+		weaponData = mergeTable(weaponData, weaponSettings)
+		return funcCache(weaponData)
+	end)
+end
 runService.Heartbeat:Connect(function()
 	nearestPlr = getNearestPlrByCursor()
 	espLibrary.Boxes, espLibrary.Names = config.Esp.Boxes, config.Esp.Names
@@ -202,19 +212,14 @@ runService.Heartbeat:Connect(function()
 		weaponSettings.Range = 9e6
 		weaponSettings.FireRate = (config.WeaponMods.FirerateToggle and config.WeaponMods.Firerate or weaponDataCache.FireRate)
 		weaponSettings.Automatic = (config.WeaponMods.AlwaysAuto and true or weaponDataCache.Automatic)
-		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and .015 or weaponDataCache.RecoilMult)
+		weaponSettings.RecoilMult = (config.WeaponMods.NoRecoil and .025 or weaponDataCache.RecoilMult)
 		weaponSettings.ReloadTime = (config.WeaponMods.NoReload and 0 or weaponDataCache.ReloadTime)
 		weaponSettings.Spread = (config.WeaponMods.NoSpread and 0 or weaponDataCache.Spread)
 	end
 end)
-local oldRaycastFunc, oldWeaponFire = clientRayCast.Raycast, gunModule.Fire
-gunModule.Fire = function(weaponData) -- improve weapon mod data uploads
-	weaponDataCache = (weaponDataCache.Name ~= weaponData.Name and shallowCopy(weaponData) or weaponDataCache)
-	weaponData = mergeTable(weaponData, weaponSettings)
-	return oldWeaponFire(weaponData)
-end
+local oldRaycastFunc = clientRayCast.Raycast
 clientRayCast.Raycast = function(rayParams, rayOrigin, rayDirection)
-	if not config.SilentAim.Abusive then
+	if not config.SilentAim.AlwaysHit then
 		rayOrigin = camera.CFrame.Position
 		rayDirection = ((nearestPlr and config.SilentAim.Toggle) and ((nearestPlr.aimPart.Position - rayOrigin).Unit * 1000) or rayDirection)
 	end
