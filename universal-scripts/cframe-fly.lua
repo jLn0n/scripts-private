@@ -25,17 +25,16 @@ inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
 		if input.KeyCode == flyObj.keyInput then
 			flyObj.enabled = not flyObj.enabled
-			humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, flyObj.enabled)
 			humanoid:ChangeState(flyObj.enabled and Enum.HumanoidStateType.StrafingNoPhysics or Enum.HumanoidStateType.Running)
 		end
 	end
 end)
 runService.RenderStepped:Connect(function()
 	if not inputService:GetFocusedTextBox() and flyObj.enabled then
-		flyObj.navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W) and true or nil
-		flyObj.navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S) and true or nil
-		flyObj.navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A) and true or nil
-		flyObj.navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or nil
+		flyObj.navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W) and true or false
+		flyObj.navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S) and true or false
+		flyObj.navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A) and true or false
+		flyObj.navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or false
 	end
 end)
 camera:GetPropertyChangedSignal("CFrame"):Connect(function()
@@ -58,8 +57,8 @@ runService.Heartbeat:Connect(function(deltaTime)
 				)
 			end
 		end
-		rootPart.CFrame += pressResult or Vector3.zero
-		rootPart.AssemblyLinearVelocity = (if pressResult then pressResult * workspace.Gravity else -calcFront)
+		rootPart.CFrame += pressResult
+		rootPart.AssemblyLinearVelocity = (pressResult * workspace.Gravity)
 		for _, animObj in pairs(humanoid:GetPlayingAnimationTracks()) do animObj:Stop() end
 	end
 end)
