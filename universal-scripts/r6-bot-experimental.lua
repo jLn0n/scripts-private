@@ -14,7 +14,7 @@ do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
 	_G.Settings.FlingEnabled = (if typeof(_G.Settings.FlingEnabled) ~= "boolean" then true else _G.Settings.FlingEnabled)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(-25.05, 30, 0) else _G.Settings.Velocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.yAxis * 30 else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
@@ -35,7 +35,7 @@ local accessories, bodyParts = table.create(0), {
 }
 local flingBodyPos, flingAtt
 -- functions
-local function orientationToAngles(vect3)
+local function orientationToRad(vect3)
 	return math.rad(vect3.X), math.rad(vect3.Y), math.rad(vect3.Z)
 end
 
@@ -69,7 +69,7 @@ local function initWelder(part, parent, position, orientation)
 		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
 		alignPos.Parent, alignOrt.Parent = part, part
 		attachment.Parent, _attachment.Parent = parent, part
-		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToAngles(orientation or Vector3.zero))
+		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToRad(orientation or Vector3.zero))
 	end
 end
 
@@ -152,26 +152,26 @@ task.defer(function() -- fling initialization
 end)
 
 if _G.Settings.UseBuiltinNetless then
-	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-	settings().Physics.ThrottleAdjustTime = -math.huge
+	settings().Physics.AreOwnersShown = true
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
-				object.CanCollide, object.Massless = false, true
+				object.CanCollide, object.Massless, object.RootPriority = false, false, 125
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
 		end
-		local x, y, z = math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)
-		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(x, y, z) * 6942069)
-		player.ReplicationFocus = workspace
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+	do -- why did i do this
+		local x, y, z = math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)
+		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(x, y, z) * 6942069)
+	end
 	flingBodyPos.Position = (botChar.HumanoidRootPart.Position + (_G.Settings.FlingEnabled and flingAtt.Position or Vector3.yAxis * 256))
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 	for _, object in ipairs(character:GetChildren()) do
@@ -182,7 +182,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			if bodyPos and bodyGyro and offsetAtt then
 				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
 				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
-				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToAngles(offsetAtt.Orientation)))
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToRad(offsetAtt.Orientation)))
 			end
 		end
 	end
