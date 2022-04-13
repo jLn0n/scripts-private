@@ -55,7 +55,7 @@ local function initWelder(part, parent, position, orientation)
 		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
 		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
 		alignPos.ApplyAtCenterOfMass = true
-		alignPos.MaxForce = 1e10
+		alignPos.MaxForce = 9e9
 		alignPos.MaxVelocity = math.huge
 		alignPos.ReactionForceEnabled = false
 		alignPos.Responsiveness = 200
@@ -71,6 +71,10 @@ local function initWelder(part, parent, position, orientation)
 		attachment.Parent, _attachment.Parent = parent, part
 		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToRad(orientation or Vector3.zero))
 	end
+end
+
+local function isNetworkOwner(basepart) -- TODO: how do i implement this shit?
+	
 end
 
 local function getInstance(inst, instName) -- uhh this thing uses string.find
