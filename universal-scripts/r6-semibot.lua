@@ -6,7 +6,7 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
+local rootPart = character.HumanoidRootPart
 -- init
 assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.LUA"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.LUA"]: Sorry, This script will only work on R6 character rig]]))
@@ -14,7 +14,7 @@ do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
 	_G.Settings.FlingEnabled = (if typeof(_G.Settings.FlingEnabled) ~= "boolean" then true else _G.Settings.FlingEnabled)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.new(-25.05, 30, 0) else _G.Settings.Velocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.yAxis * 30 else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
@@ -33,16 +33,15 @@ local accessories, bodyParts = table.create(0), {
 	["Right Arm"] = character:FindFirstChild("Right Arm"),
 	["Right Leg"] = character:FindFirstChild("Right Leg"),
 }
-local flingBodyPos, flingAtt
 -- functions
-local function orientationToAngles(vect3)
+local function orientationToRad(vect3)
 	return math.rad(vect3.X), math.rad(vect3.Y), math.rad(vect3.Z)
 end
 
 local function initWelder(part, parent, position, orientation)
 	if not (part or parent) then return end
-	part = ((part and part:IsA("Accessory")) and part.Handle) or part
-	parent = ((parent and parent:IsA("Accessory")) and parent.Handle) or parent
+	part = (part and part:IsA("Accessory")) and part.Handle or part
+	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
 	if _G.Settings.UseBodyMovers then
 		local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
 		attachment.Name = "Offset"
@@ -55,7 +54,7 @@ local function initWelder(part, parent, position, orientation)
 		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
 		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
 		alignPos.ApplyAtCenterOfMass = true
-		alignPos.MaxForce = 1e10
+		alignPos.MaxForce = 9e9
 		alignPos.MaxVelocity = math.huge
 		alignPos.ReactionForceEnabled = false
 		alignPos.Responsiveness = 200
@@ -69,7 +68,7 @@ local function initWelder(part, parent, position, orientation)
 		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
 		alignPos.Parent, alignOrt.Parent = part, part
 		attachment.Parent, _attachment.Parent = parent, part
-		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToAngles(orientation or Vector3.zero))
+		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToRad(orientation or Vector3.zero))
 	end
 end
 
@@ -113,7 +112,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	for _, motorObj in ipairs(partToAnchor:GetChildren()) do
+	for _, motorObj in ipairs(character.Torso:GetChildren()) do
 		if (not motorObj:IsA("Motor6D") or motorObj.Name == "Neck") then continue end
 		motorObj:Destroy()
 	end
@@ -130,10 +129,10 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	task.defer(rootPart.BreakJoints, rootPart)
-	partToAnchor.Anchored = true
-	player.Character, botChar.Parent = botChar, workspace
+	rootPart.Anchored = true
+	player.Character, botChar.Parent = botChar, character
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(killReanimation)
+	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(killReanimation)
 	starterGui:SetCore("SendNotification", {
 		Title = "r6-bot.lua",
 		Text = "r6-bot.lua is now ready!\nThanks for using the script!\n",
@@ -141,51 +140,32 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-task.defer(function() -- fling initialization
-	flingBodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
-	flingAtt.Name = "Fling"
-	flingBodyPos.MaxForce, flingBodyPos.D, flingBodyPos.P = Vector3.one * 4e5, 1000, 1e6
-	flingBodyPos.Parent, flingAtt.Parent = rootPart, botChar.HumanoidRootPart
-	rootPart.Transparency, rootPart.Color = 0, Color3.new(255, 255, 255)
-end)
-
 if _G.Settings.UseBuiltinNetless then
-	settings().Physics.AllowSleep = false
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.DefaultAuto
-	settings().Physics.ThrottleAdjustTime = -math.huge
-
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
-			object = ((object:IsA("Accessory") and object:FindFirstChild("Handle")) or (object:IsA("BasePart") and object) or nil)
+			object = (((object:IsA("BasePart") and object.Name ~= "HumanoidRootPart") and object) or (object:IsA("Accessory") and object:FindFirstChild("Handle")) or nil)
 			if object then
 				object.CanCollide, object.Massless = false, true
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
 		end
-		local x, y, z = math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)
-		rootPart.CanCollide = false
-		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(x, y, z) * 6942069)
-		player.ReplicationFocus = workspace
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-	flingBodyPos.Position = (botChar.HumanoidRootPart.Position + (_G.Settings.FlingEnabled and flingAtt.Position or Vector3.yAxis * 256))
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	--humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 	for _, object in ipairs(character:GetChildren()) do
-		object = ((object:IsA("Accessory") and object:FindFirstChild("Handle")) or (object:IsA("BasePart") and object) or nil)
+		object = (((object:IsA("BasePart") and object.Name ~= "HumanoidRootPart") and object) or (object:IsA("Accessory") and object:FindFirstChild("Handle")) or nil)
 		if object then
 			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
-			if _G.Settings.UseBodyMovers then
-				local objName = object.Parent:IsA("Accessory") and object.Parent.Name or object.Name
-				local bodyPos, bodyGyro, offsetAtt = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro"), object:FindFirstChild("Offset")
-				local botCharObj = botChar:FindFirstChild(string.find(objName, "Torso") and "Torso" or objName)
-				if (bodyPos and bodyGyro and offsetAtt) and botCharObj then
-					botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
-					bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToAngles(offsetAtt.Orientation)))
-				end
+			local bodyPos, bodyGyro, offsetAtt = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro"), object:FindFirstChild("Offset")
+			if bodyPos and bodyGyro and offsetAtt then
+				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
+				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToRad(offsetAtt.Orientation)))
 			end
 		end
 	end
