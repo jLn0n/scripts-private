@@ -74,7 +74,7 @@ local function initWelder(part, parent, position, orientation)
 end
 
 local function isNetworkOwner(basepart) -- TODO: how do i implement this shit?
-	
+	return true
 end
 
 local function getInstance(inst, instName) -- uhh this thing uses string.find
@@ -156,8 +156,6 @@ task.defer(function() -- fling initialization
 end)
 
 if _G.Settings.UseBuiltinNetless then
-	settings().Physics.AreOwnersShown = true
-
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
