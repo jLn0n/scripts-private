@@ -718,7 +718,7 @@ rbx.dump_function = function(f)
 			end
 		end
 
-		writer:writeCompressedInt(0) -- function line defined
+		writer:writeByte(0) -- function line defined
 		writer:writeByte(0) -- function/source string id
 		writer:writeByte(0) -- line info
 		writer:writeByte(0) -- debug info
