@@ -16,11 +16,14 @@ partHandles.Style = Enum.HandlesStyle.Movement
 partHandles.Transparency, partArcHandles.Transparency = 0, 0
 partHandles.Parent, partArcHandles.Parent, weldHolder.Parent = coreGui.RobloxGui, coreGui.RobloxGui, workspace
 -- variables
-local controllingPart, resetBindableConnection, handlesDragArgs
+local controllingPart, resetBindableConnection
+local moveIncrement, rotationIncrement = .5, 45
 local controlMode = 1 -- 1 = move | 2 = rotate
+local handlesThingys = {
+	args = nil,
+	arcHandlesOldIncVal = 0
+}
 local partControllers = table.create(0)
-local moveIncrement, rotationIncrement = 2.5, math.rad(5)
-local arcPrevAngle = 0
 local hitRayParams = RaycastParams.new()
 hitRayParams.FilterType = Enum.RaycastFilterType.Blacklist
 hitRayParams.FilterDescendantsInstances = {character.Head, weldHolder}
@@ -53,19 +56,25 @@ local function getPartFromMouseHit()
 		return rayResult.Instance
 	end
 end
+local function snapToClosestIncrement(axisValue)
+	local rotIncToRad = math.rad(rotationIncrement)
+	local leftOvers = axisValue % rotIncToRad
+	local roundedNum = math.floor((leftOvers / rotIncToRad) + .5)
+	local divisions = (axisValue - leftOvers) / rotIncToRad
+	divisions += 1 * roundedNum
+	return rotIncToRad * divisions -- snapNumber
+end
 local function unpackOrientation(vect3, useRadians)
 	vect3 = useRadians and vect3 * (math.pi / 180) or vect3
 	return vect3.X, vect3.Y, vect3.Z
 end
 local function wrapArgsPack()
 	return function(...)
-		handlesDragArgs = table.pack(...)
+		handlesThingys.args = table.pack(...)
 	end
 end
 -- main
 _G.Connections = _G.Connections or table.create(0)
-for _, connection in ipairs(_G.Connections) do connection:Disconnect() end;table.clear(_G.Connections)
-
 task.defer(function()
 	player.Character = nil
 	player.Character = character
@@ -93,7 +102,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			continue
 		end
 		partData.attachment.CFrame = partData.cframe
-		basePart.CanCollide, basePart.Massless, basePart.RootPriority = false, false, 127
+		basePart.CanCollide, basePart.Massless, basePart.RootPriority = false, true, 127
 		basePart.Velocity, basePart.RotVelocity = Vector3.yAxis * 30, Vector3.zero
 		sethiddenproperty(basePart, "NetworkIsSleeping", false)
 		sethiddenproperty(basePart, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
@@ -104,17 +113,17 @@ end)
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	local partData = partControllers[controllingPart]
-	if partData and handlesDragArgs then
+	if partData and handlesThingys.args then
 		if controlMode == 1 then
-			local face, distance = unpack(handlesDragArgs)
-			partData.cframe += (Vector3.fromNormalId(face) * math.floor(distance / moveIncrement + .5) / moveIncrement)
+			local face, distance = unpack(handlesThingys.args)
+			partData.cframe += (Vector3.fromNormalId(face) * math.floor(moveIncrement / 4 + .5) / 4)
 		elseif controlMode == 2 then
-			local axis, relativeAngle = unpack(handlesDragArgs)
-			local currentAngle = (math.floor(relativeAngle / rotationIncrement + .5) * rotationIncrement)
-			partControllers[controllingPart].cframe *= CFrame.fromAxisAngle(Vector3.fromAxis(axis), currentAngle - arcPrevAngle) --CFrame.Angles(unpackOrientation(axisAngle))
-			arcPrevAngle = currentAngle
+			local axis, relativeAngle = unpack(handlesThingys.args)
+			local currentAngle = snapToClosestIncrement(relativeAngle)
+			partControllers[controllingPart].cframe *= CFrame.fromAxisAngle(Vector3.fromAxis(axis), currentAngle - handlesThingys.arcHandlesOldIncVal)
+			handlesThingys.arcHandlesOldIncVal = currentAngle
 		end
-		handlesDragArgs = nil
+		handlesThingys.args = nil
 	end
 end)
 
@@ -122,13 +131,15 @@ _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(i
 	if not inputService:GetFocusedTextBox() then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 and inputService:IsKeyDown(Enum.KeyCode.Q) then
 			local targetPart = getPartFromMouseHit()
-			controllingPart = (if targetPart and targetPart:IsDescendantOf(character) and not (targetPart.Anchored or targetPart:IsGrounded()) then targetPart else nil) --(targetPart and targetPart:IsDescendantOf(character) and (not (targetPart.Anchored or targetPart:IsGrounded()) or #targetPart:GetJoints() == 0)) and targetPart or nil
+			controllingPart = (if targetPart and targetPart:IsDescendantOf(character) and not (targetPart.Anchored or targetPart:IsGrounded()) then targetPart else nil)
 			partHandles.Adornee, partArcHandles.Adornee = controllingPart, controllingPart
+			handlesThingys.arcHandlesOldIncVal = 0
 			if (controllingPart and not partControllers[controllingPart]) then createPartWeld(controllingPart) end
 		elseif input.UserInputType == Enum.UserInputType.Keyboard then
 			if input.KeyCode == Enum.KeyCode.E and controlMode ~= 1 then
 				controlMode = 1
 			elseif input.KeyCode == Enum.KeyCode.R and controlMode ~= 2 then
+				handlesThingys.arcHandlesOldIncVal = 0
 				controlMode = 2
 			end
 		end
@@ -139,6 +150,7 @@ _G.Connections[#_G.Connections + 1] = partHandles.MouseDrag:Connect(wrapArgsPack
 _G.Connections[#_G.Connections + 1] = partArcHandles.MouseDrag:Connect(wrapArgsPack())
 
 resetBindableConnection = resetBindable.Event:Connect(function()
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end; table.clear(_G.Connections)
 	starterGui:SetCore("ResetButtonCallback", true)
 	resetBindableConnection:Disconnect()
 	local daModel = Instance.new("Model")
