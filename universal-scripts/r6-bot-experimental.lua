@@ -33,20 +33,22 @@ local accessories, bodyParts = table.create(0), {
 	["Right Arm"] = character:FindFirstChild("Hat1"),
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
-local flingBodyPos, flingAtt
+local flingBodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
 -- functions
-local function orientationToRad(vect3)
-	return math.rad(vect3.X), math.rad(vect3.Y), math.rad(vect3.Z)
+local function unpackOrientation(vect3, convertToRadians)
+	vect3 = (if convertToRadians then vect3 * (math.pi / 180) else vect3)
+	return vect3.X, vect3.Y, vect3.Z
 end
 
 local function initWelder(part, parent, position, orientation)
 	if not (part or parent) then return end
 	part = (part and part:IsA("Accessory")) and part.Handle or part
 	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
+	position, orientation = (position or Vector3.zero), (orientation or Vector3.zero)
 	if _G.Settings.UseBodyMovers then
 		local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
 		attachment.Name = "Offset"
-		attachment.Position, attachment.Orientation = (position or Vector3.zero), (orientation or Vector3.zero)
+		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
 		bodyPos.D, bodyGyro.D = 1250, 2500
 		bodyPos.P, bodyGyro.P = 1e6, 1e6
 		bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.one * math.huge, Vector3.one * math.huge
@@ -55,21 +57,16 @@ local function initWelder(part, parent, position, orientation)
 		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
 		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
 		alignPos.ApplyAtCenterOfMass = true
-		alignPos.MaxForce = 9e9
-		alignPos.MaxVelocity = math.huge
-		alignPos.ReactionForceEnabled = false
-		alignPos.Responsiveness = 200
-		alignPos.RigidityEnabled = false
-		alignOrt.MaxTorque = math.huge
-		alignOrt.MaxAngularVelocity = math.huge
-		alignOrt.ReactionTorqueEnabled = false
-		alignOrt.Responsiveness = 200
-		alignOrt.RigidityEnabled = false
+		alignPos.MaxForce, alignOrt.MaxTorque = 9e9, math.huge
+		alignPos.MaxVelocity, alignOrt.MaxAngularVelocity = math.huge, math.huge
+		alignPos.ReactionForceEnabled, alignOrt.ReactionTorqueEnabled = false, false
+		alignPos.Responsiveness, alignOrt.Responsiveness = 200, 200
+		alignPos.RigidityEnabled, alignOrt.RigidityEnabled = false, false
 		alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
 		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
 		alignPos.Parent, alignOrt.Parent = part, part
 		attachment.Parent, _attachment.Parent = parent, part
-		attachment.CFrame = CFrame.new(position or Vector3.zero) * CFrame.Angles(orientationToRad(orientation or Vector3.zero))
+		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
 	end
 end
 
@@ -85,7 +82,7 @@ local function getInstance(inst, instName) -- uhh this thing uses string.find
 	end
 end
 
-local function onCharRemoved()
+local function killReanimation()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 	player.Character = character
 	player.Character:BreakJoints()
@@ -135,11 +132,12 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
+	rootPart.Anchored = true
 	task.defer(rootPart.BreakJoints, rootPart)
 	partToAnchor.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
-	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
-	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
+	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(killReanimation)
+	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(killReanimation)
 	starterGui:SetCore("SendNotification", {
 		Title = "r6-bot.lua",
 		Text = "r6-bot.lua is now ready!\nThanks for using the script!\n",
@@ -147,35 +145,39 @@ task.defer(function() -- initializing reanimation after the code below ran
 	})
 end)
 
-task.defer(function() -- fling initialization
-	flingBodyPos, flingAtt = Instance.new("BodyPosition"), Instance.new("Attachment")
+task.delay(2.5, function() -- fling initialization
 	flingAtt.Name = "Fling"
 	flingBodyPos.MaxForce, flingBodyPos.D, flingBodyPos.P = Vector3.one * 4e5, 5, 1e6
 	flingBodyPos.Parent, flingAtt.Parent = rootPart, botChar.HumanoidRootPart
-	rootPart.Transparency, rootPart.Color = 0, Color3.new(255, 255, 255)
+	rootPart.Anchored, rootPart.Transparency, rootPart.Color = false, 0, Color3.new(255, 255, 255)
 end)
 
 if _G.Settings.UseBuiltinNetless then
+	settings().Physics.AllowSleep = false
+	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	player.ReplicationFocus = workspace
+
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
-				object.CanCollide, object.Massless, object.RootPriority = false, false, 125
+				object.CanCollide, object.Massless = false, true
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
 			end
 		end
 	end)
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-	do -- why did i do this
-		local x, y, z = math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)
-		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(x, y, z) * 6942069)
-	end
-	flingBodyPos.Position = (botChar.HumanoidRootPart.Position + (_G.Settings.FlingEnabled and flingAtt.Position or Vector3.yAxis * 256))
+	rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, (Vector3.new(math.random(-1, 1), math.random(-1, 1), math.random(-1, 1)) * 6942069)
+	flingBodyPos.Position = (botChar.HumanoidRootPart.Position + (_G.Settings.FlingEnabled and (flingAtt and flingAtt.Position) or Vector3.yAxis * 128))
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
+	if botChar.HumanoidRootPart.Position.Y <= workspace.FallenPartsDestroyHeight then
+		killReanimation(); return
+	end
 	for _, object in ipairs(character:GetChildren()) do
 		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 		if object then
@@ -184,7 +186,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			if bodyPos and bodyGyro and offsetAtt then
 				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
 				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
-				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(orientationToRad(offsetAtt.Orientation)))
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation, true)))
 			end
 		end
 	end
