@@ -21,7 +21,8 @@ local moveIncrement, rotationIncrement = .5, 45
 local controlMode = 1 -- 1 = move | 2 = rotate
 local handlesThingys = {
 	args = nil,
-	arcHandlesOldIncVal = 0
+	arcHandlesOldIncVal = 0,
+	arcHandlesOldAxis = nil
 }
 local partControllers = table.create(0)
 local hitRayParams = RaycastParams.new()
@@ -65,7 +66,7 @@ local function snapToClosestIncrement(axisValue)
 	return rotIncToRad * divisions -- snapNumber
 end
 local function unpackOrientation(vect3, useRadians)
-	vect3 = useRadians and vect3 * (math.pi / 180) or vect3
+	vect3 = (if useRadians then vect3 * (math.pi / 180) else vect3)
 	return vect3.X, vect3.Y, vect3.Z
 end
 local function wrapArgsPack()
@@ -116,12 +117,15 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	if partData and handlesThingys.args then
 		if controlMode == 1 then
 			local face, distance = unpack(handlesThingys.args)
-			partData.cframe += (Vector3.fromNormalId(face) * math.floor(moveIncrement / 4 + .5) / 4)
+			partData.cframe += (Vector3.fromNormalId(face) * math.floor(4 / moveIncrement + .5) / moveIncrement)
 		elseif controlMode == 2 then
 			local axis, relativeAngle = unpack(handlesThingys.args)
 			local currentAngle = snapToClosestIncrement(relativeAngle)
-			partControllers[controllingPart].cframe *= CFrame.fromAxisAngle(Vector3.fromAxis(axis), currentAngle - handlesThingys.arcHandlesOldIncVal)
-			handlesThingys.arcHandlesOldIncVal = currentAngle
+			partControllers[controllingPart].cframe *= CFrame.fromAxisAngle(
+				Vector3.fromAxis(axis),
+				currentAngle - (if (handlesThingys.arcHandlesOldAxis and axis == handlesThingys.arcHandlesOldAxis) then handlesThingys.arcHandlesOldIncVal else 0)
+			)
+			handlesThingys.arcHandlesOldIncVal, handlesThingys.arcHandlesOldAxis = currentAngle, axis
 		end
 		handlesThingys.args = nil
 	end
@@ -133,13 +137,11 @@ _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(i
 			local targetPart = getPartFromMouseHit()
 			controllingPart = (if targetPart and targetPart:IsDescendantOf(character) and not (targetPart.Anchored or targetPart:IsGrounded()) then targetPart else nil)
 			partHandles.Adornee, partArcHandles.Adornee = controllingPart, controllingPart
-			handlesThingys.arcHandlesOldIncVal = 0
 			if (controllingPart and not partControllers[controllingPart]) then createPartWeld(controllingPart) end
 		elseif input.UserInputType == Enum.UserInputType.Keyboard then
 			if input.KeyCode == Enum.KeyCode.E and controlMode ~= 1 then
 				controlMode = 1
 			elseif input.KeyCode == Enum.KeyCode.R and controlMode ~= 2 then
-				handlesThingys.arcHandlesOldIncVal = 0
 				controlMode = 2
 			end
 		end
