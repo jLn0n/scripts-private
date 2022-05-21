@@ -24,7 +24,7 @@ end
 local function getNearestPlrByCursor()
 	table.clear(nearPlrs)
 	for _, plr in ipairs(players:GetPlayers()) do
-		local p_dPart = plr.Character:FindFirstChild("Head")
+		local p_dPart = (plr.Character and plr.Character:FindFirstChild("Head"))
 		if not p_dPart then continue end
 		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
