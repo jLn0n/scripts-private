@@ -6,19 +6,21 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart = character.HumanoidRootPart
+local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
 -- init
-assert(not character.Parent:FindFirstChild(string.format("%s-reanimation", player.UserId)), string.format([[\n["R6-BOT.LUA"]: Please reset to be able to run the script again]]))
-assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[\n["R6-BOT.LUA"]: Sorry, This script will only work on R6 character rig]]))
+assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.LUA"]: Please reset to be able to run the script again]]))
+assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.LUA"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
-	_G.Connections, _G.Settings = _G.Connections or table.create(0), _G.Settings or table.create(0)
-	_G.Settings.HeadName = _G.Settings.HeadName or "MediHood"
-	_G.Settings.Velocity = _G.Settings.Velocity or Vector3.new(0, -30, 0)
-	_G.Settings.RemoveHeadMesh = _G.Settings.RemoveHeadMesh == nil and false or _G.Settings.RemoveHeadMesh
-	_G.Settings.UseBuiltinNetless = _G.Settings.UseBuiltinNetless == nil or true or _G.Settings.UseBuiltinNetless
+	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
+	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.yAxis * 30 else _G.Settings.Velocity)
+	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
+	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
+	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
+local botChar = game:GetObjects("rbxassetid://6843243348")[1]
 local charOldPos = rootPart.CFrame
 local accessories, bodyParts = table.create(0), {
 	["Head"] = character:FindFirstChild(_G.Settings.HeadName),
@@ -30,21 +32,57 @@ local accessories, bodyParts = table.create(0), {
 	["Right Arm"] = character:FindFirstChild("Hat1"),
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
--- main
-local botChar = game:GetObjects("rbxassetid://6843243348")[1]
-botChar.Name = string.format("%s-reanimation", player.UserId)
-for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
+-- functions
+local function unpackOrientation(vect3, convertToRadians)
+	vect3 = (if convertToRadians then vect3 * (math.pi / 180) else vect3)
+	return vect3.X, vect3.Y, vect3.Z
+end
 
-local function onCharRemoved()
+local function initWelder(part, parent, position, orientation)
+	if not (part or parent) then return end
+	part = (part and part:IsA("Accessory")) and part.Handle or part
+	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
+	position, orientation = (position or Vector3.zero), (orientation or Vector3.zero)
+	if _G.Settings.UseBodyMovers then
+		local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
+		attachment.Name = "Offset"
+		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
+		bodyPos.D, bodyGyro.D = 1250, 2500
+		bodyPos.P, bodyGyro.P = 1e6, 1e6
+		bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.one * math.huge, Vector3.one * math.huge
+		bodyPos.Parent, bodyGyro.Parent, attachment.Parent = part, part, part
+	else
+		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
+		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
+		alignPos.ApplyAtCenterOfMass = true
+		alignPos.MaxForce, alignOrt.MaxTorque = 9e9, math.huge
+		alignPos.MaxVelocity, alignOrt.MaxAngularVelocity = math.huge, math.huge
+		alignPos.ReactionForceEnabled, alignOrt.ReactionTorqueEnabled = false, false
+		alignPos.Responsiveness, alignOrt.Responsiveness = 200, 200
+		alignPos.RigidityEnabled, alignOrt.RigidityEnabled = false, false
+		alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
+		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
+		alignPos.Parent, alignOrt.Parent = part, part
+		attachment.Parent, _attachment.Parent = parent, part
+		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
+	end
+end
+
+local function isNetworkOwner(basepart) -- TODO: how do i implement this shit?
+	return true
+end
+
+local function killReanimation()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
-	botChar:Destroy()
 	player.Character = character
 	player.Character:BreakJoints()
 	player.Character = nil
+	botChar:Destroy()
 end
-
+-- main
+botChar.Name = string.format("%s-reanimation", player.UserId)
+for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 task.defer(function() -- initializing reanimation after the code below ran
-	rootPart.Anchored = true
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
 	animScript.Disabled = true
@@ -52,88 +90,98 @@ task.defer(function() -- initializing reanimation after the code below ran
 	animScript.Disabled = false
 	botChar.HumanoidRootPart.CFrame = charOldPos
 	plrFace.Parent, plrFace.Transparency = botChar.Head, 1
-	for PartName, object in pairs(bodyParts) do
+
+	for partName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
-			object.Name = (string.match(PartName, "Torso") and "Torso" or PartName)
+			object.Name = partName
 			local accHandle = object.Handle
-			if PartName == "Head" and _G.Settings.RemoveHeadMesh then
+			if partName == "Head" and _G.Settings.RemoveHeadMesh then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-			elseif PartName ~= "Head" then
+				elseif partName ~= "Head" then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
+
 	for _, object in ipairs(character:GetChildren()) do
-		if object:IsA("Accessory") and not botChar:FindFirstChild(object.Name) then
+		if (object:IsA("Accessory") and not (botChar:FindFirstChild(object.Name) or string.find(object.Name, "Torso"))) then
+			accessories[object.Name] = object
 			local cloneAcce = object:Clone()
 			local cloneAcceHandle, cloneAcceWeld = cloneAcce:FindFirstChild("Handle"), cloneAcce.Handle:FindFirstChildWhichIsA("Weld")
 			cloneAcceHandle.Transparency = 1
 			cloneAcce.Parent = botChar
 			cloneAcceWeld.Part1 = botChar:FindFirstChild(object.Handle:FindFirstChildWhichIsA("Weld").Part1.Name) or botChar.HumanoidRootPart
 			object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
-			table.insert(accessories, object)
 		end
 	end
-	player.Character, botChar.Parent = botChar, character
-	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(onCharRemoved)
-	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(onCharRemoved)
+
+	rootPart.Anchored = true
+	player.Character, botChar.Parent = botChar, workspace
+	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(killReanimation)
+	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(killReanimation)
 	starterGui:SetCore("SendNotification", {
-		Title = "REANIMATE",
-		Text = "REANIMATE is now ready!\nThanks for using the script!\n",
+		Title = "r6-bot.lua",
+		Text = "r6-bot.lua is now ready!\nThanks for using the script!\n",
 		Cooldown = 2.5
 	})
 end)
 
 if _G.Settings.UseBuiltinNetless then
-	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
+	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
+	sethiddenproperty(humanoid, "InternalBodyScale", Vector3.one * 9e99)
+	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
+	settings().Physics.AllowSleep = false
+	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	player.ReplicationFocus = workspace
+
+	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in ipairs(character:GetChildren()) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
-				object.Massless, object.CanCollide = true, false
-				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.new()
+				object.CanCollide, object.Massless = false, true
+				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.OnContact)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
 			end
 		end
-		sethiddenproperty(player, "MaximumSimulationRadius", math.huge)
-		sethiddenproperty(player, "SimulationRadius", 9e9)
 	end)
-
-	player:GetPropertyChangedSignal("Character"):Wait()
-	for _, object in ipairs(character:GetChildren()) do
-		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
-		if object then
-			local BodyVel, BodyAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
-			BodyVel.P, BodyVel.MaxForce, BodyVel.Velocity = math.huge, Vector3.new(1, 1, 1) * math.huge, _G.Settings.Velocity
-			BodyAngVel.MaxTorque, BodyAngVel.AngularVelocity = Vector3.new(), Vector3.new()
-			BodyVel.Parent, BodyAngVel.Parent = object, object
-		end
-	end
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-	for PartName, object in pairs(bodyParts) do
+	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
+	if botChar.HumanoidRootPart.Position.Y <= workspace.FallenPartsDestroyHeight then
+		killReanimation(); return
+	end
+	for _, object in ipairs(character:GetChildren()) do
 		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 		if object then
 			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
-			if PartName == "Head" then
-				object.CFrame = botChar.Head.CFrame
-			elseif PartName == "Torso1" then
-				object.CFrame = botChar.Torso.CFrame * CFrame.new(Vector3.new(0, .5, 0)) * CFrame.Angles(0, math.rad(90), 0)
-			elseif PartName == "Torso2" then
-				object.CFrame = botChar.Torso.CFrame * CFrame.new(Vector3.new(0, -.5, 0)) * CFrame.Angles(0, math.rad(90), 0)
-			else
-				object.CFrame = botChar[PartName].CFrame * CFrame.Angles(math.rad(90), 0, 0)
+			if not _G.Settings.UseBodyMovers then continue end
+			local bodyPos, bodyGyro, offsetAtt = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro"), object:FindFirstChild("Offset")
+			if bodyPos and bodyGyro and offsetAtt then
+				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
+				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation, true)))
 			end
 		end
 	end
-	for _, object in pairs(accessories) do
-		object = object:FindFirstChild("Handle")
-		if object then
-			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
-			object.CFrame = botChar:FindFirstChild(object.Parent.Name).Handle.CFrame
-		end
-	end
-	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 end)
+
+task.defer(table.foreach, accessories, function(accessoryName, accessoryObj)
+	local staticAccObj = botChar:FindFirstChild(accessoryName)
+	if accessoryObj and staticAccObj then
+		initWelder(accessoryObj, staticAccObj)
+	end
+end)
+
+initWelder(bodyParts.Head, botChar.Head)
+initWelder(bodyParts.Torso, botChar.Torso)
+initWelder(bodyParts.Torso1, botChar.Torso, Vector3.yAxis * .5, Vector3.yAxis * 90)
+initWelder(bodyParts.Torso2, botChar.Torso, -Vector3.yAxis * .5, Vector3.yAxis * 90)
+initWelder(bodyParts["Left Arm"], botChar["Left Arm"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Left Leg"], botChar["Left Leg"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Right Arm"], botChar["Right Arm"], nil, Vector3.xAxis * 90)
+initWelder(bodyParts["Right Leg"], botChar["Right Leg"], nil, Vector3.xAxis * 90)
