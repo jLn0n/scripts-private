@@ -6,7 +6,7 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart, partToAnchor = character.HumanoidRootPart, character.Torso
+local rootPart = character.HumanoidRootPart
 -- init
 assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.LUA"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.LUA"]: Sorry, This script will only work on R6 character rig]]))
@@ -63,13 +63,10 @@ local function initWelder(part, parent, position, orientation)
 		alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
 		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
 		alignPos.Parent, alignOrt.Parent = part, part
+		attachment.Name = "Offset"
 		attachment.Parent, _attachment.Parent = parent, part
 		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
 	end
-end
-
-local function isNetworkOwner(basepart) -- TODO: how do i implement this shit?
-	return true
 end
 
 local function killReanimation()
@@ -95,9 +92,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 		if object and object:FindFirstChild("Handle") then
 			object.Name = partName
 			local accHandle = object.Handle
-			if partName == "Head" and _G.Settings.RemoveHeadMesh then
-				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
-				elseif partName ~= "Head" then
+			if partName ~= "Head" or (partName == "Head" and _G.Settings.RemoveHeadMesh) then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
@@ -128,13 +123,13 @@ task.defer(function() -- initializing reanimation after the code below ran
 end)
 
 if _G.Settings.UseBuiltinNetless then
+	settings().Physics.AllowSleep = false
+	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
 	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
 	sethiddenproperty(humanoid, "InternalBodyScale", Vector3.one * 9e99)
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
-	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = 0 / 0
-	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	player.ReplicationFocus = workspace
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
@@ -161,7 +156,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 			if not _G.Settings.UseBodyMovers then continue end
 			local bodyPos, bodyGyro, offsetAtt = object:FindFirstChildWhichIsA("BodyPosition"), object:FindFirstChildWhichIsA("BodyGyro"), object:FindFirstChild("Offset")
-			if bodyPos and bodyGyro and offsetAtt then
+			if (bodyPos and bodyGyro and offsetAtt) then
 				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
 				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
 				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation, true)))
