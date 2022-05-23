@@ -10,13 +10,14 @@ local remoteEvent = repStorage:FindFirstChild("Event")
 -- variables
 local nearPlrs = table.create(0)
 local settings = {
-	visibleCheck = true,
-	distance = 250
+	visibleCheck = false,
+	distance = 250,
+	knockdownCheck = true
 }
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = plrArg.Character:FindFirstChild("Humanoid")
-	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField")) and not (settings.knockdownCheck and plrArg.Character:FindFirstChild("Downed") or false)
 end
 local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, ...}) == 0
