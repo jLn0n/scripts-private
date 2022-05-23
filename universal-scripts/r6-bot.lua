@@ -124,7 +124,7 @@ end)
 
 if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.ThrottleAdjustTime = math.huge
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
 	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
@@ -139,7 +139,7 @@ if _G.Settings.UseBuiltinNetless then
 				object.CanCollide, object.Massless = false, true
 				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
 		end
 	end)
