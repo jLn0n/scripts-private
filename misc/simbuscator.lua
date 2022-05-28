@@ -4,18 +4,18 @@
 --]]
 -- variables
 local obfTemplates = {
-	["simbuscatorWatermark"] = "--[[\n\t%s,\n\tobfuscated with simbuscator.lua\n--]]\n",
-	["varsList"] = [==[local {fenv}=function({fenv_temp_arg1})return getfenv()["{loadstr_str}"]({fenv_temp_arg1})end;{fenv}={fenv}("{fenv_return}")();local {string_gsub},{string_char},{tostring},{tonumber},{loadstring},{math_min}={fenv}("{gsub_str}"),{fenv}("{char_str}"),{fenv}("{tostr_str}"),{fenv}("{tonum_str}"),{fenv}("{loadstr_str}"),{fenv}("{mmin_str}");]==],
+	["simbuscatorWatermark"] = "--[[\n\t%s\n\tobfuscated with simbuscator.lua\n--]]\n",
+	["varsList"] = [==[local {fenv},{string_gsub},{string_char},{tostring},{tonumber},{loadstring},{math_min},%s;]==],
+	["varsStaters"] = [==[{fenv}=function({fenv_temp_arg1})return getfenv()["{loadstr_str}"]({fenv_temp_arg1})end;{fenv}={fenv}("{fenv_return}")();{string_gsub},{string_char},{tostring},{tonumber},{loadstring},{math_min},%s={fenv}("{gsub_str}"),{fenv}("{char_str}"),{fenv}("{tostr_str}"),{fenv}("{tonum_str}"),{fenv}("{loadstr_str}"),{fenv}("{mmin_str}"),%s;]==],
 	["minifiedHexToStr"] = [==[local function {hextostr_func}({hextostr_func_arg1}) return {string_gsub}({hextostr_func_arg1}, "{enc_str1}", function({func_inner1_arg1}) return {string_char}(({tonumber}({func_inner1_arg1}, {enc_number1}) or 0) / {dec_offsetint}) end) end;]==],
 	["loadstringProxy"] = [==[local function {loadstr_proxy_func}({loadstr_proxy_func_arg1}) return {loadstring}({string_gsub}({hextostr_func}({loadstr_proxy_func_arg1}), "{str_seperator}", ""), "{source_name}")() end;]==],
 	["loadstringScript"] = [==[{loadstr_proxy_func}("{source}");]==],
 	junkCodes = {
 		[==[local function {var_name}() return ({integer} == {integer_enc1}) end;]==],
 		[==[local function {var_name}({var_name_arg1}, {var_name_arg2}) return ({integer} * ({var_name_arg1} / {var_name_arg2})) end;]==],
-		[==[local {var_name}={var_result};]==],
 	}
 }
-local constantTypeChoices = {
+local variableTypeChoices = {
 	"number",
 	"bool",
 	"string",
@@ -23,14 +23,6 @@ local constantTypeChoices = {
 local strFenvGet = [==[return function(a)local b,c=string.split(a, "."),getfenv()for d = 1, #b do c = c[b[d]] end return c end]==]
 local stringList = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890"
 -- functions
-local function generateRandString(lenght)
-	local result = ""
-	for iter = 1, lenght do
-		local randInteger = math.random(1, (iter == 1 and #stringList - 10 or #stringList))
-		result ..= string.sub(stringList, randInteger, randInteger)
-	end
-	return result
-end
 local function stringToHex(stringArg, seperator, offset)
 	seperator = seperator or "\\x"
 	offset = offset or 1
@@ -48,25 +40,6 @@ local function formatString(templateStr, options, func)
 	end
 	return stringResult
 end
-local function generateRandomConstant()
-	local stringResult = ""
-	local pickedConstantType = constantTypeChoices[math.random(1, #constantTypeChoices)]
-	if pickedConstantType == "string" then
-		stringResult ..= "\"" .. stringToHex(generateRandString(math.random(1, 128))) .. "\""
-	elseif pickedConstantType == "bool" then
-		stringResult ..= (math.random(1, 8) <= 4 and "true" or "false")
-	elseif pickedConstantType == "number" then
-		local randPickedInt = math.random(1, 4)
-		local randInt = math.random(1, 256)
-		stringResult ..= (
-			if randPickedInt == 1 then randInt
-			elseif randPickedInt == 2 then "0x" .. stringToHex(randInt, "")
-			elseif randPickedInt == 3 then scrambleNumber(randInt)
-			else "\"" .. stringToHex(randInt) .. "\""
-		)
-	end
-	return stringResult
-end
 local function mergeDictionary(table1, table2)
 	for key, value in pairs(table2) do
 		if typeof(value) == "table" and typeof(table1[key] or false) == "table" then
@@ -77,26 +50,50 @@ local function mergeDictionary(table1, table2)
 	end
 	return table1
 end
+local function generateRandString(lenght)
+	local result = ""
+	for iter = 1, lenght do
+		local randInteger = math.random(1, (iter == 1 and #stringList - 10 or #stringList))
+		result ..= string.sub(stringList, randInteger, randInteger)
+	end
+	return result
+end
+local function generateRandVariableValue()
+	local stringResult = ""
+	local pickedVariableType = variableTypeChoices[math.random(1, #variableTypeChoices)]
+	if pickedVariableType == "string" then
+		stringResult ..= "\"" .. stringToHex(generateRandString(math.random(1, 128))) .. "\""
+	elseif pickedVariableType == "bool" then
+		stringResult ..= (math.random(1, 8) <= 4 and "true" or "false")
+	elseif pickedVariableType == "number" then
+		local randPickedInt = math.random(1, 3)
+		local randInt = math.random(1, 256)
+		stringResult ..= (
+			if randPickedInt == 1 then randInt
+			elseif randPickedInt == 2 then "0x" .. stringToHex(randInt, "")
+			else "\"" .. stringToHex(randInt) .. "\""
+		)
+	end
+	return stringResult
+end
 local function generateJunkCode(addedOptions)
 	local stringResult = obfTemplates.junkCodes[math.random(1, #obfTemplates.junkCodes)]
 	local generatedOptions = mergeDictionary(addedOptions, {
 		var_name = generateRandString(12),
-		var_result = "",
 		var_name_arg1 = generateRandString(8),
 		var_name_arg2 = generateRandString(8),
 		integer = math.random(1, 256),
 		integer_enc1 = scrambleNumber(math.random(1, 1024)),
 	})
-	stringResult = formatString(stringResult, generatedOptions, function(optionName)
-		return (optionName == "var_result" and generateRandomConstant() or nil)
-	end)
+	stringResult = formatString(stringResult, generatedOptions)
 	return stringResult
 end
 local function obfuscateScript(outputArg, sourceName)
 	math.randomseed(os.clock() + math.random(1, 16))
 	outputArg = string.gsub(outputArg, "\t", "")
 	local resultData = table.create(0)
-	local offsetInt, strSeperator = math.random(8, 64) * 8, "­"
+	local offsetInt, junkCodeGenCount, strSeperator = math.random(8, 64) * 8, math.random(8, 32), "­"
+	local varsList, varsStaters = obfTemplates.varsList, obfTemplates.varsStaters
 	local generatedOptions = {
 		string_char = generateRandString(12),
 		string_gsub = generateRandString(12),
@@ -125,15 +122,21 @@ local function obfuscateScript(outputArg, sourceName)
 		str_seperator = strSeperator,
 		source = stringToHex(outputArg, strSeperator, offsetInt),
 	}
-	for _ = 1, math.random(8, 32) do
-		local tablePos = math.random(1, 6)
-		table.insert(resultData, tablePos, generateJunkCode(generatedOptions))
+	for _ = 1, junkCodeGenCount do
+		table.insert(resultData, math.random(1, 7), generateJunkCode(generatedOptions))
+	end
+	for junkVarCount = 1, junkCodeGenCount do
+		local randVarName, randVarValue = generateRandString(12), generateRandVariableValue()
+		local formatterStr = (if junkCodeGenCount == junkVarCount then "" else ",%s")
+		varsList = string.format(varsList, randVarName .. formatterStr)
+		varsStaters = string.format(varsStaters, randVarName .. formatterStr, randVarValue .. formatterStr)
 	end
 	table.insert(resultData, 1, string.format(obfTemplates.simbuscatorWatermark, sourceName))
-	table.insert(resultData, 3, formatString(obfTemplates.varsList, generatedOptions))
-	table.insert(resultData, 4, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
-	table.insert(resultData, 5, formatString(obfTemplates.loadstringProxy, generatedOptions))
-	table.insert(resultData, 6, formatString(obfTemplates.loadstringScript, generatedOptions))
+	table.insert(resultData, 3, formatString(varsList, generatedOptions))
+	table.insert(resultData, 4, formatString(varsStaters, generatedOptions))
+	table.insert(resultData, 5, formatString(obfTemplates.minifiedHexToStr, generatedOptions))
+	table.insert(resultData, 6, formatString(obfTemplates.loadstringProxy, generatedOptions))
+	table.insert(resultData, 7, formatString(obfTemplates.loadstringScript, generatedOptions))
 	for index = 1, #resultData do
 		if resultData[index] then continue end
 		table.remove(resultData, index)
