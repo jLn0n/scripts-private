@@ -36,7 +36,7 @@ end
 
 local function test()
 	local funcCaller, scriptCaller = getcallingfunc(), getcallingscript()
-	print(debug.info(funcCaller, "n"), scriptCaller) -- this will print the function name
+	print(debug.info(funcCaller, "n"), scriptCaller.Name) -- this will print the function name
 end
 
 local function icallthetestfunc()
