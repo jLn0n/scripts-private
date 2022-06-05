@@ -326,7 +326,7 @@ local function reverseVM(func, scope, vars)
 		local opcode = luau.getOpcode(instruction)
 		local argA = luau.getA(instruction)
 
-		decompileResult ..= string.rep(" ", scope.depth * 5)
+		decompileResult ..= string.rep(" ", scope.depth * 4)
 		local backupDResultToCheck = decompileResult
 
 		if (opcode == luauOps.ENUM) then
@@ -683,7 +683,7 @@ local function reverseVM(func, scope, vars)
 			end
 		elseif (opcode == luauOps.RETURN) then
 			local nArg = bit32.band(bit32.rshift(instruction, 16), 0xFF) - 1
-			local indents = string.rep(" ", scope.depth * 5)
+			local indents = string.rep(" ", scope.depth * 4)
 			local retArgs = ""
 
 			for argIndex = 1, nArg do
