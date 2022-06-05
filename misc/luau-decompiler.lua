@@ -1,9 +1,9 @@
 --[[
 	Based of https://github.com/TacticalBFG/luau-decompiler
-	just rewriting this to work in lua 5.1 which luau is based
+	just rewriting this to work in lua 5.1 because TacticalBFG write the shit in lua 5.3 or 5.4
 	TODO:
 		#1: Extend this thing and use the latest from https://github.com/Roblox/luau/blob/master/Common/include/Luau/Bytecode.h
-		#2: convert the goto thingy to function
+		#2: convert the goto thingy to function (used continue lol)
 --]]
 -- variables
 local luauOps = { -- TODO #1
@@ -92,8 +92,53 @@ local stringBuilders = {
 		ifConditionThen = "if (%s) then",
 		whileConditionDo = "while (%s) do"
 	},
+	codeCompletions = {
+		ADDKR = "%s + %s",
+		SUBKR = "%s - %s",
+		MULKR = "%s * %s",
+		DIVKR = "%s / %s",
+		MODKR = "%s % %s",
+		POWKR = "%s ^ %s",
+		LOCAL_EXPR = "\nlocal %s = %s\n",
+		VALUE_SETTO = "%s = %s",
+		INDEXTO_TABLEK = "%s.%s",
+		INDEXTO_TABLERI = "%s[%s]",
+		SETTO_TABLEK = "%s.%s = %s",
+		SETTO_TABLERI = "%s[%s] = %s",
+		CONCAT_TO = "%s .. %s",
+		LEN_SET = "#%s",
+		NOT_VALUE = "not %s",
+		UNM_SET = "-%s",
+		FORLOOP_CONSTUCTOR = "for %s = %s do",
+		TFORLOOP_CONSTRUCTOR = "for %s, %s in %s do",
+		NAMECALL_CONSTRUCT = "%s:%s",
+		CALL_CONSTRUCTOR = "%s(%s)",
+		RETURN_CONSTRUCTOR = "\n%sreturn %s",
+		CLOSURE_CONSTRUCTOR = "function(%s)\n%s\nend"
+	}
 }
 -- functions
+local luau = {
+	getOpcode = function(inst)
+		return bit32.band(inst, 0xFF)
+	end,
+	getA = function(inst)
+		return bit32.band(bit32.rshift(inst, 8), 0xFF)
+	end,
+	getB = function(inst)
+		return bit32.band(bit32.rshift(inst, 16), 0xFF)
+	end,
+	getC = function(inst)
+		return bit32.band(bit32.rshift(inst, 24), 0xFF)
+	end,
+	getBx = function(inst)
+		return bit32.band(bit32.rshift(inst, 16), 0xFFFF)
+	end,
+	emitABC = function(opcode, a, b, c)
+		return bit32.bor(bit32.bor(bit32.bor(opcode, (bit32.lshift(a, 8))), (bit32.lshift(b, 16))), (bit32.lshift(c, 24)))
+	end
+}
+
 local function formatConstant(constant)
 	if typeof(constant) == "string" then
 		constant = string.format("\"%s\"", constant)
@@ -169,9 +214,9 @@ local function resolveWhileLoop(code, start, destination)
 	return trueEnd
 end
 
-local function buildCondition(code, i, inst, scope, elem, condType, b)
+local function buildCondition(instructions, i, inst, scope, elem, condType, b)
 	local dist = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-	local destInst = code[i + dist]
+	local destInst = instructions[i + dist]
 	local destOp = bit32.band(destInst, 0xFF)
 	local scr = ""
 	local skips = 0
@@ -200,7 +245,7 @@ local function buildCondition(code, i, inst, scope, elem, condType, b)
 		else ""
 	)
 
-	local realDist = resolveRealDist(code, i + condSubtract)
+	local realDist = resolveRealDist(instructions, i + condSubtract)
 	if (realDist[1] == -2) then -- while loop
 		scr = scr .. string.format(stringBuilders.conditions.whileConditionDo, conditionResult)
 		testScope.isWhile = true
@@ -247,1207 +292,544 @@ local function tracebackFrom(log, i, A, scope)
 	end
 end
 
-local function reverseVM(f, scope, vars)
-	local scr = ""
+local function reverseVM(func, scope, vars)
+	local decompileResult = ""
+	local funcConstants, funcProtos = debug.getconstants(func), debug.getprotos(func)
+	local constAdjusted, protosAdjusted = table.create(0), table.create(0)
 
-	local kNotAdjusted = debug.getconstants(f)
-
-	local pNotAdjusted = debug.getprotos(f)
-
-	local k = {}
-
-	local p = {}
-
-	-- adjust k to be indexed at 0
-
-	for i = 1,#kNotAdjusted do
-
-		k[i-1] = kNotAdjusted[i]
-
+	for index = 1, #funcConstants do
+		constAdjusted[index - 1] = constAdjusted[index]
+	end
+	for index = 1, #funcProtos do
+		protosAdjusted[index - 1] = protosAdjusted[index]
 	end
 
-	for i = 1,#pNotAdjusted do
+	local stack, globalCache = table.create(0), table.create(0)
 
-		p[i-1] = pNotAdjusted[i]
+	local codeInst, codeLines = debug.getinstructions(func), debug.getlines(func)
+	local lastLine = codeLines[1]
 
-	end
+	local tracebackLog = table.create(0)
 
-	
-
-	local stack = {}
-
-	local globalCache = {}
-
-	
-
-	local code = debug.getinstructions(f)
-
-	local lines = debug.getlines(f)
-
-	local lastLine = lines[1]
-
-	
-
-	local tracebackLog = {}
-
-	
-
-	if (vars) then
-
-		for _,var in pairs(vars) do
-
-			stack[var[1] ] = var[2] -- basically just a func args thing
-
-			table.insert(scope.localVars, var)
-
+	if vars then
+		for _, varArg in pairs(vars) do
+			stack[varArg[1]] = varArg[2]
+			table.insert(scope.localVars, varArg)
 		end
-
 	end
-
-	
 
 	local protoScope = scope
 
-	
+	local instIndex = 1
+	while (instIndex <= #codeInst) do
+		local instruction = codeInst[instIndex]
+		local opcode = luau.getOpcode(instruction)
+		local argA = luau.getA(instruction)
 
-	local i = 1
+		decompileResult ..= string.rep(" ", scope.depth * 5)
+		local backupDResultToCheck = decompileResult
 
-	while (i <= #code) do
-
-		local inst = code[i]
-
-		local op = getLuauOp(inst)--bit32.band(inst, 0xFF)
-
-		local A = getLuauA(inst)--bit32.band(bit32.rshift(inst, 8), 0xFF)
-
-		
-
-		scr = scr..string.rep(" ", scope.depth * 5)
-
-		local backupScrToCheck = scr
-
-		
-
-		if (op == luauOps.ENUM) then
-
-			local globalFunc = k[getLuauBx(inst)]--bit32.band(bit32.rshift(inst, 16), 0xFFFF)]
-
-			local tableInfo = code[i+1]
-
-			i += 1
-
-			
+		if (opcode == luauOps.ENUM) then
+			local globalFunc = constAdjusted[luau.getBx(instruction)]
+			local tableInfo = codeInst[instIndex + 1]
+			instIndex += 1
 
 			local indices = bit32.rshift(tableInfo, 30)
+			local x1 = (if indices ~= 0 then bit32.band(bit32.rshift(tableInfo, 20), 0x3FF) else -1)
+			local x2 = (if indices > 1 then bit32.band(bit32.rshift(tableInfo, 10), 0x3FF) else -1)
+			local x3 = (if indices > 2 then bit32.band(tableInfo, 0x3FF) else -1)
 
-			local hi = -1
+			stack[argA] = (if x1 ~= -1 then constAdjusted[x1] else tostring(globalFunc))
 
-			local whiteGirl = -1
-
-			local wasted = -1
-
-			if (indices ~= 0) then hi = bit32.band(bit32.rshift(tableInfo, 20), 0x3FF) end
-
-			if (indices > 1) then whiteGirl = bit32.band(bit32.rshift(tableInfo, 10), 0x3FF) end
-
-			if (indices > 2) then wasted = bit32.band(tableInfo, 0x3FF) end
-
-			
-
-			if (hi ~= -1) then
-
-				stack[A] = k[hi]
-
-			else
-
-				stack[A] = tostring(globalFunc) -- gonna fail :(
-
-			end
-
-			if (whiteGirl ~= -1) then
-
-				stack[A] = stack[A].."."..k[whiteGirl]
-
-				if (wasted ~= -1) then
-
-					stack[A] = stack[A].."."..k[wasted]
-
+			if x2 ~= -1 then
+				stack[argA] = string.format(stringBuilders.codeCompletions.INDEXTO_TABLEK, stack[argA], constAdjusted[x2])
+				if x3 ~= -1 then
+					stack[argA] = string.format(stringBuilders.codeCompletions.INDEXTO_TABLEK, stack[argA], constAdjusted[x3])
 				end
-
 			end
+		elseif (opcode == luauOps.GETENV) then
+			stack[argA] = constAdjusted[codeInst[instIndex + 1]]
+			table.insert(globalCache, stack[argA])
 
-			
+			instIndex += 1
+		elseif (opcode == luauOps.SETENV) then -- volatile
+			local name, value = constAdjusted[codeInst[instIndex + 1]], stack[argA]
+			instIndex += 1
 
-		elseif (op == luauOps.GETENV) then
-
-			stack[A] = k[code[i+1] ]
-
-			table.insert(globalCache, stack[A])
-
-			i = i + 1
-
-			
-
-		elseif (op == luauOps.SETENV) then -- VOLATILE
-
-			local value = tostring(stack[A])
-
-			local name = k[code[i+1] ]
-
-			i = i + 1
-
-			
-
-			local info = tracebackFrom(tracebackLog, #tracebackLog, A, scope)
-
-			if (info) then
-
-				local localExpr = "\nlocal "..tostring(info[2]).." = "..tostring(stack[info[1] ]).."\n"
-
-				scr = scr..localExpr
-
+			local info = tracebackFrom(tracebackLog, #tracebackLog, argA, scope)
+			if info then
+				decompileResult ..= string.format(stringBuilders.codeCompletions.LOCAL_EXPR, info[2], info[1])
 				table.insert(scope.localVars, {info[1], info[2]})
 
-				stack[info[1] ] = info[2]
-
+				stack[info[1]] = info[2]
 			end
 
-			
-
-			scr = scr..name.." = "..value
-
+			decompileResult ..= string.format(stringBuilders.codeCompletions.VALUE_SETTO, name, value)
 			table.insert(globalCache, name)
-
-			
-
-		elseif (op == luauOps.MOVE) then
-
-			local where = getLuauB(inst)--bit32.band(bit32.rshift(inst, 16), 0xFF)
-
-			local reg = -1
-
+		elseif (opcode == luauOps.MOVE) then
+			local whereMove = luau.getB(instruction)
+			local regIndex = -1
 			local evalScope = scope
 
 			while (evalScope ~= nil) do
-
-				for _,loc in xknempxcgf(evalScope.localVars) do
-
-					if (loc[1] == where) then
-
-						reg = loc[2]
-
+				for _, locVar in pairs(evalScope.localVars) do
+					if locVar[1] == whereMove then
+						regIndex = locVar[2]
 					end
-
 				end
 
-				
-
-				if (reg ~= -1) then
-
+				if regIndex ~= -1 then
 					break; -- give local locals priority
-
 				end
-
-				
 
 				evalScope = evalScope.parent
-
 			end
 
-			
-
-			if (reg == -1) then -- no local found
-
-				reg = stack[where]
-
+			if regIndex == -1 then
+				regIndex = stack[whereMove]
 			end
 
-			
+			stack[argA] = regIndex
+		elseif (opcode == luauOps.LOADK) then
+			stack[argA] = formatConstant(constAdjusted[luau.getBx(instruction)])
+		elseif (opcode == luauOps.LOADKX) then
+			stack[argA] = formatConstant(constAdjusted[codeInst[instIndex + 1]])
+			instIndex += 1
+		elseif (opcode == luauOps.LOADNUM) then
+			local number = bit32.band(bit32.rshift(instruction, 16), 0xFFFF)
+			number = (if number <= 0x7FFF then number else (number - 0xFFFF) - 1)
 
-			stack[A] = reg
+			stack[argA] = number
+		elseif (opcode == luauOps.LOADBOOL) then
+			local boolNumber = bit32.band(bit32.rshift(instruction, 16), 0xFF)
 
-			
+			stack[argA] = (if boolNumber == 0 then false else true)
+		elseif (opcode == luauOps.LOADNIL) then
+			stack[argA] = "nil"
+		elseif (opcode == luauOps.GETTABLEK) then
+			local tableIndex = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+			local key = constAdjusted[codeInst[instIndex + 1]]
+			instIndex += 1
 
-		elseif (op == luauOps.LOADK) then
+			stack[argA] = string.format(stringBuilders.codeCompletions.INDEXTO_TABLEK, tableIndex, key)
+		elseif (opcode == luauOps.GETTABLER) then
+			local tableIndex = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+			local key = stack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			stack[A] = formatConstant(k[getLuauBx(inst)])--bit32.band(bit32.rshift(inst, 16), 0xFFFF)])
+			stack[argA] = string.format(stringBuilders.codeCompletions.INDEXTO_TABLERI, tableIndex, key)
+		elseif (opcode == luauOps.GETTABLEI) then
+			local tableIndex = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+			local key = bit32.band(bit32.rshift(instruction, 24), 0xFF) + 1
 
-			
+			stack[argA] = string.format(stringBuilders.codeCompletions.INDEXTO_TABLERI, tableIndex, key)
+		elseif (opcode == luauOps.GETUPVAL) then
+			stack[argA] = protoScope.upvalInfo[bit32.band(bit32.rshift(instruction, 16), 0xFF ) + 1]
+		elseif (opcode == luauOps.SETTABLEK) then -- volatile (2)
+			local key, value = constAdjusted[codeInst[instIndex + 1]], stack[argA]
+			instIndex += 1
+			argA = bit32.band(bit32.rshift(instruction, 16), 0xFF)
 
-		elseif (op == luauOps.LOADKX) then
-
-			stack[A] = formatConstant(k[code[i+1] ])
-
-			i = i + 1
-
-			
-
-		elseif (op == luauOps.LOADNUM) then
-
-			local num = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-
-			num = (num <= 0x7FFF) and num or (num-0xFFFF)-1 -- sign number
-
-			stack[A] = num
-
-			
-
-		elseif (op == luauOps.LOADBOOL) then
-
-			local b = bit32.band(bit32.rshift(inst, 16), 0xFF) 
-
-			stack[A] = (b ~= 0) and true or false 
-
-			
-
-		elseif (op == luauOps.LOADNIL) then
-
-			stack[A] = "nil"
-
-			
-
-		elseif (op == luauOps.GETTABLEK) then
-
-			local key = k[code[i+1] ]
-
-			local tab = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			i = i + 1
-
-			stack[A] = tab.."."..key
-
-			
-
-		elseif (op == luauOps.GETTABLER) then
-
-			local tab = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local key = tostring(stack[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			stack[A] = tab.."["..key.."]"
-
-			
-
-		elseif (op == luauOps.GETTABLEI) then
-
-			local tab = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local key = tostring(bit32.band(bit32.rshift(inst, 24), 0xFF) + 1)
-
-			stack[A] = tab.."["..key.."]"
-
-			
-
-		elseif (op == luauOps.GETUPVAL) then
-
-			stack[A] = protoScope.upvalInfo[bit32.band(bit32.rshift(inst, 16), 0xFF ) + 1]
-
-			
-
-		elseif (op == luauOps.SETTABLEK) then -- VOLATILE
-
-			local key = tostring(k[code[i+1] ])
-
-			i = i + 1
-
-			local val = tostring(stack[A]) -- yea
-
-			A = bit32.band(bit32.rshift(inst, 16), 0xFF) -- readjust for retarded thing arseny tried
-
-			
-
-			local info = tracebackFrom(tracebackLog, #tracebackLog, A, scope)
-
-			if (info) then
-
-				local localExpr = "\nlocal " .. tostring(info[2]) .. " = " .. tostring(stack[info[1] ]) .. "\n"
-
-				scr = scr..localExpr
-
+			local info = tracebackFrom(tracebackLog, #tracebackLog, argA, scope)
+			if info then
+				decompileResult ..= string.format(stringBuilders.codeCompletions.LOCAL_EXPR, info[2], info[1])
 				table.insert(scope.localVars, {info[1], info[2]})
 
-				stack[info[1] ] = info[2]
-
+				stack[info[1]] = info[2]
 			end
 
-			
+			decompileResult ..= string.format(stringBuilders.codeCompletions.SETTO_TABLEK, stack[argA], key, value)
+		elseif (opcode == luauOps.SETTABLER) then -- volatile (3)
+			local key, value = stack[bit32.band(bit32.rshift(instruction, 24), 0xFF)], stack[argA]
+			instIndex += 1
+			argA = bit32.band(bit32.rshift(instruction, 16), 0xFF)
 
-			scr = scr .. tostring(stack[A]) .. "." .. key .. " = " .. val
-
-			
-
-		elseif (op == luauOps.SETTABLER) then -- VOLATILE
-
-			local key = tostring(stack[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			local val = tostring(stack[A]) -- yea
-
-			A = bit32.band(bit32.rshift(inst, 16), 0xFF) -- readjust for retarded thing arseny tried
-
-			
-
-			local info = tracebackFrom(tracebackLog, #tracebackLog, A, scope)
-
-			if (info) then
-
-				local localExpr = "\nlocal " .. tostring(info[2]) .. " = " .. tostring(stack[info[1] ]) .. "\n"
-
-				scr = scr..localExpr
-
+			local info = tracebackFrom(tracebackLog, #tracebackLog, argA, scope)
+			if info then
+				decompileResult ..= string.format(stringBuilders.codeCompletions.LOCAL_EXPR, info[2], info[1])
 				table.insert(scope.localVars, {info[1], info[2]})
 
-				stack[info[1] ] = info[2]
-
+				stack[info[1]] = info[2]
 			end
 
-			
+			decompileResult ..= string.format(stringBuilders.codeCompletions.SETTO_TABLERI, stack[argA], key, value)
+		elseif (opcode == luauOps.SETTABLEI) then -- volatile (4)
+			local key, value = (bit32.band(bit32.rshift(instruction, 24), 0xFF) + 1), stack[argA]
+			instIndex += 1
+			argA = bit32.band(bit32.rshift(instruction, 16), 0xFF)
 
-			scr = scr..tostring(stack[A]).."["..key.."] = "..val
-
-			
-
-		elseif (op == luauOps.SETTABLEI) then -- VOLATILE
-
-			local key = tostring(bit32.band(bit32.rshift(inst, 24), 0xFF) + 1)
-
-			local val = tostring(stack[A]) -- yea
-
-			A = bit32.band(bit32.rshift(inst, 16), 0xFF) -- readjust for retarded thing arseny tried
-
-			
-
-			local info = tracebackFrom(tracebackLog, #tracebackLog, A, scope)
-
-			if (info) then
-
-				local localExpr = "\nlocal " .. tostring(info[2]) .. " = ".. tostring(stack[info[1] ]) .. "\n"
-
-				scr = scr..localExpr
-
+			local info = tracebackFrom(tracebackLog, #tracebackLog, argA, scope)
+			if info then
+				decompileResult ..= string.format(stringBuilders.codeCompletions.LOCAL_EXPR, info[2], info[1])
 				table.insert(scope.localVars, {info[1], info[2]})
 
-				stack[info[1] ] = info[2]
-
+				stack[info[1]] = info[2]
 			end
 
-			
+			decompileResult ..= string.format(stringBuilders.codeCompletions.SETTO_TABLERI, stack[argA], key, value)
+		elseif (opcode == luauOps.SETUPVAL) then
+			local upvalName, upvalValue = protoScope.upvalInfo[argA + 1], stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
 
-			scr = scr..tostring(stack[A]).."["..key.."] = "..val
-
-			
-
-		elseif (op == luauOps.SETUPVAL) then
-
-			local upName = tostring(protoScope.upvalInfo[A + 1])
-
-			
-
-			local info = tracebackFrom(tracebackLog, #tracebackLog, A, scope)
-
-			if (info) then
-
-				local localExpr = "\nlocal " .. tostring(info[2]) .. " = " .. tostring(stack[info[1] ]) .. "\n"
-
-				scr = scr .. localExpr
-
+			local info = tracebackFrom(tracebackLog, #tracebackLog, argA, scope)
+			if info then
+				decompileResult ..= string.format(stringBuilders.codeCompletions.LOCAL_EXPR, info[2], info[1])
 				table.insert(scope.localVars, {info[1], info[2]})
 
-				stack[info[1] ] = info[2]
-
+				stack[info[1]] = info[2]
 			end
 
-			
+			decompileResult ..= string.format(stringBuilders.codeCompletions.VALUE_SETTO, upvalName, upvalValue)
+		elseif (opcode == luauOps.ADDK or opcode == luauOps.ADDR) then
+			local constOrStack = (if opcode == luauOps.ADDK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			scr = scr..upName.." = "..tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
+			stack[argA] = string.format(stringBuilders.codeCompletions.ADDKR, arg1, arg2)
+		elseif (opcode == luauOps.SUBK or opcode == luauOps.SUBR) then
+			local constOrStack = (if opcode == luauOps.SUBK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			
+			stack[argA] = string.format(stringBuilders.codeCompletions.SUBKR, arg1, arg2)
+		elseif (opcode == luauOps.MULK or opcode == luauOps.MULR) then
+			local constOrStack = (if opcode == luauOps.MULK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-		elseif (op == luauOps.ADDK or op == luauOps.ADDR) then
+			stack[argA] = string.format(stringBuilders.codeCompletions.MULKR, arg1, arg2)
+		elseif (opcode == luauOps.DIVK or opcode == luauOps.DIVR) then
+			local constOrStack = (if opcode == luauOps.DIVK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
+			stack[argA] = string.format(stringBuilders.codeCompletions.DIVKR, arg1, arg2)
+		elseif (opcode == luauOps.MODK or opcode == luauOps.MODR) then
+			local constOrStack = (if opcode == luauOps.MODK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			local tab = (op == luauOps.ADDK) and k or stack
+			stack[argA] = string.format(stringBuilders.codeCompletions.MODKR, arg1, arg2)
+		elseif (opcode == luauOps.POWK or opcode == luauOps.POWR) then
+			local constOrStack = (if opcode == luauOps.POWK then constAdjusted else stack)
+			local arg1, arg2 = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)], constOrStack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
 
-			stack[A] = b.." + "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
+			stack[argA] = string.format(stringBuilders.codeCompletions.POWKR, arg1, arg2)
+		elseif (opcode == luauOps.NEWTABLE) then -- TODO: leaves an unhandled opcode???
+			local constN = codeInst[instIndex + 1]
+			local hashSize, arraySize = bit32.band(bit32.rshift(instruction, 16), 0xFF), bit32.band(bit32.rshift(instruction, 24), 0xFF)
+			instIndex += 1
 
-			
+			stack[argA] = (if constN == 0 then "{}" else "{")
+		elseif (opcode == luauOps.LOADTABLEK) then
+			local cachedResult = constAdjusted[bit32.band(bit32.rshift(instruction, 16), 0xFFFF)]
 
-		elseif (op == luauOps.SUBK or op == luauOps.SUBR) then
+			stack[argA] = "{}" -- TODO: actually bsudxmssut the cache (idk what he is trying to say about the "bsudxmssut")
+		elseif (opcode == luauOps.SETLIST) then -- TODO: multiple setlist
+			local nElements = bit32.band(bit32.rshift(instruction, 24), 0xFF) - 1
+			local toStore = codeInst[instIndex + 1]
+			instIndex += 1
 
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
+			if (nElements == -1) then
+				for kIndex = argA + 1, 255 do
+					local value = stack[kIndex]
+					if value == nil then break end
 
-			local tab = (op == luauOps.SUBK) and k or stack
-
-			stack[A] = b.." - "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-
-
-		elseif (op == luauOps.MULK or op == luauOps.MULR) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local tab = (op == luauOps.MULK) and k or stack
-
-			stack[A] = b.." * "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			
-
-		elseif (op == luauOps.DIVK or op == luauOps.DIVR) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local tab = (op == luauOps.DIVK) and k or stack
-
-			stack[A] = b.." / "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			
-
-		elseif (op == luauOps.MODK or op == luauOps.MODR) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local tab = (op == luauOps.MODK) and k or stack
-
-			stack[A] = b.." % "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			
-
-		elseif (op == luauOps.POWK or op == luauOps.POWR) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local tab = (op == luauOps.POWK) and k or stack
-
-			stack[A] = b.." ^ "..tostring(tab[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-
-
-		elseif (op == luauOps.NEWTABLE) then -- TODO: leaves an unhandled opcode???
-
-			local n = code[i+1]
-
-			local hashSize = bit32.band(bit32.rshift(inst, 16), 0xFF) 
-
-			local arraySize = bit32.band(bit32.rshift(inst, 24), 0xFF)
-
-			i += 1
-
-			stack[A] = "{";
-
-			if (n == 0) then
-
-				stack[A] = "{}";
-
-			end
-
-			
-
-		elseif (op == luauOps.LOADTABLEK) then
-
-			local cached = k[bit32.band(bit32.rshift(inst, 16), 0xFFFF)]
-
-			stack[A] = "{}" -- todo: actually bsudxmssut the cache
-
-			
-
-		elseif (op == luauOps.SETLIST) then -- TODO: multiple setlists
-
-			local nelems = bit32.band(bit32.rshift(inst, 24), 0xFF) - 1
-
-			local tostore = code[i+1]
-
-			i += 1
-
-			if (nelems == -1) then
-
-				for k = A+1,255 do
-
-					local val = stack[k]
-
-					if val == nil then break end
-
-					
-
-					stack[A] = stack[A]..tostring(val)..",\n"
-
+					stack[argA] ..= tostring(value) .. ", \n"
 				end
-
 			else
+				for elementIndex = 1, nElements do
+					local element = stack[argA + elementIndex]
 
-				for elemIdx = 1,nelems do
-
-					local elem = stack[A + elemIdx]
-
-					stack[A] = stack[A]..tostring(elem)..", "
-
+					stack[argA] ..= tostring(element) .. ", "
 				end
-
 			end
 
-			stack[A] = stack[A]:sub(0, stack[A]:len()-2) -- remove last space and comma
-
-			stack[A] = stack[A].."}"
-
-			
-
-		elseif (op == luauOps.CONCAT) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			local c = tostring(stack[bit32.band(bit32.rshift(inst, 24), 0xFF)])
-
-			stack[A] = b..".."..c
-
-			
-
-		elseif (op == luauOps.LEN) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			stack[A] = "#"..b
-
-			
-
-		elseif (op == luauOps.NOT) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			stack[A] = "not "..b
-
-			
-
-		elseif (op == luauOps.UNM) then
-
-			local b = tostring(stack[bit32.band(bit32.rshift(inst, 16), 0xFF)])
-
-			stack[A] = "-"..b
-
-			
-
-		elseif (op == luauOps.TEST) then
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 0)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.TESTN) then
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 1)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.EQ) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 2, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.EQN) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 3, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.LTN) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 4, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.LT) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 5, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.LEQN) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 6, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.LEQ) then
-
-			local b = tostring(stack[code[i+1] ])
-
-			i += 1
-
-			local res = buildCondition(code, i, inst, scope, tostring(stack[A]), 7, b)
-
-			scope = res[1]
-
-			i = i + res[2]
-
-			scr = scr..res[3]
-
-			
-
-		elseif (op == luauOps.FORPREP) then
-
-			local lim = tostring(stack[A])
-
-			local step = tostring(stack[A + 1])
-
-			local idx = tostring(stack[A + 2])
-
-			
-
-			local dist = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-
-			local dest = code[i+dist]
-
+			stack[argA] = string.sub(stack[argA], 0, string.len(stack[argA]) - 2)
+			stack[argA] ..= "}"
+		elseif (opcode == luauOps.CONCAT) then
+			local toConcat = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+			local concatValue = stack[bit32.band(bit32.rshift(instruction, 24), 0xFF)]
+
+			stack[argA] = string.format(stringBuilders.codeCompletions.CONCAT_TO, toConcat, concatValue)
+		elseif (opcode == luauOps.LEN) then
+			local toLen = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+
+			stack[argA] = string.format(stringBuilders.codeCompletions.LEN_SET, toLen)
+		elseif (opcode == luauOps.NOT) then
+			local currentlyNotNottified = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+
+			stack[argA] = string.format(stringBuilders.codeCompletions.NOT_VALUE, currentlyNotNottified)
+		elseif (opcode == luauOps.UNM) then
+			local unNegatifiedConstant = stack[bit32.band(bit32.rshift(instruction, 16), 0xFF)]
+
+			stack[argA] = string.format(stringBuilders.codeCompletions.UNM_SET, unNegatifiedConstant)
+		elseif (opcode == luauOps.TEST or opcode == luauOps.TESTN) then
+			local condType = (if opcode == luauOps.TEST then 0 else 1)
+			local result = buildCondition(codeInst, instIndex, instruction, scope, stack[argA], condType)
+
+			scope = result[1]
+			instIndex += result[2]
+			decompileResult ..= result[3]
+		elseif (opcode == luauOps.EQ or opcode == luauOps.EQN or opcode == luauOps.LT or opcode == luauOps.LTN or opcode == luauOps.LEQ or opcode == luauOps.LEQN) then
+			local condType = (
+				if opcode == luauOps.EQ then 2
+				elseif opcode == luauOps.EQN then 3
+				elseif opcode == luauOps.LTN then 4
+				elseif opcode == luauOps.LT then 5
+				elseif opcode == luauOps.LEQN then 6
+				elseif opcode == luauOps.LEQ then 7
+				else 8
+			)
+			local value = stack[codeInst[instIndex + 1]]
+			local result = buildCondition(codeInst, instIndex, instruction, scope, stack[argA], condType, value)
+
+			scope = result[1]
+			instIndex += result[2]
+			decompileResult ..= result[3]
+		elseif (opcode == luauOps.FORPREP) then
+			local lim, step, index = tostring(stack[argA]), tostring(stack[argA + 1]), tostring(stack[argA + 2])
+
+			local dist = bit32.band(bit32.rshift(instruction, 16), 0xFFFF)
+			local destination = codeInst[instIndex + dist]
 			local forScope = {
-
 				depth = scope.depth + 1,
-
-				closeAt = i + dist,
-
+				closeAt = instIndex + dist,
 				parent = scope,
-
-				elses = {},
-
+				elses = table.create(0),
 				isWhile = false,
+				isBreakable = false,
 
-				isBreakable = true,
-
-				
-
-				localVars = {},
-
-				upvalInfo = {}
-
+				localVars = table.create(0),
+				upvalInfo = table.create(0)
 			}
 
-			
-
 			local evalScope = scope
-
-			local varName = "i"
-
 			local breakableCount = 0
-
-			while (evalScope ~= nil) do
-
-				if (evalScope.isBreakable) then
-
+			local varName
+			while evalScope ~= nil do
+				if evalScope.isBreakable then
 					breakableCount += 1
-
 				end
 
-				
-
 				evalScope = evalScope.parent
-
 			end
 
-			
-
-			if (breakableCount > 0) then
-
-				varName = "i_"..tostring(breakableCount)
-
-			end
-
-			stack[A + 2] = varName
-
-			scr = scr.."for "..varName.." = "..idx..", "..lim
-
-			if (step ~= "1") then
-
-				scr = scr..", "..step
-
-			end
-
-			scr = scr.." do"
-
-			
-
-			table.insert(forScope.localVars, {A + 2, varName})
-
-			
-
+			varName = (if breakableCount > 0 then "i_" .. tostring(breakableCount) else "i")
+			stack[argA + 2] = varName
+			table.insert(forScope.localVars, {argA + 2, varName})
+			local forLoopConstructed = string.format(stringBuilders.codeCompletions.FORLOOP_CONSTUCTOR, varName, index .. ", " .. lim .. (step ~= "1" and ", " .. step or ""))
+			decompileResult ..= forLoopConstructed
 			scope = forScope
+		elseif (opcode == luauOps.TFORPREP) then
+			local _func = stack[argA]
 
-		elseif (op == luauOps.TFORPREP) then
-
-			local func = tostring(stack[A])
-
-			
-
-			local dist = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-
-			local dest = code[i+dist]
-
+			local dist = bit32.band(bit32.rshift(instruction, 16), 0xFFFF)
+			local destination = codeInst[instIndex + dist]
 			local forScope = {
-
 				depth = scope.depth + 1,
-
-				closeAt = i + dist,
-
+				closeAt = instIndex + dist,
 				parent = scope,
-
-				elses = {},
-
+				elses = table.create(0),
 				isWhile = false,
+				isBreakable = false,
 
-				isBreakable = true,
-
-				
-
-				localVars = {},
-
-				upvalInfo = {}
-
+				localVars = table.create(0),
+				upvalInfo = table.create(0)
 			}
 
-			
-
-			local idxVar,valVar = "i", "v"
-
 			local evalScope = scope
-
 			local breakableCount = 0
-
-			while (evalScope ~= nil) do
-
-				if (evalScope.isBreakable) then
-
+			local indexName, valName
+			while evalScope ~= nil do
+				if evalScope.isBreakable then
 					breakableCount += 1
-
 				end
 
-				
-
 				evalScope = evalScope.parent
-
 			end
-
-			if (breakableCount > 0) then
-
-				idxVar = "i_"..tostring(breakableCount)
-
-				valVar = "v_"..tostring(breakableCount)
-
-			end
-
-			
-
-			table.insert(forScope.localVars, {A + 3, idxVar})
-
-			table.insert(forScope.localVars, {A + 4, valVar})
-
-			
-
-			scr = scr.."for "..idxVar..","..valVar.." in "..func.." do"
-
+			indexName = (if breakableCount > 0 then "i_" .. tostring(breakableCount) else "i")
+			valName = (if breakableCount > 0 then "v_" .. tostring(breakableCount) else "v")
+			table.insert(forScope.localVars, {argA + 3, indexName})
+			table.insert(forScope.localVars, {argA + 4, valName})
+			local forLoopConstructed = string.format(stringBuilders.codeCompletions.TFORLOOP_CONSTRUCTOR, indexName, valName, _func)
+			decompileResult ..= forLoopConstructed
 			scope = forScope
+		elseif (opcode == luauOps.NAMECALL) then
+			local callMethod = constAdjusted[codeInst[instIndex + 1]]
+			instIndex += 1
+			stack[argA] = string.format(stringBuilders.codeCompletions.NAMECALL_CONSTRUCT, stack[argA], callMethod)
+			local call = codeInst[instIndex + 1]
+			codeInst[instIndex + 1] = luau.emitABC(luauOps.CALL, argA, luau.getB(call), luau.getC(call)) -- stolen from luau lol
+		elseif (opcode == luauOps.CALL) then
+			local funcName = stack[argA]
+			local nArgs, nReturn = bit32.band(bit32.rshift(instruction, 16), 0xFF) - 1, bit32.band(bit32.rshift(instruction, 24), 0xFF) - 1
 
-			
-
-				
-
-		elseif (op == luauOps.NAMECALL) then -- TODO: args are offset by 1?
-
-			local method = k[code[i+1] ]
-
-			i += 1
-
-			stack[A] = stack[A]..":"..method
-
-			local call = code[i+1]
-
-			code[i+1] = makeLuauABC(luauOps.CALL, A, debug.getB(call) - 1, debug.getC(call))
-
-		elseif (op == luauOps.CALL) then -- TODO: fastcall
-
-			local f = tostring(stack[A])
-
-			local nargs = bit32.band(bit32.rshift(inst, 16), 0xFF) - 1
-
-			local nret = bit32.band(bit32.rshift(inst, 24), 0xFF) - 1
-
-			
-
-			local callStatement = f.."("
-
-			if (nargs == LUA_MULTIPLE) then
-
+			local funcArgs, callStatement = "", nil
+			if (nArgs == -1) then -- if args is LUA_MULTIPLE
 				local argN = 1
-
-				local arg = stack[A + argN]
-
-				while (arg ~= nil) do -- nil args work because OP_LOADNIL actually pushes a string type
-
-					callStatement = callStatement..tostring(arg)..", "
-
-					argN = argN + 1
-
-					arg = stack[A + argN]
-
+				local argVal = stack[argA + argN]
+				while (argVal ~= nil) do
+					funcArgs ..= argVal .. ","
+					argN += 1
+					argVal = stack[argA + argN]
 				end
-
-			else 
-
-				for arg=1,nargs do
-
-					callStatement = callStatement..tostring(stack[A + arg])..", "
-
-					stack[A + arg] = nil -- ?
-
+			else
+				for argIndex = 1, nArgs do
+					funcArgs ..= tostring(stack[argA + argIndex]) .. ", "
+					stack[argA + argIndex] = nil -- ?
 				end
-
 			end
 
-			
+			funcArgs = (if nArgs ~= 0 then string.sub(funcArgs, 0, string.len(funcArgs) - 2) else funcArgs)
+			callStatement = string.format(stringBuilders.codeCompletions.CALL_CONSTRUCTOR, funcName, funcArgs)
+			stack[argA] = callStatement
 
-			
-
-			callStatement = nargs ~= 0 and callStatement:sub(0, callStatement:len()-2) or callStatement  -- remove last comma
-
-			callStatement = callStatement.. ")"
-
-			stack[A] = callStatement
-
-			
-
-			if (nret == 0) then -- probably used as an arg, dont write or else the syntax will duplicate calls
-
-				scr = scr..callStatement
-
+			if nReturn == 0 then
+				decompileResult ..= callStatement
 			end
+		elseif (opcode == luauOps.RETURN) then
+			local nArg = bit32.band(bit32.rshift(instruction, 16), 0xFF) - 1
+			local indents = string.rep(" ", scope.depth * 5)
+			local retArgs = ""
 
-			
+			for argIndex = 1, nArg do
+				local argValue = stack[(argA + argIndex) - 1]
+				retArgs ..= tostring(argValue) .. ", "
+			end
+			retArgs = (if nArg > 0 then string.sub(retArgs, 0, string.len(retArgs) - 1) else retArgs)
+			decompileResult ..= string.format(stringBuilders.codeCompletions.RETURN_CONSTRUCTOR, indents, retArgs)
 
-			elseif (op == luauOps.RETURN) then
+			return {decompileResult, codeLines[1]}
+		elseif (opcode == luauOps.CLOSURE) then
+			local closureIndex = bit32.band(bit32.rshift(instruction, 16), 0xFFFF)
+			local function_ = protoScope[closureIndex]
+			local funcInfo = debug.getinfo(function_)
+			local nUps, nParams = funcInfo.nups, funcInfo.nparams
 
-				local b = bit32.band(bit32.rshift(inst, 16), 0xFF) - 1
+			local funcScope = {
+				depth = scope.depth + 1,
+				closeAt = -1,
+				parent = scope,
+				elses = table.create(0),
+				isWhile = false,
+				isBreakable = false,
 
-				local indents = string.rep(" ", scope.depth * 5)
+				localVars = table.create(0),
+				upvalInfo = table.create(0)
+			}
 
-				scr = scr.."\n"..indents.."return "
+			for upvalIndex = 1, nUps do
+				local upval = codeInst[upvalIndex + instIndex]
+				local inStackFlag, stackPos = bit32.band(bit32.rshift(instruction, 8), 0xFF), bit32.band(bit32.rshift(instruction, 16), 0xFF)
+				local inStack = (if inStackFlag == 2 then false else true)
+				local caught = false
 
-				for R=1,b do
+				if inStack then
+					local evalScope = scope
 
-					scr = scr..tostring(stack[A + R - 1])..", "
-
-				end
-
-				if (b > 0) then
-
-					scr = scr:sub(0, scr:len()-2) -- remove ,
-
-				end
-
-				
-
-				return {scr, lines[1]};
-
-				
-
-			elseif (op == luauOps.CLOSURE) then
-
-				local bx = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-
-				local f = p[bx]
-
-				local nups = debug.getnups(f)
-
-				local nargs = debug.getnparams(f)
-
-				
-
-				local funcScope = {
-
-					depth = scope.depth + 1,
-
-					closeAt = -1,
-
-					parent = scope,
-
-					elses = {},
-
-					isWhile = false,
-
-					isBreakable = false,
-
-					
-
-					localVars = {},
-
-					upvalInfo = {}
-
-				}
-
-				
-
-				
-
-				for upI = 1,nups do
-
-					local up = code[upI + i]
-
-					local instackFlag = bit32.band(bit32.rshift(inst, 8), 0xFF)
-
-					local stackPos = bit32.band(bit32.rshift(inst, 16), 0xFF)
-
-					local instack = true
-
-					
-
-					if (instackFlag == 2) then
-
-						instack = false
-
-					end -- honestly no idea whats up with instackFlag == 0 or 1 randomly
-
-					
-
-					local caught = false
-
-					
-
-					if instack then
-
-						local evalScope = scope
-
-						
-
-						while (evalScope ~= nil) do
-
-							for _,v in xknempxcgf(evalScope.localVars) do
-
-								local localStackPos = v[1]
-
-								if (localStackPos == stackPos) then
-
-									funcScope.upvalInfo[upI] = v[2] -- set upval name equal to local name
-
-									caught = true
-
-								end
-
+					while evalScope ~= nil do
+						for _, localVar in pairs(evalScope.localVars) do
+							local localStackPos = localVar[1]
+							if localStackPos == stackPos then
+								funcScope.upvalInfo = localVar[2]
+								caught = true
 							end
-
-							
-
-							evalScope = evalScope.parent
-
 						end
 
-						
-
-						if not caught then
-
-						warn"upvalue not caught"
-
-							local vname = "v"..tostring(#scope.localVars + 1)
-
-							scr = scr.."\n-- UPVAL:\nlocal "..vname.." = "..tostring(stack[stackPos])
-
-							table.insert(scope.localVars, {stackPos, vname})
-
-							
-
-							funcScope.upvalInfo[upI] = vname
-
-						end
-
-						
-
+						evalScope = evalScope.parent
 					end
 
-					
+					if not caught then
+						warn("upvalue not caught")
+						local vName = "v" .. tostring(#scope.localVars + 1)
+						decompileResult ..= "\n-- UPVAL:" .. string.format(stringBuilders.codeCompletions.LOCAL_EXPR, vName, stack[stackPos])
+						table.insert(scope.localVars, {stackPos, vName})
 
-					i += 1
-
+						funcScope.upvalInfo[upvalIndex] = vName
+					end
 				end
 
-				
+				instIndex += 1
+			end
 
-				stack[A] = "function("
+			local funcArgs, funcArgsList = "", table.create(0)
+			for argIndex = 1, nParams do
+				funcArgs ..= "a" .. tostring(argIndex) .. ", "
+				table.insert(funcArgsList, {argIndex - 1, "a" .. tostring(argIndex)})
+			end
 
-				local args = {}
-
-				for arg=1,nargs do
-
-					stack[A] = stack[A].."a"..tostring(arg)..", "
-
-					table.insert(args, {arg-1, "a"..tostring(arg)})
-
-				end
-
-				if (nargs > 0) then
-
-					stack[A] = stack[A]:sub(0,stack[A]:len()-2) -- remove last comma
-
-				end
-
-				
-
-				stack[A] = stack[A]..")\n"
-
-				
-
-				local funcDecompiled = reverseVM(f, funcScope, args)
-
-				stack[A] = stack[A]..funcDecompiled[1].."\nend"
-
-				lastLine = funcDecompiled[2]
-
-				lines[i] = funcDecompiled[2] + 1
-
-			
-
-			elseif (op == luauOps.VARARG) then
-
-				stack[A] = "..."
-
-			
-
-			elseif (op == luauOps.CLOSE) then
-
-			elseif (op == luauOps.VARARGPREP or op == luauOps.CLEARSTACK) then
-
-			elseif (op == 0 and i == #code-1) then
-
-			else
-
-				warn("UNHANDLED OPCODE", op)
-
+			funcArgs = (if nParams ~= 0 then string.sub(funcArgs, 0, string.len(funcArgs) - 2) else funcArgs)
+			local funcDecompiled = reverseVM(function_, funcScope, funcArgsList)
+			stack[argA] = string.format(stringBuilders.codeCompletions.CLOSURE_CONSTRUCTOR, funcArgs, funcDecompiled[1])
+			lastLine = funcDecompiled[2]
+			codeLines = funcDecompiled[2] + 1
+		elseif (opcode == luauOps.VARARG) then
+			stack[argA] = "..."
+		elseif (opcode == luauOps.CLOSE) then
+			-- none
+		elseif (opcode == luauOps.VARARGPREP or opcode == luauOps.CLEARSTACK) then
+			-- none
+		elseif (opcode == 0 and instIndex == #codeLines - 1) then
+			-- none
+		else
+			warn("UNHANDLED OPCODE", opcode)
 		end
 
+		table.insert(tracebackLog, {opcode, instruction, instIndex, argA})
 
-
-		table.insert(tracebackLog, {op, inst, i, A})
-
-
-
-		local thisLine = lines[i]
-
+		local thisLine = codeLines[instIndex]
 		local dLen = thisLine - lastLine
 
-		if (dLen > 25) then if (dLen > 0) then scr = scr.."\n" end goto dontDoThat end -- experience :(
-
-		for __ = 1,thisLine-lastLine do
-
-			scr = scr.."\n"
-
-		end
-
-		
-
-		::dontDoThat::
-
-		lastLine = thisLine
-
-
-
-		local evalScope = scope
-
-		while (evalScope ~= nil) do
-
-			for _,elseStatement in pairs(evalScope.elses) do
-
-				if (elseStatement == i) then
-
-					local indents = ""
-
-				if (evalScope.parent and evalScope.parent.depth > 0) then
-
-					indents = string.rep(" ", evalScope.parent.depth * 5)
-
-				end
-
-					scr = scr.."\n"..indents.."else"
-
-				end
-
+		if (dLen > 25) then
+			if (dLen > 0) then
+				decompileResult ..= "\n"
 			end
 
-			if (evalScope.closeAt == i) then
-				local indents = ""
-				if (evalScope.parent and evalScope.parent.depth > 0) then
-					indents = string.rep(" ", evalScope.parent.depth * 5)
+			lastLine = thisLine
+
+			local evalScope = scope
+			while evalScope ~= nil do
+				for _, elseStatement in pairs(evalScope.elses) do
+					if elseStatement == instIndex then
+						local indents = (if (evalScope.parent and evalScope.parent.depth > 0) then string.rep(" ", evalScope.parent.depth * 4) else "")
+						decompileResult ..= "\n" .. indents .. "else"
+					end
 				end
 
-				local statement = "end\n"
-				scr = scr .. "\n" .. indents .. statement
-				scope = evalScope.parent
-				evalScope = scope
-			else
-				evalScope = evalScope.parent
+				if evalScope.closeAt == instIndex then
+					local indents = (if (evalScope.parent and evalScope.parent.depth > 0) then string.rep(" ", evalScope.parent.depth * 4) else "")
+
+					decompileResult ..= "\n" .. indents .. "end\n"
+					scope = evalScope.parent
+					evalScope = scope
+				else
+					evalScope = scope.parent
+				end
 			end
+
+			if backupDResultToCheck == decompileResult then
+				decompileResult = string.sub(0, string.len(decompileResult) - (scope.depth * 4))
+			end
+			instIndex += 1
+			continue
 		end
 
-		if (backupScrToCheck == scr) then
-			local indents = scope.depth * 5
-			scr = string.sub(scr, 0, string.len(scr) - indents) -- remove indentation
+		for _ = 1, thisLine - lastLine do
+			decompileResult ..= "\n"
 		end
-
-		i = i + 1
 	end
 
-	return {scr, lines[1]}
+	return {decompileResult, codeLines[1]}
 end
+
+local function decompileFunc(script: LocalScript | ModuleScript)
+	local globalScope = {
+		depth = 0,
+		closeAt = -1,
+		parent = nil,
+		elses = table.create(0),
+		isWhile = false,
+		isBreakable = false,
+
+		localVars = table.create(0),
+		upvalInfo = table.create(0)
+	}
+	local func = getscriptclosure(script)
+	local decompiledScript = reverseVM(func, globalScope, table.create(0))[1]
+	return decompiledScript
+end
+getgenv().decompile = decompileFunc
