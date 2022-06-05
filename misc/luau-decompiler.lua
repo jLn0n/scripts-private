@@ -1,9 +1,11 @@
 --[[
 	Based of https://github.com/TacticalBFG/luau-decompiler
-	just rewriting this to work in lua 5.1 because TacticalBFG write the shit in lua 5.3 or 5.4
+	just rewriting this to work in lua 5.1 because TacticalBFG write the shit in his executor called helicity which is paid
 	TODO:
 		#1: Extend this thing and use the latest from https://github.com/Roblox/luau/blob/master/Common/include/Luau/Bytecode.h
-		#2: convert the goto thingy to function (used continue lol)
+		#2 (fixed): convert the goto thingy to function (nvm using continue keyword is better)
+		#3: debug.getinstructions and debug.getlines should be available (but executors doesn't have that function)
+			so i was planning on making it on scratch tho but i should know how the function works first
 --]]
 -- variables
 local luauOps = { -- TODO #1
@@ -117,28 +119,41 @@ local stringBuilders = {
 		CLOSURE_CONSTRUCTOR = "function(%s)\n%s\nend"
 	}
 }
+-- luau
+local luau = {};
+luau.SIZE_A = 8
+luau.SIZE_C = 8
+luau.SIZE_B = 8
+luau.SIZE_Bx = (luau.SIZE_C + luau.SIZE_B)
+luau.SIZE_OP = 8
+luau.POS_OP = 0
+luau.POS_A = (luau.POS_OP + luau.SIZE_OP)
+luau.POS_B = (luau.POS_A + luau.SIZE_A)
+luau.POS_C = (luau.POS_B + luau.SIZE_B)
+luau.POS_Bx = luau.POS_B
+luau.MAXARG_A = (bit32.lshift(1, luau.SIZE_A) - 1)
+luau.MAXARG_B = (bit32.lshift(1, luau.SIZE_B) - 1)
+luau.MAXARG_C = (bit32.lshift(1, luau.SIZE_C) - 1)
+luau.MAXARG_Bx = (bit32.lshift(1, luau.SIZE_Bx) - 1)
+luau.MAXARG_sBx = bit32.rshift(luau.MAXARG_Bx, 1)
+luau.BITRK = bit32.lshift(1, (luau.SIZE_B - 1))
+luau.MAXINDEXRK = (luau.BITRK - 1)
+luau.ISK = function(x) return bit32.band(x, luau.BITRK) end
+luau.INDEXK = function(x) return bit32.band(x, bit32.bnot(luau.BITRK)) end
+luau.RKASK = function(x) return bit32.bor(x, luau.BITRK) end
+luau.MASK1 = function(n,p) return bit32.lshift(bit32.bnot(bit32.lshift(bit32.bnot(0), n)), p) end
+luau.MASK0 = function(n,p) return bit32.bnot(luau.MASK1(n, p)) end
+luau.GETARG_A = function(i) return bit32.band(bit32.rshift(i, luau.POS_A), luau.MASK1(luau.SIZE_A, 0)) end
+luau.GETARG_B = function(i) return bit32.band(bit32.rshift(i, luau.POS_B), luau.MASK1(luau.SIZE_B, 0)) end
+luau.GETARG_C = function(i) return bit32.band(bit32.rshift(i, luau.POS_C), luau.MASK1(luau.SIZE_C, 0)) end
+luau.GETARG_Bx = function(i) return bit32.band(bit32.rshift(i, luau.POS_Bx), luau.MASK1(luau.SIZE_Bx, 0)) end
+luau.GETARG_sBx = function(i) local Bx = luau.GETARG_Bx(i) local sBx = Bx + 1; if Bx > 0x7FFF and Bx <= 0xFFFF then sBx = -(0xFFFF - Bx); sBx = sBx - 1; end return sBx end
+luau.GETARG_sAx = function(i) return bit32.rshift(i, 8) end
+luau.GET_OPCODE = function(i) return bit32.band(bit32.rshift(i, luau.POS_OP), luau.MASK1(luau.SIZE_OP, 0)) end
+luau.EMIT_ABC = function(opcode, a, b, c)
+	return bit32.bor(bit32.bor(bit32.bor(opcode, luau.GETARG_A(a)), luau.GETARG_B(b)), luau.GETARG_C(c))
+end
 -- functions
-local luau = {
-	getOpcode = function(inst)
-		return bit32.band(inst, 0xFF)
-	end,
-	getA = function(inst)
-		return bit32.band(bit32.rshift(inst, 8), 0xFF)
-	end,
-	getB = function(inst)
-		return bit32.band(bit32.rshift(inst, 16), 0xFF)
-	end,
-	getC = function(inst)
-		return bit32.band(bit32.rshift(inst, 24), 0xFF)
-	end,
-	getBx = function(inst)
-		return bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-	end,
-	emitABC = function(opcode, a, b, c)
-		return bit32.bor(bit32.bor(bit32.bor(opcode, (bit32.lshift(a, 8))), (bit32.lshift(b, 16))), (bit32.lshift(c, 24)))
-	end
-}
-
 local function formatConstant(constant)
 	if typeof(constant) == "string" then
 		constant = string.format("\"%s\"", constant)
@@ -323,14 +338,14 @@ local function reverseVM(func, scope, vars)
 	local instIndex = 1
 	while (instIndex <= #codeInst) do
 		local instruction = codeInst[instIndex]
-		local opcode = luau.getOpcode(instruction)
-		local argA = luau.getA(instruction)
+		local opcode = luau.GET_OPCODE(instruction)
+		local argA = luau.GETARG_A(instruction)
 
 		decompileResult ..= string.rep(" ", scope.depth * 4)
 		local backupDResultToCheck = decompileResult
 
 		if (opcode == luauOps.ENUM) then
-			local globalFunc = constAdjusted[luau.getBx(instruction)]
+			local globalFunc = constAdjusted[luau.GETARG_Bx(instruction)]
 			local tableInfo = codeInst[instIndex + 1]
 			instIndex += 1
 
@@ -367,7 +382,7 @@ local function reverseVM(func, scope, vars)
 			decompileResult ..= string.format(stringBuilders.codeCompletions.VALUE_SETTO, name, value)
 			table.insert(globalCache, name)
 		elseif (opcode == luauOps.MOVE) then
-			local whereMove = luau.getB(instruction)
+			local whereMove = luau.GETARG_B(instruction)
 			local regIndex = -1
 			local evalScope = scope
 
@@ -391,7 +406,7 @@ local function reverseVM(func, scope, vars)
 
 			stack[argA] = regIndex
 		elseif (opcode == luauOps.LOADK) then
-			stack[argA] = formatConstant(constAdjusted[luau.getBx(instruction)])
+			stack[argA] = formatConstant(constAdjusted[luau.GETARG_Bx(instruction)])
 		elseif (opcode == luauOps.LOADKX) then
 			stack[argA] = formatConstant(constAdjusted[codeInst[instIndex + 1]])
 			instIndex += 1
@@ -653,7 +668,7 @@ local function reverseVM(func, scope, vars)
 			instIndex += 1
 			stack[argA] = string.format(stringBuilders.codeCompletions.NAMECALL_CONSTRUCT, stack[argA], callMethod)
 			local call = codeInst[instIndex + 1]
-			codeInst[instIndex + 1] = luau.emitABC(luauOps.CALL, argA, luau.getB(call), luau.getC(call)) -- stolen from luau lol
+			codeInst[instIndex + 1] = luau.EMIT_ABC(luauOps.CALL, argA, luau.GETARG_B(call), luau.GETARG_C(call)) -- stolen from luau lol
 		elseif (opcode == luauOps.CALL) then
 			local funcName = stack[argA]
 			local nArgs, nReturn = bit32.band(bit32.rshift(instruction, 16), 0xFF) - 1, bit32.band(bit32.rshift(instruction, 24), 0xFF) - 1
