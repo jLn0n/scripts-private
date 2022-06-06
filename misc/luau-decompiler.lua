@@ -229,9 +229,9 @@ local function resolveWhileLoop(code, start, destination)
 	return trueEnd
 end
 
-local function buildCondition(instructions, i, inst, scope, elem, condType, b)
+local function buildCondition(instructions, index, inst, scope, elem, condType, b)
 	local dist = bit32.band(bit32.rshift(inst, 16), 0xFFFF)
-	local destInst = instructions[i + dist]
+	local destInst = instructions[index + dist]
 	local destOp = bit32.band(destInst, 0xFF)
 	local scr = ""
 	local skips = 0
@@ -260,7 +260,7 @@ local function buildCondition(instructions, i, inst, scope, elem, condType, b)
 		else ""
 	)
 
-	local realDist = resolveRealDist(instructions, i + condSubtract)
+	local realDist = resolveRealDist(instructions, index + condSubtract)
 	if (realDist[1] == -2) then -- while loop
 		scr = scr .. string.format(stringBuilders.conditions.whileConditionDo, conditionResult)
 		testScope.isWhile = true
@@ -277,18 +277,18 @@ local function buildCondition(instructions, i, inst, scope, elem, condType, b)
 	if (not testScope.isWhile) then
 		scr = scr .. string.format(stringBuilders.conditions.ifConditionThen, conditionResult)
 	end
-	testScope.closeAt = i + dist + condSubtract
+	testScope.closeAt = index + dist + condSubtract
 	return {testScope, skips, scr}
 end
 
-local function tracebackFrom(log, i, A, scope)
+local function tracebackFrom(tracebackLog, index, LUAU_A, scope)
 	local evalScope = scope
 	local nLocals = 1
 
 	while (evalScope ~= nil) do
 		for _, loc in pairs(evalScope.localVars) do
 			nLocals += 1
-			if loc[1] == A then
+			if loc[1] == LUAU_A then
 				return nil -- local already exists
 			end
 		end
@@ -296,11 +296,11 @@ local function tracebackFrom(log, i, A, scope)
 		evalScope = evalScope.parent
 	end
 
-	for k = i, 1, -1 do
-		local trace = log[k]
-		if (trace[4] == A) then
+	for k = index, 1, -1 do
+		local trace = tracebackLog[k]
+		if (trace[4] == LUAU_A) then
 			local op= trace[1]
-			if (op ~= luauOps.SETTABLEK and op ~= luauOps.SETTABLER and op ~= luauOps.SETTABLEI and op ~= luauOps.SETENV and op ~= luauOps.SETUPVAL and op ~= luauOps.CALL  ) then
+			if (op ~= luauOps.SETTABLEK and op ~= luauOps.SETTABLER and op ~= luauOps.SETTABLEI and op ~= luauOps.SETENV and op ~= luauOps.SETUPVAL and op ~= luauOps.CALL) then
 				return {trace[4], "v" .. tostring(nLocals)}
 			end
 		end
