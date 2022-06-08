@@ -150,7 +150,7 @@ luau.GETARG_Bx = function(i) return bit32.band(bit32.rshift(i, luau.POS_Bx), lua
 luau.GETARG_sBx = function(i) local Bx = luau.GETARG_Bx(i) local sBx = Bx + 1; if Bx > 0x7FFF and Bx <= 0xFFFF then sBx = -(0xFFFF - Bx); sBx = sBx - 1; end return sBx end
 luau.GETARG_sAx = function(i) return bit32.rshift(i, 8) end
 luau.GET_OPCODE = function(i) return bit32.band(bit32.rshift(i, luau.POS_OP), luau.MASK1(luau.SIZE_OP, 0)) end
-luau.EMIT_ABC = function(opcode, a, b, c)
+luau.CODE_ABC = function(opcode, a, b, c) -- this implementation might not work tho
 	return bit32.bor(bit32.bor(bit32.bor(opcode, luau.GETARG_A(a)), luau.GETARG_B(b)), luau.GETARG_C(c))
 end
 -- functions
@@ -429,14 +429,14 @@ local function deserializeBytecode(bytecode)
 
 			if (reader:nextByte() == 1) then -- Has Line info?
 				local compKey = reader:nextVarInt()
-				for j = 1,proto.sizeCode do
+				for j = 1, proto.sizeCode do
 					proto.smallLineInfo[j] = reader:nextByte()
 				end
 
 				local n = bit32.band(proto.sizeCode + 3, -4)
 				local intervals = bit32.rshift(proto.sizeCode - 1, compKey) + 1
 
-				for j = 1,intervals do
+				for j = 1, intervals do
 					proto.largeLineInfo[j] = reader:nextInt()
 				end
 			end
@@ -976,10 +976,23 @@ local function readProto(proto, scope, depth, protoTable)
 	end
 end
 
-local function reverseVM(bytecode, scope)
+local function decompileFunc(script: LocalScript | ModuleScript)
+	local globalScope = {
+		depth = 0,
+		closeAt = -1,
+		parent = nil,
+		elses = table.create(0),
+		isWhile = false,
+		isBreakable = false,
+
+		localVars = table.create(0),
+		upvalInfo = table.create(0)
+	}
+	local bytecode = getscriptbytecode(script)
+
 	local mainProto, protoTable, stringTable = deserializeBytecode(bytecode)
 	mainProto.source = "main"
 
-	return readProto(mainProto, scope, 0, protoTable)
+	return readProto(mainProto, globalScope, 0, protoTable)
 end
-reverseVM()
+getgenv().decompile = decompileFunc
