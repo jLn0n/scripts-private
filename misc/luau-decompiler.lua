@@ -2,7 +2,7 @@
 	Based of https://github.com/TacticalBFG/luau-decompiler
 	just rewriting this to work in lua 5.1 because TacticalBFG write the shit in his executor called helicity which is paid
 	TODO:
-		#1: Extend this thing and use the latest from https://github.com/Roblox/luau/blob/master/Common/include/Luau/Bytecode.h
+		#1: Rewrite the decompilation code because why not diba?
 		#2 (fixed): convert the goto thingy to function (nvm using continue keyword is better)
 		#3: debug.getinstructions and debug.getlines should be available (but executors doesn't have that function)
 			so i was planning on making it on scratch tho but i should know how the function works first
@@ -487,7 +487,9 @@ local function readProto(proto, scope, depth, protoTable)
 		-- Well I didn't expected to rewrite Tactical BFG's work lol
 		-- so most of the stuff here will be removed/replaced with new one
 		-- too lazy todo today I'll just take a break for this I hope I can continue
-		-- this on weekends. Also I should really learn how the opcodes work in luau.
+		-- this on weekends. Also I should really learn how the lua internals work.
+
+		-- BUG#1
 		if (opcode == luauOps.ENUM) then
 			local globalFunc = proto.kTable[luau.GETARG_Bx(instruction)]
 			local tableInfo = instructions[codeIndex + 1]
@@ -974,6 +976,7 @@ local function readProto(proto, scope, depth, protoTable)
 			decOutput ..= "\n"
 		end
 	end
+	return decOutput
 end
 
 local function decompileFunc(script: LocalScript | ModuleScript)
