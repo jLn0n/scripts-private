@@ -9,6 +9,9 @@
         "getnamecallmethod",
         "checkcaller",
         "fireclickdetector",
-        "getsenv"
+        "getsenv",
+        "getconnections",
+        "getgenv",
+        "getscriptbytecode"
     ]
 }
