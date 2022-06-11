@@ -38,14 +38,13 @@ local function claimPartNetOwnership(partObj)
 	if not partObj then return end
 	local oldPos = rootPart.Position
 	character:PivotTo(partObj.CFrame)
-	task.wait()
-	task.delay(.075, character.MoveTo, character, oldPos)
+	task.delay(.05, character.MoveTo, character, oldPos)
 end
 -- main
 do -- alignPos/Ort init
 	alignPos.ApplyAtCenterOfMass = true
-	alignPos.MaxForce, alignOrt.MaxTorque = math.huge, math.huge
-	alignPos.MaxVelocity, alignOrt.MaxAngularVelocity = 10e10, 10e10
+	alignPos.MaxForce, alignOrt.MaxTorque = 10e9, 10e9
+	alignPos.MaxVelocity, alignOrt.MaxAngularVelocity = math.huge, math.huge
 	alignPos.ReactionForceEnabled, alignOrt.ReactionTorqueEnabled = false, false
 	alignPos.Responsiveness, alignOrt.Responsiveness = math.huge, math.huge
 	alignPos.RigidityEnabled, alignOrt.RigidityEnabled = smoothMove, smoothMove -- what to decide here?
