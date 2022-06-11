@@ -9,7 +9,7 @@ local character = player.Character
 local rootPart = character.HumanoidRootPart
 local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
 local weldHolder, alignPos, alignOrt = Instance.new("Part"), Instance.new("AlignPosition"), Instance.new("AlignOrientation")
-weldHolder.Anchored, weldHolder.Name, weldHolder.Position, weldHolder.Transparency = true, "WeldHolder", Vector3.zero, .5
+weldHolder.Anchored, weldHolder.CanCollide, weldHolder.Name, weldHolder.Position, weldHolder.Transparency = true, false, "WeldHolder", Vector3.zero, .5
 weldHolder.Parent = workspace
 -- variables
 local smoothMove = false
@@ -70,12 +70,12 @@ inputService.InputBegan:Connect(function(input)
 				local targetPart = mouse.Target
 				if rootPart and targetPart and not targetPart.Anchored and (not targetPart:IsGrounded() and #targetPart:GetJoints() == 0) then
 					controllingPart, currentPartPos = targetPart, rootPart.Position
+					setPartWeld(controllingPart)
+					togglePhysicsManipulator(controllingPart, false)
 					for _ = 1, 5 do
 						task.spawn(claimPartNetOwnership, controllingPart)
 						controllingPart.Position = rootPart.Position
 					end
-					setPartWeld(controllingPart)
-					togglePhysicsManipulator(controllingPart, false)
 					character:MoveTo(currentPartPos)
 				end
 			elseif inputService:IsKeyDown(Enum.KeyCode.Z) and controllingPart then
