@@ -23,9 +23,8 @@ local function getcallingfunction(indexLvlStart: number)
 	indexLvlStart = indexLvlStart or 10
 	local funcCaller
 	for indexLvl = indexLvlStart, 0, -1 do
-		local func = debug.info(indexLvl, "f")
-		local funcSource = (func and debug.info(func, "s") or nil)
-		if ((func and (stringPathToInstance(funcSource) or not isourclosure(func)))) then
+		local func, fSource = debug.info(indexLvl, "fs")
+		if (func and (stringPathToInstance(fSource) or not isourclosure(func))) then
 			funcCaller = func
 			break
 		end
@@ -37,10 +36,12 @@ end
 ---@return LocalScript | ModuleScript | nil
 local function getcallingscript()
 	local funcCaller = getcallingfunction()
-	if funcCaller then return stringPathToInstance(debug.info(funcCaller, "s")) end
-	for indexLvl = 10, 0, -1 do
-		local strResult = string.match(debug.traceback("", indexLvl), "%w+:[%d%s]+$")
-		if strResult then
+	if funcCaller then
+		return stringPathToInstance(debug.info(funcCaller, "s"))
+	else
+		for indexLvl = 10, 0, -1 do
+			local strResult = string.match(debug.traceback("", indexLvl), "%w+:[%d%s]+$")
+			if not strResult then continue end
 			local strPath = string.split(strResult, ":")[1]
 			local object = stringPathToInstance(strPath)
 			if object and object:IsA("LuaSourceContainer") then
