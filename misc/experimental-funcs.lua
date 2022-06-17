@@ -4,6 +4,29 @@
 		global funcs that are created in as executor closure should not be returned (it currently doesn't do that)
 	
 --]]
+
+--wraps function into a custom fenv
+---@param func function
+---@param customFenv table
+---@return function
+local function wrapFuncGlobal(func, customFenv)
+	local fenv, fenvCache = {}, getfenv(0)
+	local fenvMT = {}
+	function fenvMT:__index(index)
+		return customFenv[index] or fenvCache[index]
+	end
+	function fenvMT:__newindex(index, value)
+		if not customFenv[index] then
+			fenvCache[index] = value
+		else
+			customFenv[index] = value
+		end
+	end
+	setmetatable(fenv, fenvMT)
+	setfenv(func, fenv)
+	return func
+end
+
 --Returns the instance from the string path
 ---@param strPath string
 ---@return Instance | nil
@@ -37,7 +60,7 @@ end
 local function getcallingscript()
 	local funcCaller = getcallingfunction()
 	if funcCaller then
-		return stringPathToInstance(debug.info(funcCaller, "s"))
+		return stringPathToInstance(debug.info(funcCaller, "s")) or rawget(getfenv(funcCaller), "script")
 	else
 		for indexLvl = 10, 0, -1 do
 			local strResult = string.match(debug.traceback("", indexLvl), "%w+:[%d%s]+$")
@@ -55,7 +78,7 @@ end
 
 local function test()
 	local funcCaller, scriptCaller = getcallingfunction(), getcallingscript()
-	print(debug.info(funcCaller, "n"), scriptCaller) -- this will print the function name
+	print((funcCaller and debug.info(funcCaller, "n")), scriptCaller) -- this will print the function name
 end
 
 local function icallthetestfunc()
