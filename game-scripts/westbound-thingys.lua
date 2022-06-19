@@ -1,7 +1,7 @@
 -- config
 local config = {
-	visCheck = false,
 	distance = 250,
+	visCheck = true,
 	noRecoil = true,
 	teamCheck = false
 }
@@ -14,7 +14,7 @@ local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
-local gunLocalModule = require(repStorage.GunScripts.GunLocalModule)
+local gunLocalModule, gunStats = require(repStorage.GunScripts.GunLocalModule), require(repStorage.GunScripts.GunStats)
 -- variables
 local nearPlrs = table.create(0)
 -- functions
@@ -46,13 +46,25 @@ local function getNearestPlrByCursor()
 	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
 end
 -- main
+for _gunName, gunStatData in pairs(gunStats) do
+	gunStatData.Spread = 0
+	gunStatData.prepTime = .1
+	gunStatData.equipTime = .1
+	gunStatData.MaxShots = 100 -- todo: make this shit subtract to the real maxShots
+	gunStatData.Damage = 100
+	gunStatData.ReloadSpeed = .1
+	gunStatData.BulletSpeed = 500
+	gunStatData.HipFireAccuracy = 0
+	gunStatData.ZoomAccuracy = 0
+end
 local oldShootBullet, oldShakeCam = gunLocalModule.shootBullet, gunLocalModule.shakeCam
-gunLocalModule.shootBullet = function(weaponData, head, hitPos, bool)
+gunLocalModule.shootBullet = function(weaponData, headObj, hitPos, isHeadshot)
 	local nearestPlr = getNearestPlrByCursor()
 	if nearestPlr then
 		hitPos = nearestPlr.aimPart.Position
+		isHeadshot = true
 	end
-	return oldShootBullet(weaponData, head, hitPos, bool)
+	return oldShootBullet(weaponData, headObj, hitPos, isHeadshot)
 end
 gunLocalModule.shakeCam = function(weaponData)
 	return (not config.noRecoil and oldShakeCam(weaponData) or nil)
