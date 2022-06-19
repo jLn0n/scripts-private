@@ -1,3 +1,11 @@
+--[[
+	TODO:
+	  #1: head should fly
+	  #2: fix the rotation being fucked up sometimes
+	  #3: add gui configuration?
+	  #4: have a properly working script of this
+	  #5: make the move tools works like in roblox studio
+--]]
 -- services
 local coreGui = game:GetService("CoreGui")
 local inputService = game:GetService("UserInputService")
@@ -16,15 +24,13 @@ partHandles.Style = Enum.HandlesStyle.Movement
 partHandles.Transparency, partArcHandles.Transparency = 0, 0
 partHandles.Parent, partArcHandles.Parent, weldHolder.Parent = coreGui.RobloxGui, coreGui.RobloxGui, workspace
 -- variables
-local controllingPart, resetBindableConnection
+local controllingPart
 local moveIncrement, rotationIncrement = .5, 45
 local controlMode = 1 -- 1 = move | 2 = rotate
-local handlesThingys = {
-	args = nil,
-	arcHandlesOldIncVal = 0,
-	arcHandlesOldAxis = nil
-}
 local partControllers = table.create(0)
+local handlesInternals = {
+	args = nil,
+}
 local hitRayParams = RaycastParams.new()
 hitRayParams.FilterType = Enum.RaycastFilterType.Blacklist
 hitRayParams.FilterDescendantsInstances = {character.Head, weldHolder}
@@ -47,6 +53,11 @@ local function createPartWeld(basePart)
 	partControllers[basePart] = {
 		attachment = attachment,
 		cframe = CFrame.identity,
+		_internal = {
+			prevRotAngleAxis = 0,
+			prevRotAxis = nil,
+			oldCurrentCFrame = nil
+		}
 	}
 end
 local function getPartFromMouseHit()
@@ -71,7 +82,7 @@ local function unpackOrientation(vect3, useRadians)
 end
 local function wrapArgsPack()
 	return function(...)
-		handlesThingys.args = table.pack(...)
+		handlesInternals.args = table.pack(...)
 	end
 end
 -- main
@@ -90,7 +101,7 @@ task.defer(function()
 			if not object.Handle.CanCollide then
 				createPartWeld(object.Handle)
 			end
-		elseif object:IsA("BasePart") and object.Name ~= "Head" then
+		elseif object:IsA("BasePart") and (object.Name ~= "Head") then
 			destroyFunc(object)
 		end
 	end
@@ -114,20 +125,21 @@ end)
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	local partData = partControllers[controllingPart]
-	if partData and handlesThingys.args then
+	if partData and handlesInternals.args then
 		if controlMode == 1 then
-			local face, distance = unpack(handlesThingys.args)
-			partData.cframe += (Vector3.fromNormalId(face) * math.floor(4 / moveIncrement + .5) / moveIncrement)
-		elseif controlMode == 2 then
-			local axis, relativeAngle = unpack(handlesThingys.args)
+			local face, distance = unpack(handlesInternals.args)
+			distance = math.round(distance / moveIncrement) * moveIncrement
+			partData.cframe = (partData._internal.oldCurrentCFrame + (Vector3.fromNormalId(face) * distance))
+		elseif controlMode == 2 then -- TODO #2
+			local axis, relativeAngle = unpack(handlesInternals.args)
 			local currentAngle = snapToClosestIncrement(relativeAngle)
-			partControllers[controllingPart].cframe *= CFrame.fromAxisAngle(
+			partData.cframe *= CFrame.fromAxisAngle(
 				Vector3.fromAxis(axis),
-				currentAngle - (if (handlesThingys.arcHandlesOldAxis and axis == handlesThingys.arcHandlesOldAxis) then handlesThingys.arcHandlesOldIncVal else 0)
+				currentAngle - (if (partData._internal.prevRotAxis == axis) then partData._internal.prevRotAngleAxis else 0)
 			)
-			handlesThingys.arcHandlesOldIncVal, handlesThingys.arcHandlesOldAxis = currentAngle, axis
+			partData._internal.prevRotAngleAxis, partData._internal.prevRotAxis = currentAngle, axis
 		end
-		handlesThingys.args = nil
+		handlesInternals.args = nil
 	end
 end)
 
@@ -135,7 +147,7 @@ _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(i
 	if not inputService:GetFocusedTextBox() then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 and inputService:IsKeyDown(Enum.KeyCode.Q) then
 			local targetPart = getPartFromMouseHit()
-			controllingPart = (if targetPart and targetPart:IsDescendantOf(character) and not (targetPart.Anchored or targetPart:IsGrounded()) then targetPart else nil)
+			controllingPart = (if targetPart and not (targetPart.Anchored or targetPart:IsGrounded()) then targetPart else nil)
 			partHandles.Adornee, partArcHandles.Adornee = controllingPart, controllingPart
 			if (controllingPart and not partControllers[controllingPart]) then createPartWeld(controllingPart) end
 		elseif input.UserInputType == Enum.UserInputType.Keyboard then
@@ -148,13 +160,18 @@ _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(i
 	end
 end)
 
+_G.Connections[#_G.Connections + 1] = partHandles.MouseButton1Down:Connect(function()
+	local partData = partControllers[controllingPart]
+	if partData then
+		partData._internal.oldCurrentCFrame = partData.cframe
+	end
+end)
 _G.Connections[#_G.Connections + 1] = partHandles.MouseDrag:Connect(wrapArgsPack())
 _G.Connections[#_G.Connections + 1] = partArcHandles.MouseDrag:Connect(wrapArgsPack())
 
-resetBindableConnection = resetBindable.Event:Connect(function()
+_G.Connections[#_G.Connections + 1] = resetBindable.Event:Connect(function()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end; table.clear(_G.Connections)
 	starterGui:SetCore("ResetButtonCallback", true)
-	resetBindableConnection:Disconnect()
 	local daModel = Instance.new("Model")
 	local _daModelHumanoid = Instance.new("Humanoid")
 	_daModelHumanoid.Parent = daModel
