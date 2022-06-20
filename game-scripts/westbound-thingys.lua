@@ -48,11 +48,10 @@ end
 -- main
 for _gunName, gunStatData in pairs(gunStats) do
 	gunStatData.Spread = 0
-	gunStatData.prepTime = .1
-	gunStatData.equipTime = .1
-	gunStatData.MaxShots = 100 -- todo: make this shit subtract to the real maxShots
+	gunStatData.prepTime = .01
+	gunStatData.equipTime = .01
 	gunStatData.Damage = 100
-	gunStatData.ReloadSpeed = .1
+	gunStatData.ReloadSpeed = .05
 	gunStatData.BulletSpeed = 500
 	gunStatData.HipFireAccuracy = 0
 	gunStatData.ZoomAccuracy = 0
