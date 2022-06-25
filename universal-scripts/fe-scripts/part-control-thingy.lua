@@ -135,7 +135,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			local currentAngle = snapToClosestIncrement(relativeAngle)
 			partData.cframe *= CFrame.fromAxisAngle(
 				Vector3.fromAxis(axis),
-				currentAngle - (if (partData._internal.prevRotAxis == axis) then partData._internal.prevRotAngleAxis else 0)
+				currentAngle - (if (axis == partData._internal.prevRotAxis) then partData._internal.prevRotAngleAxis else 0)
 			)
 			partData._internal.prevRotAngleAxis, partData._internal.prevRotAxis = currentAngle, axis
 		end
