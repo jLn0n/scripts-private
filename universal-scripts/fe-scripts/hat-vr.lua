@@ -16,6 +16,7 @@ local contextActionService = game:GetService("ContextActionService")
 local inputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
+local starterGui = game:GetService("StarterGui")
 local VRService = game:GetService("VRService")
 -- objects
 local camera = workspace.CurrentCamera
@@ -23,9 +24,10 @@ local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
 local rootPart, torso = character.HumanoidRootPart, character.Torso
-local userCFrameChanged = Instance.new("BindableEvent")
+local userCFrameChanged, resetEvent = Instance.new("BindableEvent"), Instance.new("BindableEvent")
 -- variables
 local bodyParts, fakeBodyParts
+local VRInput
 -- functions
 local destroyFunc = character.Destroy
 local function createWeld(part, parent, cframeOffset)
@@ -95,6 +97,7 @@ local function unpackOrientation(vectRot, useRadians)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 -- main
+_G.Connections = _G.Connections or table.create(0)
 bodyParts, fakeBodyParts = {
 	["Head"] = character:FindFirstChild(options.headName),
 	["LeftHand"] = character:FindFirstChild("Pal Hair"),
@@ -113,7 +116,7 @@ task.defer(function()
 
 	for partName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
-			--sethiddenproperty(object, "BackendAccoutrementState", 1)
+			sethiddenproperty(object, "BackendAccoutrementState", 0)
 			object.Handle:BreakJoints()
 			createWeld(object, fakeBodyParts[partName])
 			if partName ~= "Head" then
@@ -122,7 +125,7 @@ task.defer(function()
 		end
 	end
 
-	humanoid.AnimationPlayed:Connect(function(animation)
+	_G.Connections[#_G.Connections + 1] = humanoid.AnimationPlayed:Connect(function(animation)
 		animation:Stop()
 	end)
 	for _, animation in ipairs(humanoid:GetPlayingAnimationTracks()) do
@@ -140,7 +143,7 @@ if options.netSettings.enable then
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
 	player.ReplicationFocus = workspace
 
-	runService.Heartbeat:Connect(function()
+	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in pairs(bodyParts) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
@@ -148,7 +151,7 @@ if options.netSettings.enable then
 				object.CanCollide, object.Massless = false, true
 				object.Velocity, object.RotVelocity = options.netSettings.velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.OnContact)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
 		end
 	end)
@@ -159,29 +162,29 @@ if VRService.VREnabled then
 
 	local R1ButtonDown = false
 
-	inputService.UserCFrameChanged:Connect(function(type, value)
+	_G.Connections[#_G.Connections + 1] = inputService.UserCFrameChanged:Connect(function(type, value)
 		userCFrameChanged:Fire(type, value)
 	end)
 
-	runService.RenderStepped:Connect(function()
+	_G.Connections[#_G.Connections + 1] = runService.RenderStepped:Connect(function()
 		if R1ButtonDown then
 			camera.CFrame = camera.CFrame:Lerp(camera.CFrame + (fakeBodyParts.RightHand.CFrame * CFrame.Angles(unpackOrientation(options.rotationOffset.RightHand - (Vector3.zAxis * 180)))).LookVector * (camera.HeadScale / 2), .5)
 		end
 	end)
 
-	inputService.InputBegan:Connect(function(input)
+	_G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(input)
 		if (input.KeyCode == Enum.KeyCode.ButtonR1) then
 			R1ButtonDown = true
 		end
 	end)
 
-	inputService.InputChanged:Connect(function(input)
+	_G.Connections[#_G.Connections + 1] = inputService.InputChanged:Connect(function(input)
 		if input.KeyCode == Enum.KeyCode.ButtonR1 then
 			R1ButtonDown = (if input.Position.Z > .9 then true else false)
 		end
 	end)
 
-	inputService.InputEnded:Connect(function(input)
+	_G.Connections[#_G.Connections + 1] = inputService.InputEnded:Connect(function(input)
 		if (input.KeyCode == Enum.KeyCode.ButtonR1) then
 			R1ButtonDown = false
 		end
@@ -190,6 +193,7 @@ else
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = nil
 
+	-- actually taken off from the Freecam.lua with modifications
 	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
 
 	local VRCamSettings = {
@@ -198,7 +202,7 @@ else
 		PITCH_LIMIT = math.rad(90)
 	}
 
-	local VRInput do
+	do
 		VRInput = {}
 
 		local keyboard = {
@@ -219,7 +223,7 @@ else
 		}
 
 		local NAV_KEYBOARD_SPEED = Vector3.one
-		local PAN_MOUSE_SPEED = Vector2.one * (math.pi / 64)
+		local PAN_MOUSE_SPEED = Vector2.one * (math.pi / 96)
 		local NAV_ADJ_SPEED = 0.75
 		local NAV_SHIFT_MUL = 0.25
 
@@ -322,7 +326,7 @@ else
 		camera.Focus = camCFrame * (CFrame.identity + (Vector3.zAxis * -GetFocusDistance(camCFrame)))
 	end
 
-	local function stepVRLocation(deltaTime)
+	local function stepVRInput(deltaTime)
 		local headCFrame = (
 			(CFrame.identity + (Vector3.zAxis * .8)) *
 			camera.CFrame:ToObjectSpace() *
@@ -345,12 +349,25 @@ else
 	VRInput.StartCapture()
 	inputService.MouseBehavior = Enum.MouseBehavior.Default
 	runService:BindToRenderStep("VRCam", Enum.RenderPriority.Camera.Value, stepVRCam)
-	runService:BindToRenderStep("VRInput", Enum.RenderPriority.Input.Value, stepVRLocation)
+	runService:BindToRenderStep("VRInput", Enum.RenderPriority.Input.Value, stepVRInput)
 end
 
-userCFrameChanged.Event:Connect(function(type, value)
+_G.Connections[#_G.Connections + 1] = userCFrameChanged.Event:Connect(function(type, value)
 	local bodyPartObj = fakeBodyParts[type.Name]
 	if bodyPartObj then
 		bodyPartObj.CFrame = camera.CFrame * ((CFrame.identity + (value.Position * (camera.HeadScale - 1))) * value * CFrame.Angles(unpackOrientation(options.rotationOffset[type.Name] or Vector3.zero, true)))
 	end
 end)
+
+_G.Connections[#_G.Connections + 1] = resetEvent.Event:Connect(function()
+	camera.CameraSubject = player.Character.Humanoid
+	camera.CameraType = Enum.CameraType.Custom
+
+	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end; table.clear(_G.Connections)
+	player.Character:BreakJoints()
+	starterGui:SetCore("ResetButtonCallback", true)
+	runService:UnbindFromRenderStep("VRCam")
+	runService:UnbindFromRenderStep("VRInput")
+	VRInput.StopCapture()
+end)
+starterGui:SetCore("ResetButtonCallback", resetEvent)
