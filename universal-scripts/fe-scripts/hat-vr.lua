@@ -1,11 +1,15 @@
 -- options
 local options = table.create(0)
-options.headName = "MediHood"
+options.netSettings = {
+	enable = true, -- recommended if ur netless doesn't work
+	velocity = Vector3.xAxis * -35.05,
+}
 
+options.headName = "MediHood" -- the hatname accessory (look at dex)
 options.headScale = 3
 options.rotationOffset = {
-	["LeftHand"] = Vector3.new(),
-	["RightHand"] = Vector3.new()
+	["LeftHand"] = Vector3.new(0, 0, 0),
+	["RightHand"] = Vector3.new(0, 0, 0)
 }
 -- services
 local contextActionService = game:GetService("ContextActionService")
@@ -94,7 +98,7 @@ end
 bodyParts, fakeBodyParts = {
 	["Head"] = character:FindFirstChild(options.headName),
 	["LeftHand"] = character:FindFirstChild("Pal Hair"),
-	["RightHand"] = character:FindFirstChild("Right Arm")
+	["RightHand"] = character:FindFirstChild("Hat1")
 }, {
 	["Head"] = createPart("vrHead", Vector3.one),
 	["LeftHand"] = createPart("vrLArm", Vector3.new(1, 1, 2)),
@@ -126,7 +130,7 @@ task.defer(function()
 	end
 end)
 
-do
+if options.netSettings.enable then
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = math.huge
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
@@ -137,13 +141,14 @@ do
 	player.ReplicationFocus = workspace
 
 	runService.Heartbeat:Connect(function()
-		for _, object in ipairs(bodyParts) do
+		for _, object in pairs(bodyParts) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
+				object.LocalTransparencyModifier = .5
 				object.CanCollide, object.Massless = false, true
-				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
+				object.Velocity, object.RotVelocity = options.netSettings.velocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
-				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.OnContact)
 			end
 		end
 	end)
@@ -188,7 +193,7 @@ else
 	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
 
 	local VRCamSettings = {
-		PAN_GAIN = Vector2.new(0.75, 1) * 8,
+		PAN_GAIN = Vector2.new(0.75, 1) * 4,
 		NAV_GAIN = Vector3.one * 64,
 		PITCH_LIMIT = math.rad(90)
 	}
@@ -214,7 +219,7 @@ else
 		}
 
 		local NAV_KEYBOARD_SPEED = Vector3.one
-		local PAN_MOUSE_SPEED = Vector2.one * (math.pi / 128)
+		local PAN_MOUSE_SPEED = Vector2.one * (math.pi / 64)
 		local NAV_ADJ_SPEED = 0.75
 		local NAV_SHIFT_MUL = 0.25
 
@@ -317,17 +322,19 @@ else
 		camera.Focus = camCFrame * (CFrame.identity + (Vector3.zAxis * -GetFocusDistance(camCFrame)))
 	end
 
-	-- TODO: Calculate the correct VR position
 	local function stepVRLocation(deltaTime)
-		local headCFrame = camera.CFrame:ToObjectSpace()
-		print(headCFrame)
+		local headCFrame = (
+			(CFrame.identity + (Vector3.zAxis * .8)) *
+			camera.CFrame:ToObjectSpace() *
+			camera.CFrame
+		) -- make this get the accurate value without relying on camera cframe
 		local rHandCFrame = (
 			headCFrame *
-			(CFrame.identity + (Vector3.new(2.75, -5, -2.5)))
+			(CFrame.identity + (Vector3.new(.85, -1.05, -1.725)))
 		)
 		local lHandCFrame = (
 			headCFrame *
-			(CFrame.identity + (Vector3.new(-2.75, -5, -2.5)))
+			(CFrame.identity + (Vector3.new(-.85, -1.05, -1.725)))
 		)
 
 		userCFrameChanged:Fire(Enum.UserCFrame.Head, headCFrame)
