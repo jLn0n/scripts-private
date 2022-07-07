@@ -1,8 +1,8 @@
 -- options
 local options = table.create(0)
 options.netSettings = {
-	enable = true, -- recommended if ur netless doesn't work
-	velocity = Vector3.xAxis * -35.05,
+	enable = true, -- recommended if you don't have a netless script
+	velocity = Vector3.zAxis * -100.25,
 }
 
 options.headName = "MediHood" -- the hatname accessory (look at dex)
@@ -61,7 +61,7 @@ local function createPart(name, size)
 	partObj.Parent = character
 	return partObj
 end
-local function GetFocusDistance(cameraFrame)
+local function getFocusDistance(cameraFrame)
 	local znear = 0.1
 	local viewport = camera.ViewportSize
 	local projy = 2 * math.tan(camera.FieldOfView / 2)
@@ -70,7 +70,7 @@ local function GetFocusDistance(cameraFrame)
 	local fy = cameraFrame.UpVector
 	local fz = cameraFrame.LookVector
 
-	local minVect = Vector3.new()
+	local minVect = Vector3.zero
 	local minDist = 512
 
 	for x = 0, 1, 0.5 do
@@ -117,6 +117,7 @@ task.defer(function()
 	for partName, object in pairs(bodyParts) do
 		if object and object:FindFirstChild("Handle") then
 			sethiddenproperty(object, "BackendAccoutrementState", 0)
+			destroyFunc(object:FindFirstChildWhichIsA("Attachment", true))
 			object.Handle:BreakJoints()
 			createWeld(object, fakeBodyParts[partName])
 			if partName ~= "Head" then
@@ -137,19 +138,23 @@ if options.netSettings.enable then
 	settings().Physics.AllowSleep = false
 	settings().Physics.ThrottleAdjustTime = math.huge
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	game:GetService("NetworkClient"):SetOutgoingKBPSLimit(math.huge)
 	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
 	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
-	sethiddenproperty(humanoid, "InternalBodyScale", Vector3.one * 9e99)
+	sethiddenproperty(humanoid, "InternalBodyScale", (Vector3.one * 9e99))
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
-	player.ReplicationFocus = workspace
+	player.ReplicationFocus = nil
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in pairs(bodyParts) do
 			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
 			if object then
+				object:BreakJoints() -- unwelds the hat
+				local calcVelocity = (options.netSettings.velocity + (Vector3.yAxis * rootPart.Velocity.Y))
 				object.LocalTransparencyModifier = .5
 				object.CanCollide, object.Massless = false, true
-				object.Velocity, object.RotVelocity = options.netSettings.velocity, Vector3.zero
+				object:ApplyImpulse(calcVelocity)
+				object.AssemblyLinearVelocity, object.RotVelocity = calcVelocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
@@ -193,17 +198,17 @@ else
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = nil
 
-	-- actually taken off from the Freecam.lua with modifications
+	-- actually taken off from the Freecam.lua but I removed the spring stuff and the gamepad controls
 	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
 
-	local VRCamSettings = {
-		PAN_GAIN = Vector2.new(0.75, 1) * 4,
-		NAV_GAIN = Vector3.one * 64,
-		PITCH_LIMIT = math.rad(90)
-	}
-
 	do
-		VRInput = {}
+		VRInput = {
+			VRCamSettings = {
+				PAN_GAIN = Vector2.new(0.75, 1) * 4,
+				NAV_GAIN = Vector3.one * 64,
+				PITCH_LIMIT = math.rad(90)
+			}
+		}
 
 		local keyboard = {
 			W = 0,
@@ -253,7 +258,7 @@ else
 
 		do
 			local function Keypress(action, state, input)
-				keyboard[input.KeyCode.Name] = state == Enum.UserInputState.Begin and 1 or 0
+				keyboard[input.KeyCode.Name] = (state == Enum.UserInputState.Begin and 1 or 0)
 				return Enum.ContextActionResult.Sink
 			end
 
@@ -309,36 +314,36 @@ else
 
 		local zoomFactor = math.sqrt(math.tan(math.rad(70 / 2)) / math.tan(math.rad(camera.FieldOfView / 2)))
 
-		camRotation += pan * VRCamSettings.PAN_GAIN * (deltaTime / zoomFactor)
+		camRotation += pan * VRInput.VRCamSettings.PAN_GAIN * (deltaTime / zoomFactor)
 		camRotation = Vector2.new(
-			math.clamp(camRotation.X, -VRCamSettings.PITCH_LIMIT,
-			VRCamSettings.PITCH_LIMIT), camRotation.Y % (2 * math.pi)
+			math.clamp(camRotation.X, -VRInput.VRCamSettings.PITCH_LIMIT, VRInput.VRCamSettings.PITCH_LIMIT),
+			camRotation.Y % (2 * math.pi)
 		)
 
 		local camCFrame = (
 			(CFrame.identity + camPosition) *
 			CFrame.fromOrientation(unpackOrientation(camRotation)) *
-			(CFrame.identity + (vel * VRCamSettings.NAV_GAIN * deltaTime))
+			(CFrame.identity + (vel * VRInput.VRCamSettings.NAV_GAIN * deltaTime))
 		)
 		camPosition = camCFrame.Position
 
 		camera.CFrame = camCFrame
-		camera.Focus = camCFrame * (CFrame.identity + (Vector3.zAxis * -GetFocusDistance(camCFrame)))
+		camera.Focus = camCFrame * (CFrame.identity + (Vector3.zAxis * -getFocusDistance(camCFrame)))
 	end
 
 	local function stepVRInput(deltaTime)
 		local headCFrame = (
-			(CFrame.identity + (Vector3.zAxis * .8)) *
+			--(CFrame.identity + (Vector3.zAxis * .5)) *
 			camera.CFrame:ToObjectSpace() *
 			camera.CFrame
-		) -- make this get the accurate value without relying on camera cframe
+		)
 		local rHandCFrame = (
 			headCFrame *
-			(CFrame.identity + (Vector3.new(.85, -1.05, -1.725)))
+			(CFrame.identity + (Vector3.new(.625, -.875, -1.525)))
 		)
 		local lHandCFrame = (
 			headCFrame *
-			(CFrame.identity + (Vector3.new(-.85, -1.05, -1.725)))
+			(CFrame.identity + (Vector3.new(-.625, -.875, -1.525)))
 		)
 
 		userCFrameChanged:Fire(Enum.UserCFrame.Head, headCFrame)
@@ -348,7 +353,7 @@ else
 
 	VRInput.StartCapture()
 	inputService.MouseBehavior = Enum.MouseBehavior.Default
-	runService:BindToRenderStep("VRCam", Enum.RenderPriority.Camera.Value, stepVRCam)
+	runService:BindToRenderStep("VRCamera", Enum.RenderPriority.Camera.Value, stepVRCam)
 	runService:BindToRenderStep("VRInput", Enum.RenderPriority.Input.Value, stepVRInput)
 end
 
@@ -360,14 +365,16 @@ _G.Connections[#_G.Connections + 1] = userCFrameChanged.Event:Connect(function(t
 end)
 
 _G.Connections[#_G.Connections + 1] = resetEvent.Event:Connect(function()
-	camera.CameraSubject = player.Character.Humanoid
+	camera.CameraSubject = humanoid
 	camera.CameraType = Enum.CameraType.Custom
 
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end; table.clear(_G.Connections)
-	player.Character:BreakJoints()
+	character:BreakJoints()
 	starterGui:SetCore("ResetButtonCallback", true)
-	runService:UnbindFromRenderStep("VRCam")
-	runService:UnbindFromRenderStep("VRInput")
-	VRInput.StopCapture()
+	if not VRService.VREnabled then
+		VRInput.StopCapture()
+		runService:UnbindFromRenderStep("VRCamera")
+		runService:UnbindFromRenderStep("VRInput")
+	end
 end)
 starterGui:SetCore("ResetButtonCallback", resetEvent)
