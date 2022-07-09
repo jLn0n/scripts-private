@@ -2,10 +2,11 @@
 local options = table.create(0)
 options.netSettings = {
 	enable = true, -- recommended if you don't have a netless script
-	velocity = Vector3.zAxis * -100.25,
+	velocity = Vector3.zAxis * -100.057925,
 }
 
 options.headName = "MediHood" -- the hatname accessory (look at dex)
+options.partsMode = 2 -- 1 = hats | 2 = character parts
 options.headScale = 3
 options.rotationOffset = {
 	["LeftHand"] = Vector3.new(0, 0, 0),
@@ -92,16 +93,16 @@ local function getFocusDistance(cameraFrame)
 
 	return fz:Dot(minVect) * minDist
 end
-local function unpackOrientation(vectRot, useRadians)
-	vectRot = (if useRadians then vectRot * (math.pi / 180) else vectRot)
+local function unpackOrientation(vectRot, dontUseRadians)
+	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 -- main
 _G.Connections = _G.Connections or table.create(0)
 bodyParts, fakeBodyParts = {
 	["Head"] = character:FindFirstChild(options.headName),
-	["LeftHand"] = character:FindFirstChild("Pal Hair"),
-	["RightHand"] = character:FindFirstChild("Hat1")
+	["LeftHand"] = character:FindFirstChild(if options.partsMode == 1 then "Pal Hair" elseif options.partsMode == 2 then "Left Arm" else nil),
+	["RightHand"] = character:FindFirstChild(if options.partsMode == 1 then "Hat1" elseif options.partsMode == 2 then "Right Arm" else nil)
 }, {
 	["Head"] = createPart("vrHead", Vector3.one),
 	["LeftHand"] = createPart("vrLArm", Vector3.new(1, 1, 2)),
@@ -115,13 +116,18 @@ task.defer(function()
 	rootPart.Anchored, torso.Anchored = true, true
 
 	for partName, object in pairs(bodyParts) do
-		if object and object:FindFirstChild("Handle") then
-			sethiddenproperty(object, "BackendAccoutrementState", 0)
-			destroyFunc(object:FindFirstChildWhichIsA("Attachment", true))
-			object.Handle:BreakJoints()
-			createWeld(object, fakeBodyParts[partName])
-			if partName ~= "Head" then
-				destroyFunc(object:FindFirstChildWhichIsA("MeshPart", true) or object:FindFirstChildWhichIsA("SpecialMesh", true))
+		if object then
+			if object:IsA("Accessory") and object:FindFirstChild("Handle") then
+				sethiddenproperty(object, "BackendAccoutrementState", 0)
+				destroyFunc(object:FindFirstChildWhichIsA("Attachment", true))
+				object.Handle:BreakJoints()
+				createWeld(object, fakeBodyParts[partName])
+				if partName ~= "Head" then
+					destroyFunc(object:FindFirstChildWhichIsA("MeshPart", true) or object:FindFirstChildWhichIsA("SpecialMesh", true))
+				end
+			elseif object:IsA("BasePart") then
+				object:BreakJoints()
+				createWeld(object, fakeBodyParts[partName], ((CFrame.identity + (Vector3.yAxis * .5)) * CFrame.Angles(unpackOrientation(Vector3.xAxis * 90))))
 			end
 		end
 	end
@@ -147,7 +153,7 @@ if options.netSettings.enable then
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in pairs(bodyParts) do
-			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+			object = ((object:IsA("Accessory") and object:FindFirstChild("Handle")) or (object:IsA("BasePart") and object) or nil)
 			if object then
 				object:BreakJoints() -- unwelds the hat
 				local calcVelocity = (options.netSettings.velocity + (Vector3.yAxis * rootPart.Velocity.Y))
@@ -163,9 +169,13 @@ if options.netSettings.enable then
 end
 
 if VRService.VREnabled then
+	-- variables
+	local R1ButtonDown = false
+	-- main
 	camera.CameraType = Enum.CameraType.Scriptable
 
-	local R1ButtonDown = false
+	starterGui:SetCore("VRLaserPointerMode", 0)
+	starterGui:SetCore("VREnableControllerModels", false)
 
 	_G.Connections[#_G.Connections + 1] = inputService.UserCFrameChanged:Connect(function(type, value)
 		userCFrameChanged:Fire(type, value)
@@ -173,7 +183,7 @@ if VRService.VREnabled then
 
 	_G.Connections[#_G.Connections + 1] = runService.RenderStepped:Connect(function()
 		if R1ButtonDown then
-			camera.CFrame = camera.CFrame:Lerp(camera.CFrame + (fakeBodyParts.RightHand.CFrame * CFrame.Angles(unpackOrientation(options.rotationOffset.RightHand - (Vector3.zAxis * 180)))).LookVector * (camera.HeadScale / 2), .5)
+			camera.CFrame = camera.CFrame:Lerp(camera.CFrame + (fakeBodyParts.RightHand.CFrame * CFrame.Angles(unpackOrientation(options.rotationOffset.RightHand - (Vector3.zAxis * 180), true))).LookVector * (camera.HeadScale / 2), .5)
 		end
 	end)
 
@@ -195,15 +205,15 @@ if VRService.VREnabled then
 		end
 	end)
 else
+	-- variables
+	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
+	-- main
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = nil
 
-	-- actually taken off from the Freecam.lua but I removed the spring stuff and the gamepad controls
-	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
-
-	do
+	do -- actually taken off from the Freecam.lua but I removed the spring stuff and the gamepad controls
 		VRInput = {
-			VRCamSettings = {
+			Constants = {
 				PAN_GAIN = Vector2.new(0.75, 1) * 4,
 				NAV_GAIN = Vector3.one * 64,
 				PITCH_LIMIT = math.rad(90)
@@ -314,16 +324,16 @@ else
 
 		local zoomFactor = math.sqrt(math.tan(math.rad(70 / 2)) / math.tan(math.rad(camera.FieldOfView / 2)))
 
-		camRotation += pan * VRInput.VRCamSettings.PAN_GAIN * (deltaTime / zoomFactor)
+		camRotation += pan * VRInput.Constants.PAN_GAIN * (deltaTime / zoomFactor)
 		camRotation = Vector2.new(
-			math.clamp(camRotation.X, -VRInput.VRCamSettings.PITCH_LIMIT, VRInput.VRCamSettings.PITCH_LIMIT),
+			math.clamp(camRotation.X, -VRInput.Constants.PITCH_LIMIT, VRInput.Constants.PITCH_LIMIT),
 			camRotation.Y % (2 * math.pi)
 		)
 
 		local camCFrame = (
 			(CFrame.identity + camPosition) *
-			CFrame.fromOrientation(unpackOrientation(camRotation)) *
-			(CFrame.identity + (vel * VRInput.VRCamSettings.NAV_GAIN * deltaTime))
+			CFrame.fromOrientation(unpackOrientation(camRotation, true)) *
+			(CFrame.identity + (vel * VRInput.Constants.NAV_GAIN * deltaTime))
 		)
 		camPosition = camCFrame.Position
 
@@ -332,6 +342,11 @@ else
 	end
 
 	local function stepVRInput(deltaTime)
+		--[[
+			TODO:
+			 #1: figure out how to do vr arms movement on vr emulation
+			 #2: add some shizz?
+		--]]
 		local headCFrame = (
 			--(CFrame.identity + (Vector3.zAxis * .5)) *
 			camera.CFrame:ToObjectSpace() *
