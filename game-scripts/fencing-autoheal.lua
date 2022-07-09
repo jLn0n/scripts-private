@@ -8,9 +8,9 @@ local partIdk
 -- main
 while true do task.wait()
 	character = player.Character or nil
-	partIdk = character and character:FindFirstChild("HumanoidRootPart") or nil
-	if torso then
-		firetouchinterest(torso, button, 0)
-		firetouchinterest(torso, button, 1)
+	partIdk = character and character:FindFirstChild("Torso") or nil
+	if partIdk then
+		firetouchinterest(partIdk, button, 0)
+		firetouchinterest(partIdk, button, 1)
 	end
 end
