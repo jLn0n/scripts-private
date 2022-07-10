@@ -13,9 +13,10 @@ local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.c
 local itemsList = {
 	{"Rokakaka", "rokaFruit"},
 	{"Stand Arrow", "standArrow"},
-	{"Gift", "giftArrow"},
+	--{"Gift", "giftArrow"},
 	{"Refined Arrow", "refArrow"},
 	{"Requiem Arrow", "reqArrow"},
+	{"Disc", "discItem"},
 	{"Heavenly Diary", "diaryBook"},
 	{"Hamon Headband", "hbHamon"},
 	{"Vampire Mask", "vampMask"},
@@ -76,12 +77,9 @@ local function itemFarmable(itemName)
 		end
 	end
 end
-local function expFarmMob(mobObj)
-	-- TODO: figure out how to do the expFarm
-end
-local function tpPlayer(posCFrame)
+local function tpPlayer(posCFrame, tpCompletedWait)
 	posCFrame = typeof(posCFrame) == "Vector3" and CFrame.new(posCFrame) or posCFrame
-	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / 150, Enum.EasingStyle.Quad)
+	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / 150, Enum.EasingStyle.Linear)
 	local tweenObj = tweenService:Create(character.HumanoidRootPart, _tweenInfo, {
 		CFrame = posCFrame
 	})
@@ -92,22 +90,27 @@ local function tpPlayer(posCFrame)
 		end
 	end)
 	tweenObj:Play()
+	return tpCompletedWait and tpCompleted.Event:Wait() or nil
 end
-local function getItem(toolObj)
+local function expFarmMob(mobObj)
+	-- TODO: figure out how to do the expFarm
+end
+local function getItem(toolObj) -- TODO: make this cancellable in certain circumstances
 	toolObj = getTool(toolObj)
 	if (toolObj and character.Humanoid.Health ~= 0 and itemFarmable(toolObj.Name)) then
 		if toolObj.Parent:IsA("Workspace") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "dropped") then
 			character.Humanoid:EquipTool(toolObj)
 		elseif toolObj.Parent:IsA("Model") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "spawned") then
 			local toolHandle = toolObj:FindFirstChild("Handle")
-			tpPlayer(toolHandle.Position)
-			tpCompleted.Event:Wait()
-			task.wait(.1)
-			if toolHandle:FindFirstChildWhichIsA("TouchTransmitter") then
-				firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
-				firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
-			elseif toolHandle:FindFirstChildWhichIsA("ClickDetector") then
-				fireclickdetector(toolHandle:FindFirstChildWhichIsA("ClickDetector"), 5)
+			local toolObjThingy = toolHandle:FindFirstChildWhichIsA("TouchTransmitter") or toolHandle:FindFirstChildWhichIsA("ClickDetector", true)
+			tpPlayer(toolHandle.Position, true)
+			if toolObjThingy then
+				if toolObjThingy:IsA("TouchTransmitter") then
+					firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
+					firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
+				elseif toolObjThingy:IsA("ClickDetector") then
+					fireclickdetector(toolHandle:FindFirstChildWhichIsA("ClickDetector"), 10)
+				end
 			end
 		end
 	end
@@ -187,12 +190,12 @@ expFarm_sect:addToggle("Auto Prestige", config.expUtil.autoPrestige, function(va
 end)
 
 itemFarm_sect:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
-	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarm = value
+	task.spawn(getItems)
 end)
 itemFarm_sect:addDropdown("Items To Farm", {"Default", "Dropped", "Spawned"}, function(value)
-	coroutine.wrap(getItems)()
 	config.itemUtil.itemFarming = string.lower(value)
+	task.spawn(getItems)
 end)
 itemFarm_sect:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
 	config.itemUtil.itemEsp = value
@@ -216,17 +219,18 @@ if not _G.standOnline_GUI.executed then
 	espFolder = _G.standOnline_GUI.espFolder or Instance.new("Folder")
 	if espFolder.Name ~= "espFolder" then
 		local gethui = gethui or gethiddenui or get_hidden_gui or function() return coreGui end
-		if syn and syn.protect_gui then syn.protect_gui(espFolder) end
+		local protectGui = (syn and syn.protect_gui) or (fluxus and fluxus.protect_gui) or nil
+		if protectGui then protectGui(espFolder) end
 		espFolder.Name, espFolder.Parent = "espFolder", gethui()
 	end
 	_G.standOnline_GUI.executed = true
 end
 -- main
 table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(function()
+	task.spawn(getItems)
 	for _, object in ipairs(workspace:GetChildren()) do
 		itemESP(object)
 	end
-	coroutine.wrap(getItems)()
 end))
 table.insert(_G.standOnline_GUI.connections, player.CharacterRemoving:Connect(function()
 	character = player.CharacterAdded:Wait()
