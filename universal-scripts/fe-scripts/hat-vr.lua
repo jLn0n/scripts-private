@@ -1,12 +1,14 @@
 -- options
 local options = table.create(0)
 options.netSettings = {
-	enable = true, -- recommended if you don't have a netless script
-	velocity = Vector3.zAxis * -100.057925,
+	enable = true, -- recommended if you don't have a net bypass script
+	velocity = Vector3.zAxis * -100.057925, -- velocity used for net bypass stuff
+	legacyNet = true, -- enables the use of setting SimulationRadius
 }
 
 options.headName = "MediHood" -- the hatname accessory (look at dex)
 options.partsMode = 2 -- 1 = hats | 2 = character parts
+options.limbCollisions = true -- if true the partsMode should be set to 2 or it will not work
 options.headScale = 3
 options.rotationOffset = {
 	["LeftHand"] = Vector3.new(0, 0, 0),
@@ -142,14 +144,19 @@ end)
 
 if options.netSettings.enable then
 	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = math.huge
+	settings().Physics.ThrottleAdjustTime = 0 / 0
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	settings().Rendering.EagerBulkExecution = true
+	settings().Physics.ForceCSGv2 = false
+	settings().Physics.DisableCSGv2 = true
+	settings().Physics.UseCSGv2 = false
 	game:GetService("NetworkClient"):SetOutgoingKBPSLimit(math.huge)
+	workspace.FallenPartsDestroyHeight = 0 / 0
 	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
 	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
 	sethiddenproperty(humanoid, "InternalBodyScale", (Vector3.one * 9e99))
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
-	player.ReplicationFocus = nil
+	player.ReplicationFocus = workspace
 
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		for _, object in pairs(bodyParts) do
@@ -158,11 +165,39 @@ if options.netSettings.enable then
 				object:BreakJoints() -- unwelds the hat
 				local calcVelocity = (options.netSettings.velocity + (Vector3.yAxis * rootPart.Velocity.Y))
 				object.LocalTransparencyModifier = .5
-				object.CanCollide, object.Massless = false, true
+				object.Massless = false
 				object:ApplyImpulse(calcVelocity)
 				object.AssemblyLinearVelocity, object.RotVelocity = calcVelocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+			end
+		end
+	end)
+
+	if options.netSettings.legacyNet then
+		setscriptable(player, "SimulationRadius", true)
+		setscriptable(player, "MaximumSimulationRadius", true)
+
+		_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
+			player.SimulationRadius = 1e+10
+			player.MaximumSimulationRadius = 1e+10
+		end)
+	end
+end
+
+if options.limbCollisions and options.partsMode == 2 then
+	for _, enum in pairs(Enum.HumanoidStateType:GetEnumItems()) do
+		if enum.Name == "Physics" then continue end
+
+		pcall(humanoid.SetStateEnabled, humanoid, enum.Value, false)
+	end
+
+	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+		for _, object in pairs(bodyParts) do
+			if object and object:IsA("BasePart") then
+				object.CanCollide = false
 			end
 		end
 	end)
