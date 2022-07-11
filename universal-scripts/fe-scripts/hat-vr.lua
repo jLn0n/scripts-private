@@ -2,7 +2,7 @@
 local options = table.create(0)
 options.netSettings = {
 	enable = true, -- recommended if you don't have a net bypass script
-	velocity = Vector3.zAxis * -100.057925, -- velocity used for net bypass stuff
+	velocity = Vector3.zAxis * -100.25, -- velocity used for net bypass stuff
 	legacyNet = true, -- enables the use of setting SimulationRadius
 }
 
@@ -144,7 +144,7 @@ end)
 
 if options.netSettings.enable then
 	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = 0 / 0
+	settings().Physics.ThrottleAdjustTime = math.huge
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
 	settings().Rendering.EagerBulkExecution = true
 	settings().Physics.ForceCSGv2 = false
@@ -379,7 +379,7 @@ else
 	local function stepVRInput(deltaTime)
 		--[[
 			TODO:
-			 #1: figure out how to do vr arms movement on vr emulation
+			 #1: figure out how to do vr arms movement without vr
 			 #2: add some shizz?
 		--]]
 		local headCFrame = (
