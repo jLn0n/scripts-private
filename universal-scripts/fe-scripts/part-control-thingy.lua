@@ -1,12 +1,14 @@
 --[[
 	TODO:
-	  #1: head should fly
+	  #1 (done): head should fly
 	  #2: fix the rotation being fucked up sometimes
 	  #3: add gui configuration?
 	  #4: have a properly working script of this
 	  #5: make the move tools works like in roblox studio
+	  #6: the move should be relative to the part rotation
 --]]
 -- services
+local contextActionService = game:GetService("ContextActionService")
 local coreGui = game:GetService("CoreGui")
 local inputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -17,6 +19,7 @@ local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local mouse = player:GetMouse()
 local character = player.Character
+local head = character:FindFirstChild("Head")
 local resetBindable = Instance.new("BindableEvent")
 local partHandles, partArcHandles, weldHolder = Instance.new("Handles"), Instance.new("ArcHandles"), Instance.new("Part")
 weldHolder.Anchored, weldHolder.Name, weldHolder.Position, weldHolder.Transparency = true, "WeldHolder", Vector3.zero, 1
@@ -25,6 +28,7 @@ partHandles.Transparency, partArcHandles.Transparency = 0, 0
 partHandles.Parent, partArcHandles.Parent, weldHolder.Parent = coreGui.RobloxGui, coreGui.RobloxGui, workspace
 -- variables
 local controllingPart
+local Freecam
 local moveIncrement, rotationIncrement = .5, 45
 local controlMode = 1 -- 1 = move | 2 = rotate
 local partControllers = table.create(0)
@@ -60,6 +64,37 @@ local function createPartWeld(basePart)
 		}
 	}
 end
+local function getFocusDistance(cameraFrame)
+	local znear = 0.1
+	local viewport = camera.ViewportSize
+	local projy = 2 * math.tan(camera.FieldOfView / 2)
+	local projx = viewport.X / viewport.Y * projy
+	local fx = cameraFrame.RightVector
+	local fy = cameraFrame.UpVector
+	local fz = cameraFrame.LookVector
+
+	local minVect = Vector3.zero
+	local minDist = 512
+
+	for x = 0, 1, 0.5 do
+		for y = 0, 1, 0.5 do
+			local cx = (x - 0.5) * projx
+			local cy = (y - 0.5) * projy
+			local offset = fx * cx - fy * cy + fz
+			local origin = cameraFrame.p + offset * znear
+			local rayResult = workspace:Raycast(origin, offset.unit * minDist)
+			if rayResult then
+				local dist = (rayResult.Position - origin).Magnitude
+				if minDist > dist then
+					minDist = dist
+					minVect = offset.unit
+				end
+			end
+		end
+	end
+
+	return fz:Dot(minVect) * minDist
+end
 local function getPartFromMouseHit()
 	local cameraPos = camera.CFrame.Position
 	local rayResult = workspace:Raycast(cameraPos, CFrame.new(cameraPos, mouse.Hit.Position).LookVector * 5000, hitRayParams)
@@ -76,9 +111,9 @@ local function snapToClosestIncrement(axisValue)
 	divisions += 1 * roundedNum
 	return rotIncToRad * divisions -- snapNumber
 end
-local function unpackOrientation(vect3, useRadians)
-	vect3 = (if useRadians then vect3 * (math.pi / 180) else vect3)
-	return vect3.X, vect3.Y, vect3.Z
+local function unpackOrientation(vectRot, dontUseRadians)
+	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
+	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 local function wrapArgsPack()
 	return function(...)
@@ -106,6 +141,142 @@ task.defer(function()
 		end
 	end
 end)
+
+do -- camera stuff
+	-- variables
+	local camRotation, camPosition = Vector2.new(camera.CFrame:ToEulerAnglesYXZ()), camera.CFrame.Position
+	-- main
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CameraSubject = nil
+
+	do -- actually taken off from the Freecam.lua but I removed the spring stuff and the gamepad controls
+		Freecam = {
+			Constants = {
+				PAN_GAIN = Vector2.new(0.75, 1) * 4,
+				NAV_GAIN = Vector3.one * 64,
+				PITCH_LIMIT = math.rad(90)
+			}
+		}
+
+		local keyboard = {
+			W = 0,
+			A = 0,
+			S = 0,
+			D = 0,
+			Up = 0,
+			Down = 0,
+			LeftShift = 0,
+			RightShift = 0
+		}
+
+		local mouseDelta = Vector2.zero
+
+		local NAV_KEYBOARD_SPEED = Vector3.one
+		local PAN_MOUSE_SPEED = Vector2.one * (math.pi / 96)
+		local NAV_ADJ_SPEED = 0.75
+		local NAV_SHIFT_MUL = 0.25
+
+		local navSpeed = 1
+
+		function Freecam.Vel(dt)
+			navSpeed = math.clamp(navSpeed + dt * (keyboard.Up - keyboard.Down) * NAV_ADJ_SPEED, 0.01, 4)
+
+			local kKeyboard = Vector3.new(
+				keyboard.D - keyboard.A,
+				0,
+				keyboard.S - keyboard.W
+			) * NAV_KEYBOARD_SPEED
+
+			local shift =
+				inputService:IsKeyDown(Enum.KeyCode.LeftShift) or
+				inputService:IsKeyDown(Enum.KeyCode.RightShift)
+
+			return kKeyboard * (navSpeed * (shift and NAV_SHIFT_MUL or 1))
+		end
+
+		function Freecam.Pan(dt)
+			local kMouse = mouseDelta * PAN_MOUSE_SPEED
+			mouseDelta = Vector2.zero
+			return kMouse
+		end
+
+		do
+			local function Keypress(action, state, input)
+				keyboard[input.KeyCode.Name] = (state == Enum.UserInputState.Begin and 1 or 0)
+				return Enum.ContextActionResult.Sink
+			end
+
+			local function MousePan(action, state, input)
+				local delta = input.Delta
+				mouseDelta = -Vector2.new(delta.Y, delta.X)
+				return Enum.ContextActionResult.Sink
+			end
+
+			local function Zero(t)
+				for k, v in pairs(t) do
+					t[k] = v * 0
+				end
+			end
+
+			function Freecam.StartCapture()
+				contextActionService:BindActionAtPriority(
+					"Freecam_Keyboard",
+					Keypress,
+					false,
+					Enum.ContextActionPriority.High.Value,
+					Enum.KeyCode.W,
+					Enum.KeyCode.A,
+					Enum.KeyCode.S,
+					Enum.KeyCode.D,
+					Enum.KeyCode.Up,
+					Enum.KeyCode.Down
+				)
+				contextActionService:BindActionAtPriority(
+					"Freecam_MousePan",
+					MousePan,
+					false,
+					Enum.ContextActionPriority.High.Value,
+					Enum.UserInputType.MouseMovement
+				)
+			end
+
+			function Freecam.StopCapture()
+				navSpeed = 1
+				Zero(keyboard)
+				mouseDelta *= 0
+				contextActionService:UnbindAction("Freecam_Keyboard")
+				contextActionService:UnbindAction("Freecam_MousePan")
+			end
+		end
+	end
+
+	local function stepFreecam(deltaTime)
+		local vel = Freecam.Vel(deltaTime)
+		local pan = Freecam.Pan(deltaTime)
+
+		local zoomFactor = math.sqrt(math.tan(math.rad(70 / 2)) / math.tan(math.rad(camera.FieldOfView / 2)))
+
+		camRotation += pan * Freecam.Constants.PAN_GAIN * (deltaTime / zoomFactor)
+		camRotation = Vector2.new(
+			math.clamp(camRotation.X, -Freecam.Constants.PITCH_LIMIT, Freecam.Constants.PITCH_LIMIT),
+			camRotation.Y % (2 * math.pi)
+		)
+
+		local camCFrame = (
+			(CFrame.identity + camPosition) *
+			CFrame.fromOrientation(unpackOrientation(camRotation, true)) *
+			(CFrame.identity + (vel * Freecam.Constants.NAV_GAIN * deltaTime))
+		)
+		camPosition = camCFrame.Position
+
+		camera.CFrame = camCFrame
+		camera.Focus = camCFrame * (CFrame.identity + (Vector3.zAxis * -getFocusDistance(camCFrame)))
+	end
+
+	Freecam.StartCapture()
+	inputService.MouseBehavior = Enum.MouseBehavior.Default
+	runService:BindToRenderStep("Freecam", Enum.RenderPriority.Camera.Value, stepFreecam)
+end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	for basePart, partData in pairs(partControllers) do
@@ -141,6 +312,8 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 		end
 		handlesInternals.args = nil
 	end
+
+	head.CFrame = camera.CFrame
 end)
 
 _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(input)
@@ -172,9 +345,13 @@ _G.Connections[#_G.Connections + 1] = partArcHandles.MouseDrag:Connect(wrapArgsP
 _G.Connections[#_G.Connections + 1] = resetBindable.Event:Connect(function()
 	for _, connection in ipairs(_G.Connections) do connection:Disconnect() end; table.clear(_G.Connections)
 	starterGui:SetCore("ResetButtonCallback", true)
+
 	local daModel = Instance.new("Model")
 	local _daModelHumanoid = Instance.new("Humanoid")
 	_daModelHumanoid.Parent = daModel
+
+	Freecam.StopCapture()
+	runService:UnbindFromRenderStep("Freecam")
 	player.Character = daModel
 	task.delay(players.RespawnTime + .05, destroyFunc, daModel)
 end)
