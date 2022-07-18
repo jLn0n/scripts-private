@@ -8,12 +8,13 @@ local character = player.Character
 local humanoid = character.Humanoid
 local rootPart = character.HumanoidRootPart
 -- init
-assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.LUA"]: Please reset to be able to run the script again]]))
-assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.LUA"]: Sorry, This script will only work on R6 character rig]]))
+assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.lua"]: Please reset to be able to run the script again]]))
+assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.lua"]: Sorry, This script will only work on R6 character rig]]))
 do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.yAxis * 30 else _G.Settings.Velocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.xAxis * 45.05 else _G.Settings.Velocity)
+	_G.Settings.RotVelocity = (if not _G.Settings.RotVelocity then Vector3.zAxis * 3.05 else _G.Settings.RotVelocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
@@ -21,7 +22,7 @@ end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
 local botChar = game:GetObjects("rbxassetid://6843243348")[1]
-local charOldPos = rootPart.CFrame
+local charOldPos = character:GetPivot()
 local accessories, bodyParts = table.create(0), {
 	["Head"] = character:FindFirstChild(_G.Settings.HeadName),
 	["Torso"] = character:FindFirstChild("SeeMonkey"),
@@ -33,9 +34,9 @@ local accessories, bodyParts = table.create(0), {
 	["Right Leg"] = character:FindFirstChild("Kate Hair"),
 }
 -- functions
-local function unpackOrientation(vect3, convertToRadians)
-	vect3 = (if convertToRadians then vect3 * (math.pi / 180) else vect3)
-	return vect3.X, vect3.Y, vect3.Z
+local function unpackOrientation(vectRot, dontUseRadians)
+	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
+	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 
 local function initWelder(part, parent, position, orientation)
@@ -43,17 +44,18 @@ local function initWelder(part, parent, position, orientation)
 	part = (part and part:IsA("Accessory")) and part.Handle or part
 	parent = (parent and parent:IsA("Accessory")) and parent.Handle or parent
 	position, orientation = (position or Vector3.zero), (orientation or Vector3.zero)
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "Offset"
+	attachment.CFrame = (CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation)))
 	if _G.Settings.UseBodyMovers then
-		local bodyPos, bodyGyro, attachment = Instance.new("BodyPosition"), Instance.new("BodyGyro"), Instance.new("Attachment")
-		attachment.Name = "Offset"
-		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
+		local bodyPos, bodyGyro = Instance.new("BodyPosition"), Instance.new("BodyGyro")
 		bodyPos.D, bodyGyro.D = 1250, 2500
 		bodyPos.P, bodyGyro.P = 1e6, 1e6
 		bodyPos.MaxForce, bodyGyro.MaxTorque = Vector3.one * math.huge, Vector3.one * math.huge
 		bodyPos.Parent, bodyGyro.Parent, attachment.Parent = part, part, part
 	else
 		local alignPos, alignOrt = Instance.new("AlignPosition"), Instance.new("AlignOrientation")
-		local attachment, _attachment = Instance.new("Attachment"), Instance.new("Attachment")
+		local _attachment = Instance.new("Attachment")
 		alignPos.ApplyAtCenterOfMass = true
 		alignPos.MaxForce, alignOrt.MaxTorque = 9e9, math.huge
 		alignPos.MaxVelocity, alignOrt.MaxAngularVelocity = math.huge, math.huge
@@ -63,9 +65,7 @@ local function initWelder(part, parent, position, orientation)
 		alignPos.Attachment0, alignOrt.Attachment0 = _attachment, _attachment
 		alignPos.Attachment1, alignOrt.Attachment1 = attachment, attachment
 		alignPos.Parent, alignOrt.Parent = part, part
-		attachment.Name = "Offset"
 		attachment.Parent, _attachment.Parent = parent, part
-		attachment.CFrame = CFrame.new(position) * CFrame.Angles(unpackOrientation(orientation, true))
 	end
 end
 
@@ -80,12 +80,18 @@ end
 botChar.Name = string.format("%s-reanimation", player.UserId)
 for _, object in ipairs(botChar:GetChildren()) do if object:IsA("BasePart") then object.Transparency = 1 end end
 task.defer(function() -- initializing reanimation after the code below ran
+	-- TODO: rewrite this pile of shit and make the character teleport to far away without breaking this shit
+	--[[
+		far character phenomena: (can't find a better name)
+		when character (you) is far from players then unanchored parts that the player claimed
+		will be unclaimable thats why i need to make player far
+	--]]
 	local animScript, plrFace = character.Animate, character.Head.face:Clone()
 	humanoid.Animator:Clone().Parent = botChar.Humanoid
 	animScript.Disabled = true
 	animScript.Parent = botChar
 	animScript.Disabled = false
-	botChar.HumanoidRootPart.CFrame = charOldPos
+	botChar:PivotTo(charOldPos)
 	plrFace.Parent, plrFace.Transparency = botChar.Head, 1
 
 	for partName, object in pairs(bodyParts) do
@@ -99,8 +105,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	for _, object in ipairs(character:GetChildren()) do
-		if (object:IsA("Accessory") and not (botChar:FindFirstChild(object.Name) or string.find(object.Name, "Torso"))) then
+	for _, object in ipairs(humanoid:GetAccessories()) do
+		if (not (botChar:FindFirstChild(object.Name) or string.find(object.Name, "Torso"))) then
 			accessories[object.Name] = object
 			local cloneAcce = object:Clone()
 			local cloneAcceHandle, cloneAcceWeld = cloneAcce:FindFirstChild("Handle"), cloneAcce.Handle:FindFirstChildWhichIsA("Weld")
@@ -124,20 +130,28 @@ end)
 
 if _G.Settings.UseBuiltinNetless then
 	settings().Physics.AllowSleep = false
-	settings().Physics.ThrottleAdjustTime = math.huge
 	settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+	settings().Rendering.EagerBulkExecution = true
+	settings().Physics.ForceCSGv2 = false
+	settings().Physics.DisableCSGv2 = true
+	settings().Physics.UseCSGv2 = false
+	game:GetService("NetworkClient"):SetOutgoingKBPSLimit(math.huge)
+	workspace.FallenPartsDestroyHeight = 0 / 0
 	sethiddenproperty(workspace, "HumanoidOnlySetCollisionsOnStateChange", Enum.HumanoidOnlySetCollisionsOnStateChange.Disabled)
 	sethiddenproperty(workspace, "InterpolationThrottling", Enum.InterpolationThrottlingMode.Disabled)
-	sethiddenproperty(humanoid, "InternalBodyScale", Vector3.one * 9e99)
+	sethiddenproperty(humanoid, "InternalBodyScale", (Vector3.one * 9e99))
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
 	player.ReplicationFocus = workspace
 
+
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-		for _, object in ipairs(character:GetChildren()) do
-			object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+		for _, object in ipairs(humanoid:GetAccessories()) do
+			object = object:FindFirstChild("Handle")
 			if object then
+				local calcVel = (_G.Settings.Velocity + (Vector3.yAxis * botChar.HumanoidRootPart.Velocity.Y))
 				object.CanCollide, object.Massless = false, true
-				object.Velocity, object.RotVelocity = _G.Settings.Velocity, Vector3.zero
+				object:ApplyImpulse(calcVel)
+				object.AssemblyLinearVelocity, object.RotVelocity = calcVel, _G.Settings.RotVelocity
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
@@ -148,10 +162,11 @@ end
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	workspace.CurrentCamera.CameraSubject = botChar.Humanoid
 	if botChar.HumanoidRootPart.Position.Y <= workspace.FallenPartsDestroyHeight then
-		killReanimation(); return
+		killReanimation()
+		return
 	end
-	for _, object in ipairs(character:GetChildren()) do
-		object = (object:IsA("Accessory") and object:FindFirstChild("Handle") or nil)
+	for _, object in ipairs(humanoid:GetAccessories()) do
+		object = object:FindFirstChild("Handle")
 		if object then
 			object.LocalTransparencyModifier = botChar.Head.LocalTransparencyModifier
 			if not _G.Settings.UseBodyMovers then continue end
@@ -159,7 +174,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			if (bodyPos and bodyGyro and offsetAtt) then
 				local botCharObj = botChar:FindFirstChild(string.find(object.Parent.Name, "Torso") and "Torso" or object.Parent.Name)
 				botCharObj = (botCharObj and (botCharObj:IsA("Accessory") and botCharObj:FindFirstChild("Handle") or botCharObj:IsA("BasePart") and botCharObj) or nil)
-				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation, true)))
+				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation)))
 			end
 		end
 	end
