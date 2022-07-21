@@ -1,4 +1,4 @@
--- for this game: https://www.roblox.com/games/10268452785/func-hooking
+-- for this game: https://www.roblox.com/games/10268452785
 -- main
 print(getrenv()._G["replication-3088049980[TQPv0hjXcxw%^fX70fuoySxbK]"]) -- key is different for every player
 
@@ -25,5 +25,5 @@ print(getrenv()._G["replication-3088049980[TQPv0hjXcxw%^fX70fuoySxbK]"]) -- key 
 	})
 	print(newPart)
 
-	task.delay(2.5, modifyProperty(newPart, "Position", (Vector3.yAxis * 69)))
+	task.delay(2.5, modifyProperty, newPart, "Position", (Vector3.yAxis * 69))
 --]]
