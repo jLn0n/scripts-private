@@ -1,6 +1,6 @@
 -- for this game: https://www.roblox.com/games/10268452785
 -- main
-print(getrenv()._G["replication-3088049980[TQPv0hjXcxw%^fX70fuoySxbK]"]) -- key is different for every player
+print(getrenv()._G["replication-3088049980[sior@4MHysg%yZGTs8VlwAq8Y]"]) -- key is different for every player
 
 --[[
 	replication:
