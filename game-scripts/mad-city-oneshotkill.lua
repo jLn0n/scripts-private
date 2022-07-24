@@ -1,3 +1,4 @@
+-- doesn't work now because the game has been fucking rewritten
 -- services
 local inputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
