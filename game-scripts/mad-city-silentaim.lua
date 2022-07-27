@@ -8,7 +8,6 @@ local mouse = player:GetMouse()
 local fovCircle, targetBox = Drawing.new("Circle"), Drawing.new("Square")
 -- variables
 local oldNamecall, nearestPlr
-local nearPlrs = table.create(0)
 local settings = {
 	visibleCheck = false,
 	fov = 175,
@@ -23,24 +22,23 @@ local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, ...}) == 0
 end
 local function getNearestPlrByCursor()
-	table.clear(nearPlrs)
+	local nearestPlrData = {aimPart = nil, dist = math.huge}
+
 	for _, plr in ipairs(players:GetPlayers()) do
 		local p_dPart = (plr.Character and plr.Character:FindFirstChild("Head"))
 		if not p_dPart then continue end
 		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
 		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
-		local fovDist = (posVec2 - mouseVec2).Magnitude
-		if checkPlr(plr) and (not settings.visibleCheck or (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) and (fovDist < settings.fov) then
-			table.insert(nearPlrs, {
-				aimPart = p_dPart,
-				dist = fovDist,
-			})
+		local fovDist = (mouseVec2 - posVec2).Magnitude
+
+		if checkPlr(plr) and (not settings.visibleCheck or (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) then
+			if (fovDist < settings.fov) and (fovDist < nearestPlrData.dist) then
+				nearestPlrData.aimPart = p_dPart
+				nearestPlrData.dist = fovDist
+			end
 		end
 	end
-	table.sort(nearPlrs, function(x, y)
-		return (x.dist < y.dist)
-	end)
-	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
+	return (if nearestPlrData.aimPart then nearestPlrData else nil)
 end
 -- main
 targetBox.Color = Color3.fromRGB(0, 185, 35)
@@ -64,7 +62,7 @@ runService.Heartbeat:Connect(function()
 		local posVec3, onScreen = camera:WorldToViewportPoint(nearestPlr.aimPart.Position)
 
 		targetBox.Visible = onScreen
-		targetBox.Position = Vector2.new(posVec3.X, posVec3.Y)
+		targetBox.Position = (Vector2.new(posVec3.X, posVec3.Y) - (targetBox.Size / 2))
 	else
 		targetBox.Visible = false
 		targetBox.Position = Vector3.zero
@@ -76,10 +74,12 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 	local namecallMethod = getnamecallmethod()
 
 	if not checkcaller() then
-		if ((namecallMethod == "FireServer" and self.Name == "RemoteEvent") and args[1] == "BulletHit") then
-			if nearestPlr then
+		if (namecallMethod == "FireServer" and self.Name == "RemoteEvent") and nearestPlr then
+			if args[1] == "BulletHit" then
 				args[2] = nearestPlr.aimPart.Position
 				args[5] = nearestPlr.aimPart
+			elseif args[1] == "FireGun" then -- idk why i added this
+				args[2] = nearestPlr.aimPart.Position
 			end
 		end
 	end
