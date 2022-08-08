@@ -86,7 +86,7 @@ function imports.network:send(name, ...)
 
 	if name == "newbullets" then
 		if nearestPlr and nearestPlr.aimPart then
-			for _, bullet in args[1].bullets do
+			for _, bullet in next, args[1].bullets do
 				bullet[1] = imports.physics.trajectory(
 					args[1].firepos,
 					imports.values.bulletAcceleration,
@@ -97,7 +97,7 @@ function imports.network:send(name, ...)
 
 			refs.netSend(self, name, unpack(args))
 
-			for _, bullet in args[1].bullets do
+			for _, bullet in next, args[1].bullets do
 				refs.netSend(self,
 					"bullethit",
 					nearestPlr.plr,
