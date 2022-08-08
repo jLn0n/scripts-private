@@ -1,9 +1,8 @@
 -- settings
 local settings = {
-	customHitPart = "Torso",
-	visibleCheck = false,
-	playerDistCheck = true,
 	fov = 175,
+	visibleCheck = false,
+	customHitPart = "Torso",
 }
 -- services
 local inputService = game:GetService("UserInputService")
@@ -34,28 +33,23 @@ local function inLineOfSite(originPos, ...)
 	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, ...}) == 0
 end
 local function getNearestPlrByCursor()
-	local _, playerHead = checkPlr(player)
 	local nearestPlrData = {aimPart = nil, dist = math.huge}
-	local nearestPlrCharDist = math.huge
 
-	if playerHead then
-		for _, plr in players:GetPlayers() do
-			local passed, plrTPart = checkPlr(plr)
-			if not (passed and plrTPart) then continue end
-			local posVec3, onScreen = camera:WorldToViewportPoint(plrTPart.Position)
-			local fovDist = (inputService:GetMouseLocation() - Vector2.new(posVec3.X, posVec3.Y)).Magnitude
-			local plrDist = (playerHead.Position - plrTPart.Position).Magnitude
+	for _, plr in players:GetPlayers() do
+		local passed, plrTPart = checkPlr(plr)
+		if not (passed and plrTPart) then continue end
+		local posVec3, onScreen = camera:WorldToViewportPoint(plrTPart.Position)
+		local fovDist = (inputService:GetMouseLocation() - Vector2.new(posVec3.X, posVec3.Y)).Magnitude
 
-			if checkPlr(plr) and (not settings.visibleCheck or (onScreen and inLineOfSite(plrTPart.Position, plr.Character))) then
-				if ((fovDist <= settings.fov) and (fovDist < nearestPlrData.dist)) and (if settings.playerDistCheck then (plrDist < nearestPlrCharDist) else true) then
-					nearestPlrData.plr = plr
-					nearestPlrData.aimPart = plrTPart
-					nearestPlrData.dist = fovDist
-				end
+		if checkPlr(plr) and (not settings.visibleCheck or (onScreen and inLineOfSite(plrTPart.Position, plr.Character))) then
+			if ((fovDist <= settings.fov) and (fovDist < nearestPlrData.dist)) then
+				nearestPlrData.plr = plr
+				nearestPlrData.aimPart = plrTPart
+				nearestPlrData.dist = fovDist
 			end
 		end
-		return (if nearestPlrData.aimPart then nearestPlrData else nil)
 	end
+	return (if nearestPlrData.aimPart then nearestPlrData else nil)
 end
 -- main
 targetBox.Color = Color3.fromRGB(0, 185, 35)
