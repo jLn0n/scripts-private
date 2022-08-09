@@ -64,7 +64,7 @@ fovCircle.Transparency = .6
 fovCircle.Visible = true
 
 runService.Heartbeat:Connect(function()
-	nearestPlr = getNearestPlrByCursor()
+	nearestPlr = (if inputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then getNearestPlrByCursor() else nil)
 
 	fovCircle.Radius = settings.fov
 	fovCircle.Position = inputService:GetMouseLocation()
@@ -96,7 +96,6 @@ function imports.network:send(name, ...)
 			end
 
 			refs.netSend(self, name, unpack(args))
-
 			for _, bullet in next, args[1].bullets do
 				refs.netSend(self,
 					"bullethit",
@@ -106,6 +105,7 @@ function imports.network:send(name, ...)
 					bullet[2]
 				)
 			end
+			return
 		end
 	elseif name == "bullethit" then
 		return
