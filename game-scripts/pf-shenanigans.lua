@@ -9,23 +9,24 @@ local inputService = game:GetService("UserInputService")
 local repFirst = game:GetService("ReplicatedFirst")
 local runService = game:GetService("RunService")
 local players = game:GetService("Players")
+-- imports
+local pfRequire = getrenv().shared.require
+local pfImports = {
+	network = pfRequire("network"),
+	values = pfRequire("PublicSettings"),
+	replication = pfRequire("replication"),
+	physics = require(repFirst.SharedModules.Old.Utilities.Math.physics:Clone())
+}
 -- objects
 local camera = workspace.CurrentCamera
 local player = players.LocalPlayer
 local fovCircle, targetBox = Drawing.new("Circle"), Drawing.new("Square")
 -- variables
 local nearestPlr
-local pfRequire = getrenv().shared.require
 local refs = table.create(0)
-local imports = {
-	network = pfRequire("network"),
-	values = pfRequire("PublicSettings"),
-	replication = pfRequire("replication"),
-	physics = require(repFirst.SharedModules.Old.Utilities.Math.physics:Clone())
-}
 -- functions
 local function checkPlr(plr)
-	local plrChar = imports.replication.getbodyparts(plr)
+	local plrChar = pfImports.replication.getbodyparts(plr)
 	local plrTPart = (plrChar and plrChar.head)
 	return plr ~= player and (plr.Neutral or plr.TeamColor ~= player.TeamColor), plrTPart
 end
@@ -80,16 +81,16 @@ runService.Heartbeat:Connect(function()
 	end
 end)
 
-refs.netSend = imports.network.send
-function imports.network:send(name, ...)
+refs.netSend = pfImports.network.send
+function pfImports.network:send(name, ...)
 	local args = {...}
 
-	if name == "newbullets" then
-		if nearestPlr and nearestPlr.aimPart then
+	if nearestPlr and nearestPlr.aimPart then
+		if name == "newbullets" then
 			for _, bullet in next, args[1].bullets do
-				bullet[1] = imports.physics.trajectory(
+				bullet[1] = pfImports.physics.trajectory(
 					args[1].firepos,
-					imports.values.bulletAcceleration,
+					pfImports.values.bulletAcceleration,
 					nearestPlr.aimPart.Position,
 					bullet[1].Magnitude
 				)
@@ -106,9 +107,10 @@ function imports.network:send(name, ...)
 				)
 			end
 			return
+		elseif name == "bullethit" then
+			return
 		end
-	elseif name == "bullethit" then
-		return
 	end
+
 	return refs.netSend(self, name, unpack(args))
 end
