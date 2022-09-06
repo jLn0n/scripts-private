@@ -1,6 +1,6 @@
 -- config
 local config = {
-	socketUrl = "ws://localhost:8080"
+	socketUrl = "ws://ws-clientserver.herokuapp.com"
 }
 -- services
 local httpService = game:GetService("HttpService")
@@ -45,7 +45,8 @@ function wsLib.new(url: string)
 		if wsObj._forcedClose then return end
 		local reconnected, reconnectCount = false, 0
 
-		self._socket = nil
+		print("Lost connection, reconnecting...")
+		wsObj._socket = nil
 		repeat
 			local succ, result = pcall(WebSocket.connect, url)
 
@@ -57,6 +58,12 @@ function wsLib.new(url: string)
 				reconnectCount += 1
 			end
 		until (reconnected or reconnectCount >= 15)
+		
+		if reconnected then
+			print("Connection Re-istablished!")
+		else
+			warn("Failed to reconnect.")
+		end
 	end
 
 	initializeSocket(wsObj._socket, reconnectSocket)
@@ -89,9 +96,10 @@ local connections = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 -- functions
 local function encryptNumber(number)
+	number = tostring(number)
 	for index, value in numberToEncTable do
 		if index >= 10 then continue end
-		number = string.gsub(number, tostring(number), value)
+		number = string.gsub(number, tostring(index), value)
 	end
 	number = string.gsub(number, ",", numberToEncTable[10])
 	number = string.gsub(number, "-", numberToEncTable[11])
@@ -169,7 +177,7 @@ socketObj:AddMessageCallback(function(message)
 		local playerName = parsedData[3]
 
 		if playerName ~= player.Name then
-			local plrChar = fakePlayers[index].Character
+			local plrChar = workspace:FindFirstChild(playerName)
 
 			if not players:FindFirstChild(playerName) then
 				plrChar = game:GetObjects("rbxassetid://5195737219")[1]
@@ -188,7 +196,7 @@ socketObj:AddMessageCallback(function(message)
 				JointsGone.Parent = character
 
 				for _, part in character:GetChildren() do
-					if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
+					if (part:IsA("BasePart") and table.find(characterParts, part.Name)) then
 						part.Anchored = true
 					elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
 						part.Handle.Anchored = true
@@ -253,3 +261,5 @@ table.insert(connections, player.CharacterAdded:Connect(function(newChar)
 	character = newChar
 	humanoid = character:FindFirstChild("Humanoid")
 end))
+
+print("Clientserver started!")
