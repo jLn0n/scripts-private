@@ -69,12 +69,12 @@ function wsLib.new(url: string)
 	return setmetatable(wsObj, wsLib)
 end
 
-function wsLib:SendMessage(message, encodeToBase64)
-	if self._socket then
-		self._socket:Send(if encodeToBase64 then base64.encode(message) else message)
-	else
-		warn("Attempt to send socket message when reconnecting!")
-	end
+function wsLib:SendMessage(message, encodeToBase64)	
+	if self._socket then	
+		self._socket:Send(if encodeToBase64 then base64.encode(message) else message)	
+	else	
+		warn("Attempt to send socket message when reconnecting!")	
+	end	
 end
 
 function wsLib:AddMessageCallback(callback)
@@ -97,14 +97,14 @@ local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "R
 local function encryptNumber(number)
 	number = tostring(number)
 	for index, value in numberToEncTable do
-		if index >= 10 then continue end
+		if (typeof(index) == "string") then continue end
 		number = string.gsub(number, tostring(index), value)
 	end
-	number = string.gsub(number, ",", numberToEncTable[10])
-	number = string.gsub(number, "-", numberToEncTable[11])
+	number = string.gsub(number, ",", numberToEncTable[","])
+	number = string.gsub(number, "-", numberToEncTable["-"])
 	number = string.gsub(number, " ", "")
 
-	local args = string.split(number, numberToEncTable[10])
+	local args = string.split(number, numberToEncTable[","])
 
 	if #args ~= 0 then
 		number = ""
@@ -112,11 +112,11 @@ local function encryptNumber(number)
 		for index, arg in args do
 			local splitted = string.split(arg, ".")
 			if #splitted == 2 then
-				arg = splitted[1] .. numberToEncTable[12] .. splitted[2]
+				arg = splitted[1] .. numberToEncTable["."] .. splitted[2]
 			end
 
 			if index ~= #args then
-				number ..= arg .. numberToEncTable[10]
+				number ..= arg .. numberToEncTable[","]
 			elseif index == #args then
 				number ..= arg
 			end
@@ -127,10 +127,12 @@ end
 
 local function decryptNumber(number)
 	number = tostring(number)
+	print(number)
+
 	for index, value in numberToEncTable do
 		number = string.gsub(number, value, tostring(index)) -- reversed
 	end
-	
+	print(number)
 	return number
 end
 
@@ -152,8 +154,15 @@ local function createFakePlr(name, character)
 	fakePlayers[name] = plrInstance
 end
 -- main
-for index = 1, 13 do
-	table.insert(numberToEncTable, index - 1, string.char(index + 13))
+do
+	for index = 1, 13 do
+		table.insert(numberToEncTable, index - 1, string.char(index + 13))
+	end
+
+	numberToEncTable[","] = numberToEncTable[10]
+	numberToEncTable["-"] = numberToEncTable[11]
+	numberToEncTable["."] = numberToEncTable[12]
+	numberToEncTable[10], numberToEncTable[11], numberToEncTable[12] = nil, nil, nil
 end
 
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
@@ -259,7 +268,6 @@ table.insert(connections, runService.Stepped:Connect(function()
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
-	task.wait(.05)
 	character = newChar
 	humanoid = newChar:FindFirstChild("Humanoid")
 end))
