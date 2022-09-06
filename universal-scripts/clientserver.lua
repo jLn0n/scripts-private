@@ -56,7 +56,7 @@ function wsLib.new(url: string)
 			else
 				reconnectCount += 1
 			end
-		until (reconnected or reconnectCount => 15)
+		until (reconnected or reconnectCount >= 15)
 	end
 
 	initializeSocket(wsObj._socket, reconnectSocket)
@@ -90,7 +90,7 @@ local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "R
 -- functions
 local function encryptNumber(number)
 	for index, value in numberToEncTable do
-		if index => 10 then continue end
+		if index >= 10 then continue end
 		number = string.gsub(number, tostring(number), value)
 	end
 	number = string.gsub(number, ",", numberToEncTable[10])
@@ -161,6 +161,7 @@ refs.oldIndex = hookmetamethod(game, "__index", function(...)
 	return refs.oldIndex(...)
 end)
 
+-- data payload parser and updater
 socketObj:AddMessageCallback(function(message)
 	local parsedData = httpService:JSONDecode(base64.decode(message))
 
@@ -251,4 +252,4 @@ end))
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
 	character = newChar
 	humanoid = character:FindFirstChild("Humanoid")
-end)
+end))
