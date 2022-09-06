@@ -185,22 +185,21 @@ socketObj:AddMessageCallback(function(message)
 				createFakePlr(playerName, plrChar)
 			end
 
-			task.wait()
-
-			if not character:FindFirstChild("JointsGone") then
-				character:BreakJoints()
-				local JointsGone = Instance.new("BoolValue")
-				JointsGone.Name = "JointsGone"
-				JointsGone.Value = true
-				JointsGone.Parent = character
-
-				for _, part in character:GetChildren() do
+			if not plrChar:FindFirstChild("JointsGone") then
+				plrChar:BreakJoints()
+				
+				for _, part in plrChar:GetChildren() do
 					if (part:IsA("BasePart") and table.find(characterParts, part.Name)) then
 						part.Anchored = true
 					elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
 						part.Handle.Anchored = true
 					end
 				end
+
+				local JointsGone = Instance.new("NumberValue")
+				JointsGone.Name = "JointsGone"
+				JointsGone.Value = 1
+				JointsGone.Parent = plrChar
 			end
 
 			for partName, cframeData in parsedData[2][1] do
@@ -260,6 +259,7 @@ table.insert(connections, runService.Stepped:Connect(function()
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
+	task.wait(.05)
 	character = newChar
 	humanoid = newChar:FindFirstChild("Humanoid")
 end))
