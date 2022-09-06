@@ -11,7 +11,6 @@ local tweenService = game:GetService("TweenService")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local fakePlrParent = Instance.new("Folder")
 -- libraries
 local base64 = loadstring(game:HttpGetAsync("https://gist.githubusercontent.com/Reselim/40d62b17d138cc74335a1b0709e19ce2/raw/fast_base64.lua"))()
 local wsLib = {}
@@ -27,7 +26,7 @@ function wsLib.new(url: string)
 
 	local function onSocketMsg(message)
 		for _, callback in wsObj._onMsgCallbacks do
-			task.spawn(callback, message)
+			callback(message)
 		end
 	end
 
@@ -127,6 +126,7 @@ local function encryptNumber(number)
 end
 
 local function decryptNumber(number)
+	number = tostring(number)
 	for index, value in numberToEncTable do
 		number = string.gsub(number, value, tostring(index)) -- reversed
 	end
@@ -149,7 +149,6 @@ local function createFakePlr(name, character)
 
 	plrInstance.Name = name
 	plrInstance.Character = character
-	plrInstance.Parent = fakePlrParent
 	fakePlayers[name] = plrInstance
 end
 -- main
@@ -176,7 +175,7 @@ socketObj:AddMessageCallback(function(message)
 	if parsedData[1] == "\27" then
 		local playerName = parsedData[3]
 
-		if playerName ~= player.Name then
+		if player.Name ~= playerName then
 			local plrChar = workspace:FindFirstChild(playerName)
 
 			if not players:FindFirstChild(playerName) then
@@ -207,6 +206,7 @@ socketObj:AddMessageCallback(function(message)
 			for partName, cframeData in parsedData[2][1] do
 				local partObj = plrChar:FindFirstChild(partName)
 
+				if not (partObj and partObj:IsA("BasePart")) then continue end
 				tweenService:Create(partObj, TweenInfo.new(.1), {
 					Position = unpackVect3(decryptNumber(cframeData[1])),
 					Orientation = unpackVect3(decryptNumber(cframeData[2]))
@@ -239,19 +239,21 @@ table.insert(connections, runService.Stepped:Connect(function()
 	}
 
 	for _, object in character:GetChildren() do
-		if not (object:IsA("BasePart") and table.find(characterParts, object.Name)) then continue end
-		dataPayload[2][1][object.Name] = {
-			[1] = encryptNumber(object.Position),
-			[1] = encryptNumber(object.Orientation),
-		}
+		if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
+			dataPayload[2][1][object.Name] = {
+				[1] = encryptNumber(object.Position),
+				[1] = encryptNumber(object.Orientation),
+			}
+		end
 	end
 
 	for _, accessory in humanoid:GetAccessories() do
-		if not accessory:FindFirstChild("Handle") then continue end
-		dataPayload[2][1][accessory.Name] = {
-			[1] = encryptNumber(accessory.Handle.Position),
-			[1] = encryptNumber(accessory.Handle.Orientation),
-		}
+		if accessory:FindFirstChild("Handle") then
+			dataPayload[2][1][accessory.Name] = {
+				[1] = encryptNumber(accessory.Handle.Position),
+				[1] = encryptNumber(accessory.Handle.Orientation),
+			}
+		end
 	end
 
 	socketObj:SendMessage(httpService:JSONEncode(dataPayload), true)
@@ -259,7 +261,7 @@ end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
 	character = newChar
-	humanoid = character:FindFirstChild("Humanoid")
+	humanoid = newChar:FindFirstChild("Humanoid")
 end))
 
 print("Clientserver started!")
