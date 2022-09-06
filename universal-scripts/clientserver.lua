@@ -69,9 +69,9 @@ function wsLib.new(url: string)
 	return setmetatable(wsObj, wsLib)
 end
 
-function wsLib:SendMessage(message, encodeToBase64)	
+function wsLib:SendMessage(message)	
 	if self._socket then	
-		self._socket:Send(if encodeToBase64 then base64.encode(message) else message)	
+		self._socket:Send(message)
 	else	
 		warn("Attempt to send socket message when reconnecting!")	
 	end	
@@ -132,7 +132,6 @@ local function decryptNumber(number)
 	for index, value in numberToEncTable do
 		number = string.gsub(number, value, tostring(index)) -- reversed
 	end
-	print(number)
 	return number
 end
 
@@ -156,7 +155,7 @@ end
 -- main
 do
 	for index = 1, 13 do
-		table.insert(numberToEncTable, index - 1, string.char(index + 13))
+		table.insert(numberToEncTable, index - 1, string.char(index + 14))
 	end
 
 	numberToEncTable[","] = numberToEncTable[10]
@@ -235,7 +234,7 @@ socketObj:AddMessageCallback(function(message)
 end)
 
 -- payload data sender
-table.insert(connections, runService.Stepped:Connect(function()
+table.insert(connections, runService.Heartbeat:Connect(function()
 	if not (character and humanoid) then return end
 	local dataPayload = {
 		"\27", -- header
@@ -264,7 +263,8 @@ table.insert(connections, runService.Stepped:Connect(function()
 		end
 	end
 
-	socketObj:SendMessage(httpService:JSONEncode(dataPayload), true)
+	socketObj:SendMessage(base64.encode(httpService:JSONEncode(dataPayload)))
+	runService.Stepped:Wait()
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
