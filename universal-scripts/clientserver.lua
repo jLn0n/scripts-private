@@ -1,10 +1,15 @@
 --[[
 	TODO:
 	#1: reduce the bandwidth, and use some shenanigans	
+	#2 DONE: add packet delay
+	#3: fix the flickering of character parts on some cases
+	#4: host a fast websocket server using replit
 --]]
 -- config
 local config = {
-	socketUrl = "ws://ws-clientserver.herokuapp.com"
+	socketUrl = "ws://ws-clientserver.herokuapp.com", -- the server to connect
+	sendPerSecond = .15, -- 15 times per second
+	recievePerSecond = .30, -- 30 times per second
 }
 -- services
 local httpService = game:GetService("HttpService")
@@ -17,20 +22,21 @@ local character = player.Character
 local humanoid = character.Humanoid
 -- libraries
 local base64 = loadstring(game:HttpGetAsync("https://gist.githubusercontent.com/Reselim/40d62b17d138cc74335a1b0709e19ce2/raw/fast_base64.lua"))()
+local lz4 = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/metatablecat/lz4-lua/master/lz4-luau.lua"))()
 local wsLib = {}
 wsLib.__index = wsLib
 
 function wsLib.new(url: string)
 	local wsObj = {
 		_forcedClose = false,
-		_socket = WebSocket.connect(url),
+		_socket = nil,
 		_connections = table.create(0),
 		_onMsgCallbacks = table.create(0)
 	}
 
 	local function onSocketMsg(message)
 		for _, callback in wsObj._onMsgCallbacks do
-			callback(message)
+			task.spawn(callback, message)
 		end
 	end
 
@@ -40,22 +46,21 @@ function wsLib.new(url: string)
 			table.remove(wsObj._connections, index)
 		end
 
-		wsObj._socket.OnMessage:Connect(onSocketMsg)
-		wsObj._socket.OnClose:Connect(reconnectCallback)
+		wsObj._socket = socket
+		socket.OnMessage:Connect(onSocketMsg)
+		socket.OnClose:Connect(reconnectCallback)
 	end
 
 	local function reconnectSocket()
 		if wsObj._forcedClose then return end
-		local reconnected, reconnectCount = false, 0
+		local newSocket, reconnected, reconnectCount = nil, false, 0
 
 		print("Lost connection, reconnecting...")
-		wsObj._socket = nil
 		repeat
 			local succ, result = pcall(WebSocket.connect, url)
 
 			if succ then
-				reconnected = true
-				wsObj._socket = result
+				reconnected, newSocket = true, result
 				break
 			else
 				reconnectCount += 1
@@ -63,14 +68,15 @@ function wsLib.new(url: string)
 		until (reconnected or reconnectCount >= 15)
 		
 		if reconnected then
-			initializeSocket(wsObj._socket, reconnectSocket)
-			print("Connection Re-istablished!")
+			initializeSocket(newSocket, reconnectSocket)
+			print("Reconnected successfully!")
 		else
-			warn("Failed to reconnect.")
+			warn("Failed to reconnect after 15 tries, trying again.")
+			reconnectSocket()
 		end
 	end
 
-	initializeSocket(wsObj._socket, reconnectSocket)
+	initializeSocket(WebSocket.connect(url), reconnectSocket)
 	return setmetatable(wsObj, wsLib)
 end
 
@@ -103,6 +109,10 @@ local fakePlayers = table.create(0)
 local numberToEncTable = table.create(0)
 local connections = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+local accumulatedTime = {
+	send = 0,
+	recieve = 0
+}
 -- functions
 local function encryptNumber(number)
 	number = tostring(number)
@@ -154,6 +164,11 @@ local function unpackVect3(vect3)
 	return Vector3.new(unpack(args))
 end
 
+local function unpackOrientation(vectRot, dontUseRadians)
+	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
+	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
+end
+
 local function createFakePlr(name, character)
 	local plrInstance = Instance.new("Player")
 
@@ -177,24 +192,34 @@ end
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
 	local self, index = ...
 
-	if self == players and fakePlayers[index] then
-		-- returns the fake character when indexed from exploit environment, returns nil if not
-		return (if checkcaller() then fakePlayers[index] else refs.oldIndex(...))
-	elseif (self:IsA("Player") and self:IsDescendantOf(fakePlrParent)) and index == "Parent" then -- IsDescendantOf is better to be used here
-		return (if checkcaller() then players else nil)
+	-- returns the fake character indexation when called from exploit environment, returns nil if not
+	if checkcaller() then
+		if self == players and fakePlayers[index] then
+			return fakePlayers[index]
+		elseif (self:IsA("Player") and self:IsDescendantOf(fakePlrParent)) and index == "Parent" then -- IsDescendantOf is better to be used here
+			return players
+		end
 	end
 	return refs.oldIndex(...)
 end)
 
 -- data payload parser and updater
 socketObj:AddMessageCallback(function(message)
+	accumulatedTime.recieve += runService.Heartbeat:Wait()
+
+	while accumulatedTime.recieve >= config.recievePerSecond do
+		accumulatedTime.recieve -= config.recievePerSecond
+	end
+
 	if string.sub(message, 1, 1) == "\26" then
-		message = string.sub(message, 2, #message)
+		message = string.sub(message, 3, #message) -- removes "\26|"
 		local succ, parsedData = pcall(function()
-			return httpService:JSONDecode(base64.decode(message))
+			return httpService:JSONDecode(lz4.decompress(base64.decode(message)))
 		end)
 
-		if not succ then return end
+		if not succ then 
+			return warn("Failed to parse data recieved:", parsedData)
+		end
 		local playerName = parsedData[1]
 
 		if player.Name ~= playerName then
@@ -248,15 +273,21 @@ socketObj:AddMessageCallback(function(message)
 end)
 
 -- payload data sender
-table.insert(connections, runService.Heartbeat:Connect(function()
+table.insert(connections, runService.Heartbeat:Connect(function(deltaTime)
 	if not (character and humanoid) then return end
+	accumulatedTime.send += deltaTime
+
+	while accumulatedTime.send >= config.sendPerSecond do
+		accumulatedTime.send -= config.sendPerSecond
+	end
+	
 	local dataPayload, packetPayload = {
 		player.Name, -- sender
 		{ -- character position & orientation
 			{}, -- parts
 			{}  -- accessories
 		},
-	}, "\26" -- packet starts with arrowleft character
+	}, "\26|" -- packet starts with arrowleft character with a seperator
 
 	for _, object in character:GetChildren() do
 		if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
@@ -276,8 +307,7 @@ table.insert(connections, runService.Heartbeat:Connect(function()
 		end
 	end
 
-	packetPayload ..= base64.encode(httpService:JSONEncode(dataPayload))
-	print(packetPayload)
+	packetPayload ..= base64.encode(lz4.compress(httpService:JSONEncode(dataPayload)))
 	socketObj:SendMessage(packetPayload)
 end))
 
