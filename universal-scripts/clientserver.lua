@@ -1,3 +1,7 @@
+--[[
+	TODO:
+	#1: reduce the bandwidth, and use some shenanigans	
+--]]
 -- config
 local config = {
 	socketUrl = "ws://ws-clientserver.herokuapp.com"
@@ -31,9 +35,9 @@ function wsLib.new(url: string)
 	end
 
 	local function initializeSocket(socket, reconnectCallback)
-		for index, connection in wsObj._onMsgCallbacks do
+		for index, connection in wsObj._connections do
 			connection:Disconnect()
-			table.remove(wsObj._onMsgCallbacks, index)
+			table.remove(wsObj._connections, index)
 		end
 
 		wsObj._socket.OnMessage:Connect(onSocketMsg)
@@ -59,6 +63,7 @@ function wsLib.new(url: string)
 		until (reconnected or reconnectCount >= 15)
 		
 		if reconnected then
+			initializeSocket(wsObj._socket, reconnectSocket)
 			print("Connection Re-istablished!")
 		else
 			warn("Failed to reconnect.")
@@ -82,6 +87,11 @@ function wsLib:AddMessageCallback(callback)
 end
 
 function wsLib:Close()
+	for index, connection in self._connections do
+		connection:Disconnect()
+		table.remove(self._connections, index)
+	end
+	
 	self._forcedClose = true
 	if self._socket then self._socket:Close() end
 	setmetatable(self, nil)
@@ -97,14 +107,14 @@ local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "R
 local function encryptNumber(number)
 	number = tostring(number)
 	for index, value in numberToEncTable do
-		if (typeof(index) == "string") then continue end
-		number = string.gsub(number, tostring(index), value)
+		if (typeof(tonumber(index)) == "nil") then continue end
+		number = string.gsub(number, index, value)
 	end
-	number = string.gsub(number, ",", numberToEncTable[","])
+
 	number = string.gsub(number, "-", numberToEncTable["-"])
 	number = string.gsub(number, " ", "")
 
-	local args = string.split(number, numberToEncTable[","])
+	local args = string.split(number, ",")
 
 	if #args ~= 0 then
 		number = ""
@@ -127,7 +137,6 @@ end
 
 local function decryptNumber(number)
 	number = tostring(number)
-	print(number)
 
 	for index, value in numberToEncTable do
 		number = string.gsub(number, value, tostring(index)) -- reversed
@@ -155,7 +164,8 @@ end
 -- main
 do
 	for index = 1, 13 do
-		table.insert(numberToEncTable, index - 1, string.char(index + 14))
+		index -= 1
+		table.insert(numberToEncTable, tostring(index), string.char(index + 14))
 	end
 
 	numberToEncTable[","] = numberToEncTable[10]
@@ -178,10 +188,14 @@ end)
 
 -- data payload parser and updater
 socketObj:AddMessageCallback(function(message)
-	local parsedData = httpService:JSONDecode(base64.decode(message))
+	if string.sub(message, 1, 1) == "\26" then
+		message = string.sub(message, 2, #message)
+		local succ, parsedData = pcall(function()
+			return httpService:JSONDecode(base64.decode(message))
+		end)
 
-	if parsedData[1] == "\27" then
-		local playerName = parsedData[3]
+		if not succ then return end
+		local playerName = parsedData[1]
 
 		if player.Name ~= playerName then
 			local plrChar = workspace:FindFirstChild(playerName)
@@ -236,38 +250,39 @@ end)
 -- payload data sender
 table.insert(connections, runService.Heartbeat:Connect(function()
 	if not (character and humanoid) then return end
-	local dataPayload = {
-		"\27", -- header
+	local dataPayload, packetPayload = {
+		player.Name, -- sender
 		{ -- character position & orientation
 			{}, -- parts
 			{}  -- accessories
 		},
-		player.Name, -- sender
-	}
+	}, "\26" -- packet starts with arrowleft character
 
 	for _, object in character:GetChildren() do
 		if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
 			dataPayload[2][1][object.Name] = {
 				[1] = encryptNumber(object.Position),
-				[1] = encryptNumber(object.Orientation),
+				[2] = encryptNumber(object.Orientation),
 			}
 		end
 	end
 
 	for _, accessory in humanoid:GetAccessories() do
 		if accessory:FindFirstChild("Handle") then
-			dataPayload[2][1][accessory.Name] = {
+			dataPayload[2][2][accessory.Name] = {
 				[1] = encryptNumber(accessory.Handle.Position),
-				[1] = encryptNumber(accessory.Handle.Orientation),
+				[2] = encryptNumber(accessory.Handle.Orientation),
 			}
 		end
 	end
 
-	socketObj:SendMessage(base64.encode(httpService:JSONEncode(dataPayload)))
-	runService.Stepped:Wait()
+	packetPayload ..= base64.encode(httpService:JSONEncode(dataPayload))
+	print(packetPayload)
+	socketObj:SendMessage(packetPayload)
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
+	task.wait(.1)
 	character = newChar
 	humanoid = newChar:FindFirstChild("Humanoid")
 end))
