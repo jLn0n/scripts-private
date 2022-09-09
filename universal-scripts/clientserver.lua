@@ -278,7 +278,7 @@ socketObj:AddMessageCallback(function(message)
 				partObj.CFrame = partObj.CFrame:Lerp(
 					(CFrame.new(unpackVect3(decryptNumber(cframeData[1]))) *
 					CFrame.fromOrientation(unpackOrientation(unpackVect3(decryptNumber(cframeData[2]))))),
-					math.min(accumulatedRecieveTime / (100 / 60), 1)
+					math.min(accumulatedRecieveTime / (250 / 60), 1)
 				)
 			end
 
@@ -290,7 +290,7 @@ socketObj:AddMessageCallback(function(message)
 				partObj.CFrame = partObj.CFrame:Lerp(
 					(CFrame.new(unpackVect3(decryptNumber(cframeData[1]))) *
 					CFrame.fromOrientation(unpackOrientation(unpackVect3(decryptNumber(cframeData[2]))))),
-					math.min(accumulatedRecieveTime / (100 / 60), 1)
+					math.min(accumulatedRecieveTime / (250 / 60), 1)
 				)
 			end
 		end
