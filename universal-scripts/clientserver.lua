@@ -1,15 +1,16 @@
 --[[
-	TODO:
+	TODO: (not in order)
 	#1: reduce the bandwidth, and use some shenanigans	
 	#2 DONE: add packet delay
-	#3: fix the flickering of character parts on some cases
+	#3 DONE: fix the flickering of character parts on some cases
 	#4: host a fast websocket server using replit
+	#5: add a id for packet comms
 --]]
 -- config
 local config = {
 	socketUrl = "ws://ws-clientserver.herokuapp.com", -- the server to connect
-	sendPerSecond = .15, -- 15 times per second
-	recievePerSecond = .30, -- 30 times per second
+	sendPerSecond = 10, -- 10hz per second
+	recievePerSecond = 5, -- 5hz per second
 }
 -- services
 local httpService = game:GetService("HttpService")
@@ -84,7 +85,7 @@ function wsLib:SendMessage(message)
 	if self._socket then	
 		self._socket:Send(message)
 	else	
-		warn("Attempt to send socket message when reconnecting!")	
+		warn("Attempt to send socket message while reconnecting!")	
 	end	
 end
 
@@ -103,16 +104,14 @@ function wsLib:Close()
 	setmetatable(self, nil)
 end
 -- variables
+local accumulatedRecieveTime = 0
 local socketObj = wsLib.new(config.socketUrl)
 local refs = table.create(0)
 local fakePlayers = table.create(0)
 local numberToEncTable = table.create(0)
 local connections = table.create(0)
+local rateInfos = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
-local accumulatedTime = {
-	send = 0,
-	recieve = 0
-}
 -- functions
 local function encryptNumber(number)
 	number = tostring(number)
@@ -176,6 +175,32 @@ local function createFakePlr(name, character)
 	plrInstance.Character = character
 	fakePlayers[name] = plrInstance
 end
+
+local function rateCheck(name, rate)
+	rate /= 10
+	rateInfos[name] = (if not rateInfos[name] then {
+		["lastTime"] = -1,
+	} else rateInfos[name])
+	local rateInfo = rateInfos[name]
+
+	if rateInfo.lastTime == -1 then
+		-- initializes rateInfo
+		rateInfo.lastTime = os.time()
+
+		return true
+	else
+		rateInfo.lastTime = (rateInfo.lastTime or os.clock())
+		local timeElapsed = os.time() - rateInfo.lastTime
+
+		if timeElapsed >= (1 / rate) then
+			rateInfo.lastTime = os.clock()
+
+			return true
+		else
+			return false
+		end
+	end
+end
 -- main
 do
 	for index = 1, 13 do
@@ -205,11 +230,8 @@ end)
 
 -- data payload parser and updater
 socketObj:AddMessageCallback(function(message)
-	accumulatedTime.recieve += runService.Heartbeat:Wait()
-
-	while accumulatedTime.recieve >= config.recievePerSecond do
-		accumulatedTime.recieve -= config.recievePerSecond
-	end
+	if not rateCheck("recieve", config.recievePerSecond) then return end
+	accumulatedRecieveTime = runService.Stepped:Wait()
 
 	if string.sub(message, 1, 1) == "\26" then
 		message = string.sub(message, 3, #message) -- removes "\26|"
@@ -218,18 +240,18 @@ socketObj:AddMessageCallback(function(message)
 		end)
 
 		if not succ then 
-			return warn("Failed to parse data recieved:", parsedData)
+			return warn("Failed to parse data recieved:\n", parsedData)
 		end
-		local playerName = parsedData[1]
+		local sender = parsedData[1]
 
-		if player.Name ~= playerName then
-			local plrChar = workspace:FindFirstChild(playerName)
+		if player.Name ~= sender then
+			local plrChar = workspace:FindFirstChild(sender)
 
-			if not players:FindFirstChild(playerName) then
-				plrChar = game:GetObjects("rbxassetid://5195737219")[1]
-				plrChar.Name = playerName
+			if (not players:FindFirstChild(sender) and not fakePlayers[sender]) then
+				plrChar = game:GetObjects("rbxassetid://6843243348")[1]
+				plrChar.Name = sender
 				plrChar.Parent = workspace
-				createFakePlr(playerName, plrChar)
+				createFakePlr(sender, plrChar)
 			end
 
 			if not plrChar:FindFirstChild("JointsGone") then
@@ -253,39 +275,39 @@ socketObj:AddMessageCallback(function(message)
 				local partObj = plrChar:FindFirstChild(partName)
 
 				if not (partObj and partObj:IsA("BasePart")) then continue end
-				tweenService:Create(partObj, TweenInfo.new(.1), {
-					Position = unpackVect3(decryptNumber(cframeData[1])),
-					Orientation = unpackVect3(decryptNumber(cframeData[2]))
-				}):Play()
+				partObj.CFrame = partObj.CFrame:Lerp(
+					(CFrame.new(unpackVect3(decryptNumber(cframeData[1]))) *
+					CFrame.fromOrientation(unpackOrientation(unpackVect3(decryptNumber(cframeData[2]))))),
+					math.min(accumulatedRecieveTime / (100 / 60), 1)
+				)
 			end
 
 			for partName, cframeData in parsedData[2][2] do
 				local partObj = plrChar:FindFirstChild(partName)
 
 				if not (partObj and partObj:FindFirstChild("Handle")) then continue end
-				tweenService:Create(partObj.Handle, TweenInfo.new(.1), {
-					Position = unpackVect3(decryptNumber(cframeData[1])),
-					Orientation = unpackVect3(decryptNumber(cframeData[2]))
-				}):Play()
+				partObj = partObj.Handle
+				partObj.CFrame = partObj.CFrame:Lerp(
+					(CFrame.new(unpackVect3(decryptNumber(cframeData[1]))) *
+					CFrame.fromOrientation(unpackOrientation(unpackVect3(decryptNumber(cframeData[2]))))),
+					math.min(accumulatedRecieveTime / (100 / 60), 1)
+				)
 			end
 		end
 	end
 end)
 
 -- payload data sender
-table.insert(connections, runService.Heartbeat:Connect(function(deltaTime)
+table.insert(connections, runService.Stepped:Connect(function()
 	if not (character and humanoid) then return end
-	accumulatedTime.send += deltaTime
+	if not rateCheck("send", config.sendPerSecond) then return end
 
-	while accumulatedTime.send >= config.sendPerSecond do
-		accumulatedTime.send -= config.sendPerSecond
-	end
-	
 	local dataPayload, packetPayload = {
 		player.Name, -- sender
 		{ -- character position & orientation
 			{}, -- parts
-			{}  -- accessories
+			{}, -- accessories
+			--{}, -- custom parts
 		},
 	}, "\26|" -- packet starts with arrowleft character with a seperator
 
