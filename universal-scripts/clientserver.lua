@@ -213,11 +213,11 @@ local function rateCheck(name, rate)
 end
 -- main
 if not socketObj then return warn("Please Re-execute the script, if this still happens then change the config url to another url.") end
-if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently doesn't support R15 characters.")
+if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently doesn't support R15 characters.") end
 do
 	for index = 1, 13 do
 		index -= 1
-		table.insert(numberToEncTable, tostring(index), string.char(index + 14))
+		table.insert(numberToEncTable, tostring(index), string.char(index + 65))
 	end
 
 	numberToEncTable[","] = numberToEncTable[10]
