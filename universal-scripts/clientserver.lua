@@ -12,7 +12,7 @@
 local config = {
 	socketUrl = "ws://eu-repliclient-ws.herokuapp.com", -- the server to connect
 
-	-- more digits = smooth, less digits = janky
+	-- high value = smooth, low value = janky
 	sendPerSecond = 5, -- 5hz per second
 	recievePerSecond = 10, -- 10hz per second
 }
@@ -32,57 +32,63 @@ local wsLib = {}
 wsLib.__index = wsLib
 
 function wsLib.new(url: string)
-	local wsObj = {
-		_forcedClose = false,
-		_socket = nil,
-		_connections = table.create(0),
-		_onMsgCallbacks = table.create(0)
-	}
+	local succ, socket = pcall(WebSocket.connect, url)
 
-	local function onSocketMsg(message)
-		for _, callback in wsObj._onMsgCallbacks do
-			task.spawn(callback, message)
-		end
-	end
+	if succ then
+		local wsObj = {
+			_forcedClose = false,
+			_socket = nil,
+			_connections = table.create(0),
+			_onMsgCallbacks = table.create(0)
+		}
 
-	local function initializeSocket(socket, reconnectCallback)
-		for index, connection in wsObj._connections do
-			connection:Disconnect()
-			table.remove(wsObj._connections, index)
-		end
-
-		wsObj._socket = socket
-		socket.OnMessage:Connect(onSocketMsg)
-		socket.OnClose:Connect(reconnectCallback)
-	end
-
-	local function reconnectSocket()
-		if wsObj._forcedClose then return end
-		local newSocket, reconnected, reconnectCount = nil, false, 0
-
-		print("Lost connection, reconnecting...")
-		repeat
-			local succ, result = pcall(WebSocket.connect, url)
-
-			if succ then
-				reconnected, newSocket = true, result
-				break
-			else
-				reconnectCount += 1
+		local function onSocketMsg(message)
+			for _, callback in wsObj._onMsgCallbacks do
+				task.spawn(callback, message)
 			end
-		until (reconnected or reconnectCount >= 15)
-		
-		if reconnected then
-			initializeSocket(newSocket, reconnectSocket)
-			print("Reconnected successfully!")
-		else
-			warn("Failed to reconnect after 15 tries, trying again.")
-			reconnectSocket()
 		end
-	end
 
-	initializeSocket(WebSocket.connect(url), reconnectSocket)
-	return setmetatable(wsObj, wsLib)
+		local function initializeSocket(socket, reconnectCallback)
+			for index, connection in wsObj._connections do
+				connection:Disconnect()
+				table.remove(wsObj._connections, index)
+			end
+
+			wsObj._socket = socket
+			socket.OnMessage:Connect(onSocketMsg)
+			socket.OnClose:Connect(reconnectCallback)
+		end
+
+		local function reconnectSocket()
+			if wsObj._forcedClose then return end
+			local newSocket, reconnected, reconnectCount = nil, false, 0
+
+			print("Lost connection, reconnecting...")
+			repeat
+				local succ, result = pcall(WebSocket.connect, url)
+
+				if succ then
+					reconnected, newSocket = true, result
+					break
+				else
+					reconnectCount += 1
+				end
+			until (reconnected or reconnectCount >= 15)
+			
+			if reconnected then
+				initializeSocket(newSocket, reconnectSocket)
+				print("Reconnected successfully!")
+			else
+				warn("Failed to reconnect after 15 tries, trying again.")
+				reconnectSocket()
+			end
+		end
+
+		initializeSocket(socket, reconnectSocket)
+		return setmetatable(wsObj, wsLib)
+	else
+		return warn("Failed to connect to websocket server!")
+	end
 end
 
 function wsLib:SendMessage(message)	
@@ -206,6 +212,8 @@ local function rateCheck(name, rate)
 	end
 end
 -- main
+if not socketObj then return warn("Please Re-execute the script, if this still happens then change the config url to another url.") end
+if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently doesn't support R15 characters.")
 do
 	for index = 1, 13 do
 		index -= 1
