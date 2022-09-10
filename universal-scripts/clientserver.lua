@@ -69,7 +69,6 @@ function wsLib.new(url: string)
 
 				if succ then
 					reconnected, newSocket = true, result
-					break
 				else
 					reconnectCount += 1
 				end
