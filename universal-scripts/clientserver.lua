@@ -1,16 +1,19 @@
 --[[
 	TODO: (not in order)
-	#1: reduce the bandwidth, and use some shenanigans	
+	#1: reduce the bandwidth, and use some shenanigans
 	#2 DONE: add packet delay
 	#3 DONE: fix the flickering of character parts on some cases
 	#4 DONE: host a personal server because yes
-	#5: add a id for packet comms
+	#5: add a id for packet comms (for custom instance replication)
+	#6: rewrite the networking code and make it like the roblox ones
 --]]
 -- config
 local config = {
 	socketUrl = "ws://eu-repliclient-ws.herokuapp.com", -- the server to connect
-	sendPerSecond = 10, -- 10hz per second
-	recievePerSecond = 5, -- 5hz per second
+
+	-- more digits = smooth, less digits = janky
+	sendPerSecond = 5, -- 5hz per second
+	recievePerSecond = 10, -- 10hz per second
 }
 -- services
 local httpService = game:GetService("HttpService")
