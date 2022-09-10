@@ -6,6 +6,7 @@
 	#4 DONE: host a personal server because yes
 	#5: add a id for packet comms (for custom instance replication)
 	#6: rewrite the networking code and make it like the roblox ones
+	#7: change the name (repliclient kinda sucks)
 --]]
 -- config
 local config = {
@@ -342,4 +343,4 @@ table.insert(connections, player.CharacterAdded:Connect(function(newChar)
 	humanoid = newChar:FindFirstChild("Humanoid")
 end))
 
-print("Clientserver started!")
+print("Repliclient started!")
