@@ -7,6 +7,7 @@
 	#5: add a id for packet comms (for custom instance replication)
 	#6: rewrite the networking code and make it like the roblox ones
 	#7: change the name (repliclient kinda sucks)
+	#8: fix character being cloned so many times
 --]]
 -- config
 local config = {
