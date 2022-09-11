@@ -323,9 +323,10 @@ socketObj:AddMessageCallback(function(message)
 
 			if (player.Name ~= plrName) and fakePlayers[plrName] then
 				local plrInstance = fakePlayers[plrName]
+				local headPart = plrInstance.Character:FindFirstChild("Head")
 				local chatMsg = packetBuffer.readString()
 
-				renderChat(chatMsg)
+				renderChat(plrName, chatMsg, headPart)
 			end
 		elseif packetId == replicationIDs["ID_PLR_LEAVE"] then
 			local plrName = packetBuffer.readString()
@@ -343,6 +344,7 @@ socketObj:AddMessageCallback(function(message)
 			if player.Name ~= plrName then
 				local plrChar = workspace:FindFirstChild(plrName)
 
+				if not plrChar then return end
 				for _ = 1, packetBuffer.readInt8() do -- character parts
 					local partObj = plrChar:FindFirstChild(packetBuffer.readString())
 					local position, orientation = packetBuffer.readVector3(), packetBuffer.readVector3()
@@ -413,9 +415,9 @@ table.insert(connections, player.Chatted:Connect(function(chatMsg)
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
-	task.wait(.1)
+	task.wait()
 	character = newChar
 	humanoid = newChar:FindFirstChild("Humanoid")
 end))
 
-game:BindToClose(disconnectToSocket)
+table.insert(connections, game.Close:Connect(disconnectToSocket))
