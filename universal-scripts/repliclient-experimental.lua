@@ -23,7 +23,6 @@ local config = {
 }
 -- services
 local chatService = game:GetService("Chat")
-local httpService = game:GetService("HttpService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
@@ -97,18 +96,9 @@ function wsLib.new(url: string)
 	end
 end
 
-function wsLib:SendToTarget(target, message)
+function wsLib:Send(message)
 	if not self._socket then return warn("Attempt to send socket message while reconnecting!") end
-	local dataInfo = {target, message}
-
-	self._socket:Send(httpService:JSONEncode(dataInfo))
-end
-
-function wsLib:SendToAll(message)
-	if not self._socket then return warn("Attempt to send socket message while reconnecting!") end
-	local dataInfo = {"all", message}
-
-	self._socket:Send(httpService:JSONEncode(dataInfo))
+	self._socket:Send(message)
 end
 
 function wsLib:AddMessageCallback(callback)
@@ -242,7 +232,7 @@ local function disconnectToSocket()
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_REMOVE")
 
 	packetBuffer.writeString(player.Name)
-	socketObj:SendToAll(bufferFinish())
+	socketObj:Send(bufferFinish())
 
 	for index, connection in connections do
 		connection:Disconnect()
@@ -264,7 +254,7 @@ task.defer(function()
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
 
 	packetBuffer.writeString(player.Name)
-	socketObj:SendToAll(bufferFinish())
+	socketObj:Send(bufferFinish())
 	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
 	print("Repliclient started!")
 end)
@@ -290,16 +280,10 @@ socketObj:AddMessageCallback(function(message)
 
 	if string.sub(message, 1, 1) == "\26" then
 		message = string.sub(message, 3, #message) -- removes "\26|"
-		message = httpService:JSONDecode(message)
-
-		if not (
-			(typeof(message[1]) == "string" and (message[1] == player.Name or message[1] == "all")) or
-			(typeof(message[1]) == "table" and table.find(message[1], player.Name))
-		) then return end
-
 		local succ, packetBuffer = pcall(function()
-			return bitBuffer(base64.decode(message[2]))
+			return bitBuffer(base64.decode(message))
 		end)
+
 		if not succ then return warn("Failed to parse data recieved:\n", message) end
 
 		local packetId = packetBuffer.readInt16()
@@ -333,7 +317,6 @@ socketObj:AddMessageCallback(function(message)
 					part.Anchored = true
 					part.Velocity, part.RotVelocity = Vector3.zero, Vector3.zero -- no more character vibration
 				end
-				socketObj:SendToTarget(plrName, refs["ID_PLR_ADD-bufferCache"]())
 			end
 		elseif packetId == replicationIDs["ID_PLR_CHATTED"] then
 			local plrName = packetBuffer.readString()
@@ -419,7 +402,7 @@ table.insert(connections, runService.Stepped:Connect(function()
 		end
 	end
 
-	socketObj:SendToAll(bufferFinish())
+	socketObj:Send(bufferFinish())
 end))
 
 table.insert(connections, player.Chatted:Connect(function(chatMsg)
@@ -428,7 +411,7 @@ table.insert(connections, player.Chatted:Connect(function(chatMsg)
 	packetBuffer.writeString(player.Name)
 	packetBuffer.writeString(chatMsg)
 
-	socketObj:SendToAll(bufferFinish())
+	socketObj:Send(bufferFinish())
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
