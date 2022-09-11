@@ -4,10 +4,10 @@
 	#2 DONE: add packet delay
 	#3 DONE: fix the flickering of character parts on some cases
 	#4 DONE: host a personal server because yes
-	#5: add a id for packet comms (for better packet handling)
-	#6: rewrite the networking code and make it like the roblox ones
+	#5 DONE: add a id for packet comms (for better packet handling)
+	#6 DONE: rewrite the networking code and make it like the roblox ones
 	#7: change the name (repliclient kinda sucks)
-	#8: fix character being cloned so many times
+	#8 DONE: fix character being cloned so many times
 	#9: add a thing for handling instance replication (i got no idea on how to do that, and i dont want to sacrifice performance)
 	#10: fix a rare case when the packet "ID_CHAR_UPDATE" errors causing delays
 --]]
@@ -24,6 +24,7 @@ local chatService = game:GetService("Chat")
 local httpService = game:GetService("HttpService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
+local starterGui = game:GetService("StarterGui")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
@@ -219,8 +220,14 @@ local function rateCheck(name, rate)
 	end
 end
 
-local function renderChat(chatMsg)
-	chatService:Chat(_playerHead, chatMsg)
+local function renderChat(chatter, chatMsg, headAdornee)
+	chatService:Chat(headAdornee, chatMsg, Enum.ChatColor.Green)
+	starterGui:SetCore("ChatMakeSystemMessage", {
+		Text = string.format("Repliclient | [%s]: %s", chatter, chatMsg),
+		Color = Color3.fromRGB(255, 255, 255),
+		Font = Enum.Font.SourceSansBold,
+		FontSize = Enum.FontSize.Size32,
+	})
 end
 
 local function disconnectToSocket()
