@@ -117,13 +117,47 @@ end
 -- variables
 local accumulatedRecieveTime = 0
 local socketObj = wsLib.new(config.socketUrl)
-local connections = table.create(0)
-local fakePlayers = table.create(0)
-local refs = table.create(0)
+local connections, refs = table.create(10), table.create(0)
+local fakePlayers, userIdCache = table.create(0), table.create(0)
 local rateInfos = table.create(0)
-local userIdCache = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
+local replicationIDsInt, replicationIDsStr = {
+	-- player thingys
+	[0x100] = "ID_PLR_JOIN",
+	[0x101] = "ID_PLR_CHATTED",
+	[0x102] = "ID_PLR_LEAVE",
+
+	-- character thingys
+	[0x200] = "ID_CHAR_UPDATE",
+
+	-- datamodel thingys
+	[0x300] = "ID_INSTANCE_ADD",
+	[0x301] = "ID_INSTANCE_DESTROY",
+	[0x302] = "ID_PROPERTY_MODIFY",
+}, table.create(0)
 -- functions
+local function createFakePlr(name, userId, character)
+	local plrInstance = Instance.new("Player")
+
+	plrInstance.Name = name
+	plrInstance.Character = character
+	sethiddenproperty(plrInstance, "UserId", userId)
+	fakePlayers[name] = plrInstance
+end
+
+local function createPacketBuffer(packetId, ...)
+	local packetBuffer, packetPayload = bitBuffer(), "\26|" -- payload starts with arrowleft character with a seperator
+
+	packetBuffer.writeString(replicationIDsInt[packetId])
+
+	local function bufferFinish()
+		packetPayload ..= packetBuffer.dumpBase64()
+		return packetPayload
+	end
+
+	return packetBuffer, bufferFinish
+end
+
 local function getUserIdFromName(name)
 	if userIdCache[name] then return userIdCache[name] end
 
@@ -154,15 +188,6 @@ local function getCharacterFromUserId(userId)
 	else
 		newChar:Destroy()
 	end
-end
-
-local function createFakePlr(name, userId, character)
-	local plrInstance = Instance.new("Player")
-
-	plrInstance.Name = name
-	plrInstance.Character = character
-	sethiddenproperty(plrInstance, "UserId", userId)
-	fakePlayers[name] = plrInstance
 end
 
 local function rateCheck(name, rate)
@@ -199,6 +224,20 @@ end
 if not socketObj then return warn("Please Re-execute the script, if this still happens then change the config url to another url.") end
 if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently only support R6 characters.") end
 
+do -- initialization
+	-- packet initialization
+	for packetId, packetIdName in replicationIDsInt do
+		replicationIDsStr[packetIdName] = packetId
+	end
+
+	-- letting the other clients to know that self joined
+	local packetBuffer, bufferFinish = createPacketBuffer(replicationIDsInt[0x100])
+
+	packetBuffer.writeString(player.Name)
+
+	socketObj:SendMessage(bufferFinish())
+end
+
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
 	local self, index = ...
 
@@ -220,25 +259,21 @@ socketObj:AddMessageCallback(function(message)
 
 	if string.sub(message, 1, 1) == "\26" then
 		message = string.sub(message, 3, #message) -- removes "\26|"
-		local succ, payloadBuffer = pcall(function()
+		local succ, packetBuffer = pcall(function()
 			return bitBuffer(base64.decode(message))
 		end)
 
 		if not succ then return warn("Failed to parse data recieved:\n", parsedData) end
-		local senderName = payloadBuffer.readString()
+		local packetId = packetBuffer.readString()
 
-		if player.Name ~= senderName then
-			local plrChar = workspace:FindFirstChild(senderName)
+		if packetId == "ID_PLR_JOIN" then
+			local plrName = packetBuffer.readString()
 
-			if (not players:FindFirstChild(senderName) and not fakePlayers[senderName]) then
-				local plrUserId = getUserIdFromName(senderName)
-				plrChar = getCharacterFromUserId(plrUserId)
-				plrChar.Name = senderName
+			if (player.Name ~= plrName) and (not players:FindFirstChild(plrName) and not fakePlayers[plrName]) then
+				local plrUserId = getUserIdFromName(plrName)
+				local plrChar = workspace:FindFirstChild(plrName) or getCharacterFromUserId(plrUserId)
+				plrChar.Name = plrName
 
-				createFakePlr(senderName, plrUserId, plrChar)
-			end
-
-			if not plrChar:FindFirstChild("JointsGone") then
 				plrChar:BreakJoints()
 				
 				for _, part in plrChar:GetChildren() do
@@ -249,36 +284,58 @@ socketObj:AddMessageCallback(function(message)
 					end
 				end
 
-				local JointsGone = Instance.new("NumberValue")
-				JointsGone.Name = "JointsGone"
-				JointsGone.Value = 1
-				JointsGone.Parent = plrChar
+				createFakePlr(plrName, plrUserId, plrChar)
 			end
+		elseif packetId == "ID_PLR_CHATTED" then
+			local plrName = packetBuffer.readString()
 
-			for _ = 1, payloadBuffer.readUInt8() do -- character parts
-				local partObj = plrChar:FindFirstChild(payloadBuffer.readString())
-				local position, orientation = payloadBuffer.readVector3(), payloadBuffer.readVector3()
+			if (player.Name ~= plrName) and fakePlayers[plrName] then
+				local plrInstance = fakePlayers[plrName]
+				local chatMsg = packetBuffer.readString()
 
-				if not (partObj and partObj:IsA("BasePart")) then continue end
-				partObj.CFrame = partObj.CFrame:Lerp(
-					(CFrame.new(position) *
-					CFrame.fromOrientation(unpackOrientation(orientation))),
-					math.min(accumulatedRecieveTime / (240 / 60), 1)
-				)
+				plrInstance:Chat(chatMsg)
 			end
+		elseif packetId == "ID_PLR_LEFT" then
+			local plrName = packetBuffer.readString()
 
-			for _ = 1, payloadBuffer.readUInt8() do -- character accessories
-                local partObj = plrChar:FindFirstChild(payloadBuffer.readString())
-                local position, orientation = payloadBuffer.readVector3(), payloadBuffer.readVector3()
+			if (player.Name ~= plrName) and fakePlayers[plrName] then
+				local plrInstance = fakePlayers[plrName]
 
-                if not (partObj and partObj:IsA("Accessory") and partObj:FindFirstChild("Handle")) then continue end
-				partObj = partObj.Handle
-                partObj.CFrame = partObj.CFrame:Lerp(
-                    (CFrame.new(position) *
-                    CFrame.fromOrientation(unpackOrientation(orientation))),
-                    math.min(accumulatedRecieveTime / (240 / 60), 1)
-                )
-            end
+				plrInstance.Character:Destroy()
+				plrInstance:Destroy()
+				fakePlayers[plrName] = nil
+			end
+		elseif packetId == "ID_CHAR_UPDATE" then
+			local plrName = packetBuffer.readString()
+
+			if player.Name ~= plrName then
+				local plrChar = workspace:FindFirstChild(senderName)
+
+				for _ = 1, packetBuffer.readUInt8() do -- character parts
+					local partObj = plrChar:FindFirstChild(packetBuffer.readString())
+					local position, orientation = packetBuffer.readVector3(), packetBuffer.readVector3()
+	
+					if not (partObj and partObj:IsA("BasePart")) then continue end
+					partObj.CFrame = partObj.CFrame:Lerp(
+						(CFrame.new(position) *
+						CFrame.fromOrientation(unpackOrientation(orientation))),
+						math.min(accumulatedRecieveTime / (240 / 60), 1)
+					)
+				end
+	
+				for _ = 1, packetBuffer.readUInt8() do -- character accessories
+					local partObj = plrChar:FindFirstChild(packetBuffer.readString())
+					local position, orientation = packetBuffer.readVector3(), packetBuffer.readVector3()
+	
+					if not (partObj and partObj:IsA("Accessory") and partObj:FindFirstChild("Handle")) then continue end
+					partObj = partObj.Handle
+					partObj.CFrame = partObj.CFrame:Lerp(
+						(CFrame.new(position) *
+						CFrame.fromOrientation(unpackOrientation(orientation))),
+						math.min(accumulatedRecieveTime / (240 / 60), 1)
+					)
+				end
+			end
 		end
 	end
 end)
@@ -288,31 +345,30 @@ table.insert(connections, runService.Stepped:Connect(function()
 	if not (character and humanoid) then return end
 	if not rateCheck("send", config.sendPerSecond) then return end
 
-	local dataBuffer, packetPayload = bitBuffer(), "\26|" -- payload starts with arrowleft character with a seperator
+	local packetBuffer, bufferFinish = createPacketBuffer(replicationIDsInt[0x200])
 
-	dataBuffer.writeString(player.Name) -- sender id
+	packetBuffer.writeString(player.Name) -- sender
 
-	dataBuffer.writeUInt8(#characterParts) -- count of character parts
+	packetBuffer.writeUInt8(#characterParts) -- count of character parts
 	for _, object in character:GetChildren() do
 		if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
-			dataBuffer.writeString(object.Name) -- name
-			dataBuffer.writeVector3(object.Position)
-			dataBuffer.writeVector3(object.Orientation)
+			packetBuffer.writeString(object.Name) -- name
+			packetBuffer.writeVector3(object.Position)
+			packetBuffer.writeVector3(object.Orientation)
 		end
 	end
 
 	local accessories = humanoid:GetAccessories()
-	dataBuffer.writeUInt8(#accessories) -- count of accessories
+	packetBuffer.writeUInt8(#accessories) -- count of accessories
 	for _, accessory in accessories do
 		if accessory:FindFirstChild("Handle") then
-			dataBuffer.writeString(accessory.Name) -- name
-			dataBuffer.writeVector3(accessory.Handle.Position)
-			dataBuffer.writeVector3(accessory.Handle.Orientation)
+			packetBuffer.writeString(accessory.Name) -- name
+			packetBuffer.writeVector3(accessory.Handle.Position)
+			packetBuffer.writeVector3(accessory.Handle.Orientation)
 		end
 	end
 
-	packetPayload ..= dataBuffer.dumpBase64()
-	socketObj:SendMessage(packetPayload)
+	socketObj:SendMessage(bufferFinish())
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
