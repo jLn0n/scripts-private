@@ -10,6 +10,8 @@
 	#8 DONE: fix character being cloned so many times
 	#9: add a thing for handling instance replication (i got no idea on how to do that, and i dont want to sacrifice performance)
 	#10: fix a rare case when the packet "ID_CHAR_UPDATE" errors causing delays
+	#11: fix already connected client not showing the character to newly connected client
+	#12: centralize the server instead of running on clients
 --]]
 -- config
 local config = {
@@ -78,7 +80,7 @@ function wsLib.new(url: string)
 					reconnectCount += 1
 				end
 			until (reconnected or reconnectCount >= 15)
-			
+
 			if reconnected then
 				initializeSocket(newSocket, reconnectSocket)
 				print("Reconnected successfully!")
@@ -95,12 +97,18 @@ function wsLib.new(url: string)
 	end
 end
 
-function wsLib:SendMessage(message)	
-	if self._socket then	
-		self._socket:Send(message)
-	else	
-		warn("Attempt to send socket message while reconnecting!")	
-	end	
+function wsLib:SendToTarget(target, message)
+	if not self._socket then return warn("Attempt to send socket message while reconnecting!") end
+	local dataInfo = {target, message}
+
+	self._socket:Send(httpService:JSONEncode(dataInfo))
+end
+
+function wsLib:SendToAll(message)
+	if not self._socket then return warn("Attempt to send socket message while reconnecting!") end
+	local dataInfo = {"all", message}
+
+	self._socket:Send(httpService:JSONEncode(dataInfo))
 end
 
 function wsLib:AddMessageCallback(callback)
@@ -112,7 +120,7 @@ function wsLib:Close()
 		connection:Disconnect()
 		table.remove(self._connections, index)
 	end
-	
+
 	self._forcedClose = true
 	if self._socket then self._socket:Close() end
 	setmetatable(self, nil)
@@ -127,9 +135,9 @@ local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "R
 local replicationIDs = {
 	--["ID_TEMPLATE"] = 0x000,
 	-- player related
-	["ID_PLR_JOIN"] = 0x100,
+	["ID_PLR_ADD"] = 0x100,
 	["ID_PLR_CHATTED"] = 0x101,
-	["ID_PLR_LEAVE"] = 0x102,
+	["ID_PLR_REMOVE"] = 0x102,
 
 	-- character related
 	["ID_CHAR_UPDATE"] = 0x200,
@@ -231,10 +239,10 @@ local function renderChat(chatter, chatMsg, headAdornee)
 end
 
 local function disconnectToSocket()
-	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_LEAVE")
+	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_REMOVE")
 
 	packetBuffer.writeString(player.Name)
-	socketObj:SendMessage(bufferFinish())
+	socketObj:SendToAll(bufferFinish())
 
 	for index, connection in connections do
 		connection:Disconnect()
@@ -253,10 +261,11 @@ if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient cur
 -- post initialization
 task.defer(function()
 	-- letting the other clients to know that self joined
-	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_JOIN")
+	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
 
 	packetBuffer.writeString(player.Name)
-	socketObj:SendMessage(bufferFinish())
+	socketObj:SendToAll(bufferFinish())
+	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
 	print("Repliclient started!")
 end)
 
@@ -281,14 +290,21 @@ socketObj:AddMessageCallback(function(message)
 
 	if string.sub(message, 1, 1) == "\26" then
 		message = string.sub(message, 3, #message) -- removes "\26|"
-		local succ, packetBuffer = pcall(function()
-			return bitBuffer(base64.decode(message))
-		end)
+		message = httpService:JSONDecode(message)
 
-		if not succ then return warn("Failed to parse data recieved:\n", parsedData) end
+		if not (
+			(typeof(message[1]) == "string" and (message[1] == player.Name or message[1] == "all")) or
+			(typeof(message[1]) == "table" and table.find(message[1], player.Name))
+		) then return end
+
+		local succ, packetBuffer = pcall(function()
+			return bitBuffer(base64.decode(message[2]))
+		end)
+		if not succ then return warn("Failed to parse data recieved:\n", message) end
+
 		local packetId = packetBuffer.readInt16()
 
-		if packetId == replicationIDs["ID_PLR_JOIN"] then
+		if packetId == replicationIDs["ID_PLR_ADD"] then
 			local plrName = packetBuffer.readString()
 
 			if (player.Name ~= plrName) then
@@ -300,7 +316,7 @@ socketObj:AddMessageCallback(function(message)
 
 					createFakePlr(plrName, plrUserId, plrChar)
 				end
-				
+
 				plrChar.Name = plrName
 				plrChar:BreakJoints()
 
@@ -317,6 +333,7 @@ socketObj:AddMessageCallback(function(message)
 					part.Anchored = true
 					part.Velocity, part.RotVelocity = Vector3.zero, Vector3.zero -- no more character vibration
 				end
+				socketObj:SendToTarget(plrName, refs["ID_PLR_ADD-bufferCache"]())
 			end
 		elseif packetId == replicationIDs["ID_PLR_CHATTED"] then
 			local plrName = packetBuffer.readString()
@@ -328,7 +345,7 @@ socketObj:AddMessageCallback(function(message)
 
 				renderChat(plrName, chatMsg, headPart)
 			end
-		elseif packetId == replicationIDs["ID_PLR_LEAVE"] then
+		elseif packetId == replicationIDs["ID_PLR_REMOVE"] then
 			local plrName = packetBuffer.readString()
 
 			if (player.Name ~= plrName) and fakePlayers[plrName] then
@@ -348,7 +365,7 @@ socketObj:AddMessageCallback(function(message)
 				for _ = 1, packetBuffer.readInt8() do -- character parts
 					local partObj = plrChar:FindFirstChild(packetBuffer.readString())
 					local position, orientation = packetBuffer.readVector3(), packetBuffer.readVector3()
-	
+
 					if not (partObj and partObj:IsA("BasePart")) then continue end
 					partObj.CFrame = partObj.CFrame:Lerp(
 						(CFrame.new(position) *
@@ -356,11 +373,11 @@ socketObj:AddMessageCallback(function(message)
 						math.min(accumulatedRecieveTime / (240 / 60), 1)
 					)
 				end
-	
+
 				for _ = 1, packetBuffer.readInt8() do -- character accessories
 					local partObj = plrChar:FindFirstChild(packetBuffer.readString())
 					local position, orientation = packetBuffer.readVector3(), packetBuffer.readVector3()
-	
+
 					if not (partObj and partObj:IsA("Accessory") and partObj:FindFirstChild("Handle")) then continue end
 					partObj = partObj.Handle
 					partObj.CFrame = partObj.CFrame:Lerp(
@@ -402,7 +419,7 @@ table.insert(connections, runService.Stepped:Connect(function()
 		end
 	end
 
-	socketObj:SendMessage(bufferFinish())
+	socketObj:SendToAll(bufferFinish())
 end))
 
 table.insert(connections, player.Chatted:Connect(function(chatMsg)
@@ -411,7 +428,7 @@ table.insert(connections, player.Chatted:Connect(function(chatMsg)
 	packetBuffer.writeString(player.Name)
 	packetBuffer.writeString(chatMsg)
 
-	socketObj:SendMessage(bufferFinish())
+	socketObj:SendToAll(bufferFinish())
 end))
 
 table.insert(connections, player.CharacterAdded:Connect(function(newChar)
