@@ -10,8 +10,9 @@
 	#8 DONE: fix character being cloned so many times
 	#9: add a thing for handling instance replication (i got no idea on how to do that, and i dont want to sacrifice performance)
 	#10: fix a rare case when the packet "ID_CHAR_UPDATE" errors causing delays
-	#11: fix already connected client not showing the character to newly connected client
+	#11 DONE: fix already connected client not showing the character to newly connected client
 	#12: centralize the server instead of running on clients
+	#13: make character limbs uncollidable
 --]]
 -- config
 local config = {
@@ -283,7 +284,6 @@ socketObj:AddMessageCallback(function(message)
 		local succ, packetBuffer = pcall(function()
 			return bitBuffer(base64.decode(message))
 		end)
-
 		if not succ then return warn("Failed to parse data recieved:\n", message) end
 
 		local packetId = packetBuffer.readInt16()
@@ -291,7 +291,7 @@ socketObj:AddMessageCallback(function(message)
 		if packetId == replicationIDs["ID_PLR_ADD"] then
 			local plrName = packetBuffer.readString()
 
-			if (player.Name ~= plrName) then
+			if (player.Name ~= plrName) and not fakePlayers[plrName] then
 				local plrChar = workspace:FindFirstChild(plrName)
 
 				if (not players:FindFirstChild(plrName) and not fakePlayers[plrName]) then
@@ -317,6 +317,8 @@ socketObj:AddMessageCallback(function(message)
 					part.Anchored = true
 					part.Velocity, part.RotVelocity = Vector3.zero, Vector3.zero -- no more character vibration
 				end
+
+				socketObj:Send(refs["ID_PLR_ADD-bufferCache"]()) -- kinda hacky
 			end
 		elseif packetId == replicationIDs["ID_PLR_CHATTED"] then
 			local plrName = packetBuffer.readString()
