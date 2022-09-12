@@ -13,14 +13,20 @@
 	#11 DONE: fix already connected client not showing the character to newly connected client
 	#12: centralize the server instead of running on clients
 	#13: make character limbs uncollidable
+	#14: fix erroring when reconnecting
 --]]
 -- config
 local config = {
+	-- server
 	socketUrl = "ws://eu-repliclient-ws.herokuapp.com", -- the server to connect
 
+	-- packets
 	-- high value = smooth, low value = janky
 	sendPerSecond = 5, -- 5hz per second
 	recievePerSecond = 10, -- 10hz per second
+
+	-- replication
+	collidableCharacters = true,
 }
 -- services
 local chatService = game:GetService("Chat")
@@ -61,9 +67,9 @@ function wsLib.new(url: string)
 				table.remove(wsObj._connections, index)
 			end
 
-			wsObj._socket = socket
 			socket.OnMessage:Connect(onSocketMsg)
 			socket.OnClose:Connect(reconnectCallback)
+			task.defer(function() wsObj._socket = socket end)
 		end
 
 		local function reconnectSocket()
@@ -71,6 +77,7 @@ function wsLib.new(url: string)
 			local newSocket, reconnected, reconnectCount = nil, false, 0
 
 			print("Lost connection, reconnecting...")
+			wsObj._socket = nil
 			repeat
 				local succ, result = pcall(WebSocket.connect, url)
 
@@ -98,7 +105,7 @@ function wsLib.new(url: string)
 end
 
 function wsLib:Send(message)
-	if not self._socket then return warn("Attempt to send socket message while reconnecting!") end
+	if not self._socket then return end
 	self._socket:Send(message)
 end
 
@@ -123,20 +130,21 @@ local connections, refs = table.create(10), table.create(0)
 local fakePlayers, userIdCache = table.create(0), table.create(0)
 local rateInfos = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
+local characterLimbParts = {"Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 local replicationIDs = {
 	--["ID_TEMPLATE"] = 0x000,
 	-- player related
-	["ID_PLR_ADD"] = 0x100,
-	["ID_PLR_CHATTED"] = 0x101,
-	["ID_PLR_REMOVE"] = 0x102,
+	["ID_PLR_ADD"] = 0x000,
+	["ID_PLR_CHATTED"] = 0x001,
+	["ID_PLR_REMOVE"] = 0x002,
 
 	-- character related
-	["ID_CHAR_UPDATE"] = 0x200,
+	["ID_CHAR_UPDATE"] = 0x100,
 
 	-- instance related
-	["ID_INSTANCE_ADD"] = 0x300,
-	["ID_INSTANCE_DESTROY"] = 0x301,
-	["ID_PROPERTY_MODIFY"] = 0x302,
+	["ID_INSTANCE_ADD"] = 0x200,
+	["ID_INSTANCE_DESTROY"] = 0x201,
+	["ID_PROPERTY_MODIFY"] = 0x202,
 }
 -- functions
 local function createFakePlr(name, userId, character)
@@ -219,8 +227,8 @@ local function rateCheck(name, rate)
 	end
 end
 
-local function renderChat(chatter, chatMsg, headAdornee)
-	chatService:Chat(headAdornee, chatMsg, Enum.ChatColor.Green)
+local function renderChat(chatter, chatMsg, adornee)
+	chatService:Chat(adornee, chatMsg, Enum.ChatColor.Green)
 	starterGui:SetCore("ChatMakeSystemMessage", {
 		Text = string.format("Repliclient | [%s]: %s", chatter, chatMsg),
 		Color = Color3.fromRGB(255, 255, 255),
@@ -246,7 +254,7 @@ local function unpackOrientation(vectRot, dontUseRadians)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 -- main
-if not socketObj then return warn("Please Re-execute the script, if this still happens then change the config url to another url.") end
+if not socketObj then return warn(string.format("Failed to connect to '%s'. This might happen because server is closed or unreachable.")) end
 if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently only support R6 characters.") end
 
 -- post initialization
@@ -257,7 +265,7 @@ task.defer(function()
 	packetBuffer.writeString(player.Name)
 	socketObj:Send(bufferFinish())
 	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
-	print("Repliclient started!")
+	print("Repliclient | Loaded!")
 end)
 
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
@@ -315,20 +323,20 @@ socketObj:AddMessageCallback(function(message)
 
 					if not part then continue end
 					part.Anchored = true
+					part.CanCollide = (if ((not config.collidableCharacters) or table.find(characterLimbParts, part.Name)) then false else true)
 					part.Velocity, part.RotVelocity = Vector3.zero, Vector3.zero -- no more character vibration
 				end
 
-				socketObj:Send(refs["ID_PLR_ADD-bufferCache"]()) -- kinda hacky
+				socketObj:Send(refs["ID_PLR_ADD-bufferCache"]()) -- kinda hacky I think, fixes TODO #11
 			end
 		elseif packetId == replicationIDs["ID_PLR_CHATTED"] then
 			local plrName = packetBuffer.readString()
 
 			if (player.Name ~= plrName) and fakePlayers[plrName] then
 				local plrInstance = fakePlayers[plrName]
-				local headPart = plrInstance.Character:FindFirstChild("Head")
 				local chatMsg = packetBuffer.readString()
 
-				renderChat(plrName, chatMsg, headPart)
+				renderChat(plrName, chatMsg, plrInstance.Character:FindFirstChild("Head"))
 			end
 		elseif packetId == replicationIDs["ID_PLR_REMOVE"] then
 			local plrName = packetBuffer.readString()
@@ -386,28 +394,28 @@ table.insert(connections, runService.Stepped:Connect(function()
 	packetBuffer.writeString(player.Name) -- sender
 
 	packetBuffer.writeInt8(#characterParts) -- count of character parts
-	for _, object in character:GetChildren() do
-		if (object:IsA("BasePart") and table.find(characterParts, object.Name)) then
-			packetBuffer.writeString(object.Name) -- name
-			packetBuffer.writeVector3(object.Position)
-			packetBuffer.writeVector3(object.Orientation)
-		end
+	for _, partName in characterParts do
+		local object = character:FindFirstChild(partName)
+		if not object:IsA("BasePart") then continue end
+		packetBuffer.writeString(object.Name) -- name
+		packetBuffer.writeVector3(object.Position)
+		packetBuffer.writeVector3(object.Orientation)
 	end
 
 	local accessories = humanoid:GetAccessories()
 	packetBuffer.writeInt8(#accessories) -- count of accessories
 	for _, accessory in accessories do
-		if accessory:FindFirstChild("Handle") then
-			packetBuffer.writeString(accessory.Name) -- name
-			packetBuffer.writeVector3(accessory.Handle.Position)
-			packetBuffer.writeVector3(accessory.Handle.Orientation)
-		end
+		if not accessory:FindFirstChild("Handle") then continue end
+		packetBuffer.writeString(accessory.Name) -- name
+		packetBuffer.writeVector3(accessory.Handle.Position)
+		packetBuffer.writeVector3(accessory.Handle.Orientation)
 	end
 
 	socketObj:Send(bufferFinish())
 end))
 
 table.insert(connections, player.Chatted:Connect(function(chatMsg)
+	if chatService.BubbleChatEnabled then chatService:Chat(character, chatMsg, Enum.ChatColor.White) end
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_CHATTED")
 
 	packetBuffer.writeString(player.Name)
