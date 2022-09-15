@@ -18,10 +18,10 @@
 --]]
 -- config
 local config
-local loadedConfig = select(2, ...)
 do
+	local loadedConfig = select(2, ...)
 	local isATable = typeof(loadedConfig)
-	loadedConfig = (if isATable == true then loadedConfig else table.create(0))
+	loadedConfig = (if isATable == "table" then loadedConfig else table.create(0))
 	
 	loadedConfig.socketUrl = (if not loadedConfig.socketUrl then "ws://eu-repliclient-ws.herokuapp.com" else loadedConfig.socketUrl)
 	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
