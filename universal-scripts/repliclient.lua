@@ -92,8 +92,8 @@ function wsLib.new(url: string)
 			until (reconnected or reconnectCount >= 15)
 
 			if reconnected then
-				initializeSocket(newSocket, reconnectSocket)
 				print("Reconnected successfully!")
+				initializeSocket(newSocket, reconnectSocket)
 			else
 				warn("Failed to reconnect after 15 tries, trying again.")
 				reconnectSocket()
