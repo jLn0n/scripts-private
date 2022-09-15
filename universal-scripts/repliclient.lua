@@ -16,18 +16,19 @@
 	#14: fix erroring when reconnecting
 --]]
 -- config
-local config = {
-	-- server
-	socketUrl = "ws://eu-repliclient-ws.herokuapp.com", -- the server to connect
+local config
+do
+	local loadedConfig = ...
+	local succ, isATable = pcall(typeof, loadedConfig)
+	loadedConfig = (if (succ and isATable) then loadedConfig else table.create(0))
+	
+	loadedConfig.socketUrl = (if not loadedConfig.socketUrl then "ws://eu-repliclient-ws.herokuapp.com" else loadedConfig.socketUrl)
+	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
+	loadedConfig.recievePerSecond = (if typeof(loadedConfig.recievePerSecond) ~= "number" then 10 else loadedConfig.recievePerSecond)
+	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
 
-	-- packets
-	-- high value = smooth, low value = janky
-	sendPerSecond = 5, -- 5hz per second
-	recievePerSecond = 10, -- 10hz per second
-
-	-- replication
-	collidableCharacters = true,
-}
+	config = loadedConfig
+end
 -- services
 local chatService = game:GetService("Chat")
 local players = game:GetService("Players")
@@ -127,7 +128,8 @@ end
 local accumulatedRecieveTime = 0
 local socketObj = wsLib.new(config.socketUrl)
 local connections, refs = table.create(10), table.create(0)
-local fakePlayers, userIdCache = table.create(0), table.create(0)
+local connectedPlrs, connectedPlrChars = table.create(0), table.create(0)
+local userIdCache = table.create(0)
 local rateInfos = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
 local characterLimbParts = {"Left Arm", "Right Arm", "Left Leg", "Right Leg"}
@@ -153,7 +155,7 @@ local function createFakePlr(name, userId, character)
 	plrInstance.Name = name
 	plrInstance.Character = character
 	sethiddenproperty(plrInstance, "UserId", userId)
-	fakePlayers[name] = plrInstance
+	connectedPlrs[name] = plrInstance
 end
 
 local function createPacketBuffer(packetId, ...)
@@ -271,18 +273,18 @@ end)
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
 	local self, index = ...
 
-	-- returns the fake character indexation when called from exploit environment, returns nil if not
+	-- returns the connected player when called from exploit environment, returns nil if not
 	if checkcaller() then
-		if self == players and fakePlayers[index] then
-			return fakePlayers[index]
-		elseif (self:IsA("Player") and fakePlayers[tostring(self)]) and index == "Parent" then -- self.Name causes C stack overflow
+		if self == players and connectedPlrs[index] then
+			return connectedPlrs[index]
+		elseif (self:IsA("Player") and connectedPlrs[tostring(self)]) and index == "Parent" then -- self.Name causes C stack overflow
 			return players
 		end
 	end
 	return refs.oldIndex(...)
 end)
 
--- packet payload thingy
+-- packet reciever
 socketObj:AddMessageCallback(function(message)
 	if not rateCheck("recieve", config.recievePerSecond) then return end
 	accumulatedRecieveTime = runService.Stepped:Wait()
@@ -302,13 +304,15 @@ socketObj:AddMessageCallback(function(message)
 			if (player.Name ~= plrName) then
 				local plrChar = workspace:FindFirstChild(plrName)
 
-				if (not players:FindFirstChild(plrName) and not fakePlayers[plrName]) then
+				if (not players:FindFirstChild(plrName) and not connectedPlrs[plrName]) then
 					local plrUserId = getUserIdFromName(plrName)
 					plrChar = getCharacterFromUserId(plrUserId)
 
 					createFakePlr(plrName, plrUserId, plrChar)
 				end
 
+				if not plrChar then return end
+				connectedPlrChars[plrName] = plrChar
 				plrChar.Name = plrName
 				plrChar:BreakJoints()
 
@@ -332,8 +336,8 @@ socketObj:AddMessageCallback(function(message)
 		elseif packetId == replicationIDs["ID_PLR_CHATTED"] then
 			local plrName = packetBuffer.readString()
 
-			if (player.Name ~= plrName) and fakePlayers[plrName] then
-				local plrInstance = fakePlayers[plrName]
+			if (player.Name ~= plrName) and connectedPlrs[plrName] then
+				local plrInstance = connectedPlrs[plrName]
 				local chatMsg = packetBuffer.readString()
 
 				renderChat(plrName, chatMsg, plrInstance.Character:FindFirstChild("Head"))
@@ -341,18 +345,19 @@ socketObj:AddMessageCallback(function(message)
 		elseif packetId == replicationIDs["ID_PLR_REMOVE"] then
 			local plrName = packetBuffer.readString()
 
-			if (player.Name ~= plrName) and fakePlayers[plrName] then
-				local plrInstance = fakePlayers[plrName]
+			if (player.Name ~= plrName) and connectedPlrs[plrName] then
+				local plrInstance = connectedPlrs[plrName]
 
 				plrInstance.Character:Destroy()
 				plrInstance:Destroy()
-				fakePlayers[plrName] = nil
+				connectedPlrs[plrName] = nil
+				connectedPlrChars[plrName] = nil
 			end
 		elseif packetId == replicationIDs["ID_CHAR_UPDATE"] then
 			local plrName = packetBuffer.readString()
 
 			if player.Name ~= plrName then
-				local plrChar = workspace:FindFirstChild(plrName)
+				local plrChar = connectedPlrChars[plrName]
 
 				if not plrChar then return end
 				for _ = 1, packetBuffer.readInt8() do -- character parts
@@ -384,7 +389,7 @@ socketObj:AddMessageCallback(function(message)
 	end
 end)
 
--- payload data sender
+-- packet data sender
 table.insert(connections, runService.Stepped:Connect(function()
 	if not (character and humanoid) then return end
 	if not rateCheck("send", config.sendPerSecond) then return end
@@ -412,6 +417,23 @@ table.insert(connections, runService.Stepped:Connect(function()
 	end
 
 	socketObj:Send(bufferFinish())
+end))
+
+table.insert(connections, runService.Stepped:Connect(function()
+	for _, plrChar in connectedPlrChars do
+		for _, part in plrChar:GetChildren() do
+			part = (
+				if (part:IsA("BasePart") and table.find(characterParts, part.Name)) then
+					part
+				elseif (part:IsA("Accessory") and part:FindFirstChild("Handle")) then
+					part.Handle
+				else nil
+			)
+
+			if not part then continue end
+			part.CanCollide = (if ((not config.collidableCharacters) or table.find(characterLimbParts, part.Name)) then false else true)
+		end
+	end
 end))
 
 table.insert(connections, player.Chatted:Connect(function(chatMsg)
