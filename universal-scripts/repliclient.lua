@@ -14,18 +14,20 @@
 	#12: centralize the server instead of running on clients
 	#13: make character limbs uncollidable
 	#14: fix erroring when reconnecting
+	#15: publish the script to public use
 --]]
 -- config
 local config
 do
-	local loadedConfig = ...
-	local succ, isATable = pcall(typeof, loadedConfig)
-	loadedConfig = (if (succ and isATable) then loadedConfig else table.create(0))
+	local loadedConfig = select(2, ...)
+	local isATable = typeof(loadedConfig)
+	loadedConfig = (if isATable == true then loadedConfig else table.create(0))
 	
 	loadedConfig.socketUrl = (if not loadedConfig.socketUrl then "ws://eu-repliclient-ws.herokuapp.com" else loadedConfig.socketUrl)
 	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
 	loadedConfig.recievePerSecond = (if typeof(loadedConfig.recievePerSecond) ~= "number" then 10 else loadedConfig.recievePerSecond)
 	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
+	loadedConfig.debugMode = (if typeof(loadedConfig.debugMode) ~= "boolean" then false else loadedConfig.debugMode)
 
 	config = loadedConfig
 end
@@ -70,7 +72,7 @@ function wsLib.new(url: string)
 
 			socket.OnMessage:Connect(onSocketMsg)
 			socket.OnClose:Connect(reconnectCallback)
-			task.defer(function() wsObj._socket = socket end)
+			wsObj._socket = socket
 		end
 
 		local function reconnectSocket()
@@ -101,7 +103,8 @@ function wsLib.new(url: string)
 		initializeSocket(socket, reconnectSocket)
 		return setmetatable(wsObj, wsLib)
 	else
-		return warn("Failed to connect to websocket server!")
+		if config.debugMode then warn(socket) end
+		return nil
 	end
 end
 
@@ -256,7 +259,7 @@ local function unpackOrientation(vectRot, dontUseRadians)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 -- main
-if not socketObj then return warn(string.format("Failed to connect to '%s'. This might happen because server is closed or unreachable.")) end
+if not socketObj then return warn(string.format("Failed to connect to '%s'. This might happen because server is closed or unreachable.", config.socketUrl)) end
 if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently only support R6 characters.") end
 
 -- post initialization
