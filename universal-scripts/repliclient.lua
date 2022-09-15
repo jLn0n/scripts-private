@@ -18,8 +18,8 @@
 --]]
 -- config
 local config
+local loadedConfig = select(2, ...)
 do
-	local loadedConfig = select(2, ...)
 	local isATable = typeof(loadedConfig)
 	loadedConfig = (if isATable == true then loadedConfig else table.create(0))
 	
