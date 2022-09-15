@@ -16,9 +16,10 @@
 	#14: fix erroring when reconnecting
 	#15: publish the script to public use
 --]]
--- config
-local config
-do
+-- initialization
+local version = "1.0.0"
+
+local config do
 	local loadedConfig = select(2, ...)
 	local isATable = (typeof(loadedConfig) == "table")
 	loadedConfig = (if isATable then loadedConfig else table.create(0))
@@ -31,6 +32,11 @@ do
 
 	config = loadedConfig
 end
+-- env modifications
+local WebSocket = (syn and syn.websocket) or WebSocket
+local identifyexecutor = (identifyexecutor or function()
+	return "Unknown Executor"
+end)
 -- services
 local chatService = game:GetService("Chat")
 local players = game:GetService("Players")
@@ -270,7 +276,7 @@ task.defer(function()
 	packetBuffer.writeString(player.Name)
 	socketObj:Send(bufferFinish())
 	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
-	print("Repliclient | Loaded!")
+	print(string.format("\n|  Repliclient - v%s\n|  Server URL: `%s`\n|  Host: `%s`", version, config.socketUrl, identifyexecutor()))
 end)
 
 refs.oldIndex = hookmetamethod(game, "__index", function(...)
