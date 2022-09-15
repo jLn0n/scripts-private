@@ -299,7 +299,7 @@ socketObj:AddMessageCallback(function(message)
 		if packetId == replicationIDs["ID_PLR_ADD"] then
 			local plrName = packetBuffer.readString()
 
-			if (player.Name ~= plrName) and not fakePlayers[plrName] then
+			if (player.Name ~= plrName) then
 				local plrChar = workspace:FindFirstChild(plrName)
 
 				if (not players:FindFirstChild(plrName) and not fakePlayers[plrName]) then
