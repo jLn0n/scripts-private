@@ -40,7 +40,7 @@ inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
 		if input.KeyCode == flyObj.keyInput then
 			flyObj.enabled = not flyObj.enabled
-			rootPart.Anchored, rootPart.Velocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or nil)
+			rootPart.Anchored, rootPart.AssemblyLinearVelocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or rootPart.AssemblyLinearVelocity)
 			humanoid:ChangeState(flyObj.enabled and Enum.HumanoidStateType.StrafingNoPhysics or Enum.HumanoidStateType.Running)
 		end
 	end
@@ -77,6 +77,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 			end
 		end
 
+		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop() end
 		if pressResult.Magnitude > 0 then
 			rootPart.Anchored = false
 			rootPart.CFrame = (CFrame.new(rootPart.Position + pressResult) * cameraOrientation)
@@ -85,6 +86,5 @@ runService.Heartbeat:Connect(function(deltaTime)
 			rootPart.Anchored = true
 			rootPart.CFrame = ((CFrame.identity + rootPart.Position) * cameraOrientation)
 		end
-		for _, animObj in pairs(humanoid:GetPlayingAnimationTracks()) do animObj:Stop() end
 	end
 end)
