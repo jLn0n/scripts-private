@@ -63,6 +63,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
 		local pressResult do
 			pressResult = Vector3.zero
+
 			for name, value in flyObj.navigation do
 				pressResult += (
 					if not value then Vector3.zero
@@ -79,7 +80,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 		if pressResult.Magnitude > 0 then
 			rootPart.Anchored = false
 			rootPart.CFrame = (CFrame.new(rootPart.Position + pressResult) * cameraOrientation)
-			rootPart.Velocity, rootPart.RotVelocity = (pressResult * workspace.Gravity) + yStabilizer, Vector3.zero
+			rootPart.AssemblyLinearVelocity, rootPart.AssemblyAngularVelocity = (pressResult * workspace.Gravity) + yStabilizer, Vector3.zero
 		else
 			rootPart.Anchored = true
 			rootPart.CFrame = ((CFrame.identity + rootPart.Position) * cameraOrientation)
