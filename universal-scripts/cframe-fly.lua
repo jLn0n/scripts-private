@@ -30,6 +30,12 @@ local function unpackOrientation(vectRot, dontUseRadians)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
 -- main
+player.CharacterAdded:Connect(function(newCharacter)
+	task.wait(.1)
+	character = newCharacter
+	humanoid, rootPart = newCharacter:FindFirstChild("Humanoid"), newCharacter:FindFirstChild("HumanoidRootPart")
+end)
+
 inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
 		if input.KeyCode == flyObj.keyInput then
@@ -39,6 +45,7 @@ inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 		end
 	end
 end)
+
 runService.RenderStepped:Connect(function()
 	if not inputService:GetFocusedTextBox() and flyObj.enabled then
 		flyObj.navigation.upward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.Q) and true or false)
@@ -49,8 +56,9 @@ runService.RenderStepped:Connect(function()
 		flyObj.navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or false
 	end
 end)
+
 runService.Heartbeat:Connect(function(deltaTime)
-	if flyObj.enabled then
+	if flyObj.enabled and (humanoid and rootPart) then
 		local calcFront, calcRight, calcTop = (camera.CFrame.LookVector * (deltaTime * flyObj.flySpeed)), (camera.CFrame.RightVector * (deltaTime * flyObj.flySpeed)), (camera.CFrame.UpVector * (deltaTime * flyObj.flySpeed))
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
 		local pressResult do
