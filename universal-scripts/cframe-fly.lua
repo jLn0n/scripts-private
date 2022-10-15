@@ -40,7 +40,7 @@ inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
 		if input.KeyCode == flyObj.keyInput then
 			flyObj.enabled = not flyObj.enabled
-			rootPart.Anchored, rootPart.Velocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero)
+			rootPart.Anchored, rootPart.Velocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or nil)
 			humanoid:ChangeState(flyObj.enabled and Enum.HumanoidStateType.StrafingNoPhysics or Enum.HumanoidStateType.Running)
 		end
 	end
