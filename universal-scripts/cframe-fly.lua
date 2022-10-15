@@ -63,7 +63,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
 		local pressResult do
 			pressResult = Vector3.zero
-			for name, value in pairs(flyObj.navigation) do
+			for name, value in flyObj.navigation do
 				pressResult += (
 					if not value then Vector3.zero
 					elseif (name == "upward") then calcTop
