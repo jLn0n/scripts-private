@@ -67,8 +67,8 @@ end)
 
 runService.Heartbeat:Connect(function(deltaTime)
 	if flyObj.enabled and (humanoid and rootPart) then
-		local calcFront, calcRight, calcTop = (camera.CFrame.LookVector * (deltaTime * flyObj.flySpeed)), (camera.CFrame.RightVector * (deltaTime * flyObj.flySpeed)), (camera.CFrame.UpVector * (deltaTime * flyObj.flySpeed))
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
+		local calcFront, calcRight, calcTop = (cameraOrientation.LookVector * (deltaTime * flyObj.flySpeed)), (cameraOrientation.RightVector * (deltaTime * flyObj.flySpeed)), (cameraOrientation.UpVector * (deltaTime * flyObj.flySpeed))
 		local pressResult do
 			pressResult = Vector3.zero
 
