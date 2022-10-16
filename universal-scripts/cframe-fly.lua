@@ -25,6 +25,13 @@ local flyObj = {
 	}
 }
 -- functions
+local function applyThingys()
+	if not (humanoid and rootPart) then return end
+
+	humanoid.PlatformStand = (flyObj.enabled)
+	rootPart.Anchored, rootPart.AssemblyLinearVelocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or rootPart.AssemblyLinearVelocity)
+end
+
 local function unpackOrientation(vectRot, dontUseRadians)
 	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
@@ -34,15 +41,15 @@ player.CharacterAdded:Connect(function(newCharacter)
 	task.wait(.1)
 	character = newCharacter
 	humanoid, rootPart = newCharacter:FindFirstChildWhichIsA("Humanoid"), newCharacter:FindFirstChild("HumanoidRootPart")
+
+	task.spawn(applyThingys)
 end)
 
 inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
-		if input.KeyCode == flyObj.keyInput and (humanoid and rootPart) then
+		if input.KeyCode == flyObj.keyInput then
 			flyObj.enabled = not flyObj.enabled
-
-			humanoid.PlatformStand = (flyObj.enabled)
-			rootPart.Anchored, rootPart.AssemblyLinearVelocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or rootPart.AssemblyLinearVelocity)
+			applyThingys()
 		end
 	end
 end)
