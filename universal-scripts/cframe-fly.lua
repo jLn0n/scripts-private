@@ -5,7 +5,7 @@ local inputService = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
-local humanoid = character:FindFirstChild("Humanoid")
+local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
 -- variables
@@ -33,15 +33,16 @@ end
 player.CharacterAdded:Connect(function(newCharacter)
 	task.wait(.1)
 	character = newCharacter
-	humanoid, rootPart = newCharacter:FindFirstChild("Humanoid"), newCharacter:FindFirstChild("HumanoidRootPart")
+	humanoid, rootPart = newCharacter:FindFirstChildWhichIsA("Humanoid"), newCharacter:FindFirstChild("HumanoidRootPart")
 end)
 
 inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
-		if input.KeyCode == flyObj.keyInput then
+		if input.KeyCode == flyObj.keyInput and (humanoid and rootPart) then
 			flyObj.enabled = not flyObj.enabled
+
+			humanoid.PlatformStand = (flyObj.enabled)
 			rootPart.Anchored, rootPart.AssemblyLinearVelocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or rootPart.AssemblyLinearVelocity)
-			humanoid:ChangeState(flyObj.enabled and Enum.HumanoidStateType.StrafingNoPhysics or Enum.HumanoidStateType.Running)
 		end
 	end
 end)
