@@ -6,7 +6,7 @@ local starterGui = game:GetService("StarterGui")
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
-local rootPart = character.HumanoidRootPart
+local rootPart, torso = character.HumanoidRootPart, character:FindFirstChild("Torso")
 -- init
 assert(character.Name ~= string.format("%s-reanimation", player.UserId), string.format([[["r6-bot.lua"]: Please reset to be able to run the script again]]))
 assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.lua"]: Sorry, This script will only work on R6 character rig]]))
@@ -18,11 +18,13 @@ do -- config initialization
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
+	_G.Settings.CollisionEnabled = (if typeof(_G.Settings.CollisionEnabled) ~= "boolean" then true else _G.Settings.CollisionEnabled)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
 local botChar = game:GetObjects("rbxassetid://6843243348")[1]
 local charOldPos = character:GetPivot()
+local destroyFunc = rootPart.Destroy
 local accessories, bodyParts = table.create(0), {
 	["Head"] = character:FindFirstChild(_G.Settings.HeadName),
 	["Torso"] = character:FindFirstChild("SeeMonkey"),
@@ -94,18 +96,18 @@ task.defer(function() -- initializing reanimation after the code below ran
 	botChar:PivotTo(charOldPos)
 	plrFace.Parent, plrFace.Transparency = botChar.Head, 1
 
-	for partName, object in pairs(bodyParts) do
+	for partName, object in bodyParts do
 		if object and object:FindFirstChild("Handle") then
 			object.Name = partName
 			local accHandle = object.Handle
-			if partName ~= "Head" or (partName == "Head" and _G.Settings.RemoveHeadMesh) then
+			if (partName == "Head" and _G.Settings.RemoveHeadMesh) or partName ~= "Head" then
 				accHandle:FindFirstChildWhichIsA("SpecialMesh"):Destroy()
 			end
 			accHandle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
 
-	for _, object in ipairs(humanoid:GetAccessories()) do
+	for _, object in humanoid:GetAccessories() do
 		if (not (botChar:FindFirstChild(object.Name) or string.find(object.Name, "Torso"))) then
 			accessories[object.Name] = object
 			local cloneAcce = object:Clone()
@@ -117,7 +119,25 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end
 	end
 
-	rootPart.Anchored = true
+	if _G.Settings.CollisionEnabled then
+		destroyFunc(rootPart)
+
+		for _, object in humanoid:GetAccessories() do
+			object = object:FindFirstChild("Handle")
+			if not object then continue end
+			sethiddenproperty(object, "BackendAccoutrementState", 0)
+		end
+
+		_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+			for _, object in humanoid:GetAccessories() do
+				object = object:FindFirstChild("Handle")
+				if not object then continue end
+				object.CanCollide = false
+			end	
+		end)
+	end
+
+	torso.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(killReanimation)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(killReanimation)
@@ -143,17 +163,17 @@ if _G.Settings.UseBuiltinNetless then
 	sethiddenproperty(humanoid, "InternalHeadScale", 9e99)
 	player.ReplicationFocus = workspace
 
-
 	_G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
-		for _, object in ipairs(humanoid:GetAccessories()) do
+		for _, object in humanoid:GetAccessories() do
 			object = object:FindFirstChild("Handle")
 			if object then
 				local calcVel = (_G.Settings.Velocity + (Vector3.yAxis * botChar.HumanoidRootPart.Velocity.Y))
-				object.CanCollide, object.Massless = false, true
-				object:ApplyImpulse(calcVel)
-				object.AssemblyLinearVelocity, object.RotVelocity = calcVel, _G.Settings.RotVelocity
+
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+				object:ApplyImpulse(object:GetVelocityAtPosition(object.Position))
+				object.CanCollide, object.Massless = false, true
+				object.Velocity, object.RotVelocity = calcVel, _G.Settings.RotVelocity
 			end
 		end
 	end)
