@@ -123,8 +123,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 		destroyFunc(rootPart)
 
 		for _, object in humanoid:GetAccessories() do
-			object = object:FindFirstChild("Handle")
-			if not object then continue end
+			if not object:FindFirstChild("Handle") then continue end
 			sethiddenproperty(object, "BackendAccoutrementState", 0)
 		end
 
