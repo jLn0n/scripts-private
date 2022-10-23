@@ -1,9 +1,9 @@
--- config
-local config = {
-	distance = 250,
-	visCheck = true,
+-- settings
+local settings = {
+	fov = 175,
 	noRecoil = true,
-	teamCheck = false
+	teamCheck = false,
+	visibleCheck = true,
 }
 -- services
 local players = game:GetService("Players")
@@ -15,38 +15,34 @@ local player = players.LocalPlayer
 local mouse = player:GetMouse()
 -- modules
 local gunLocalModule, gunStats = require(repStorage.GunScripts.GunLocalModule), require(repStorage.GunScripts.GunStats)
--- variables
-local nearPlrs = table.create(0)
 -- functions
 local function checkPlr(plrArg)
 	local plrHumanoid = (plrArg.Character and plrArg.Character:FindFirstChild("Humanoid"))
-	return plrArg ~= player and (config.teamCheck and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) or true) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
+	return plrArg ~= player and (settings.teamCheck and (plrArg.Neutral or plrArg.TeamColor ~= player.TeamColor) or true) and (plrArg.Character and (plrHumanoid and plrHumanoid.Health ~= 0) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"))
 end
 local function inLineOfSite(originPos, ...)
-	return #camera.GetPartsObscuringTarget(camera, {originPos}, {camera, player.Character, ...}) == 0
+	return #camera:GetPartsObscuringTarget({originPos}, {camera, player.Character, ...}) == 0
 end
 local function getNearestPlrByCursor()
-	table.clear(nearPlrs)
-	for _, plr in ipairs(players:GetPlayers()) do
-		local p_dPart = (plr.Character and plr.Character:FindFirstChild("Head"))
-		if plr == player or not (checkPlr(plr) and p_dPart) then continue end
-		local posVec3, onScreen = camera:WorldToViewportPoint(p_dPart.Position)
-		local mouseVec2, posVec2 = Vector2.new(mouse.X, mouse.Y), Vector2.new(posVec3.X, posVec3.Y)
-		local distance = (mouseVec2 - posVec2).Magnitude
-		if (not config.visCheck or (onScreen and inLineOfSite(p_dPart.Position, plr.Character))) and distance <= config.distance then
-			table.insert(nearPlrs, {
-				aimPart = p_dPart,
-				dist = distance,
-			})
+	local nearestPlrData = {aimPart = nil, dist = math.huge}
+
+	for _, plr in players:GetPlayers() do
+		local passed, plrTPart = checkPlr(plr)
+		if not (passed and plrTPart) then continue end
+		local posVec3, onScreen = camera:WorldToViewportPoint(plrTPart.Position)
+		local fovDist = (inputService:GetMouseLocation() - Vector2.new(posVec3.X, posVec3.Y)).Magnitude
+
+		if checkPlr(plr) and (not settings.visibleCheck or (onScreen and inLineOfSite(plrTPart.Position, plr.Character))) then
+			if ((fovDist <= settings.fov) and (fovDist < nearestPlrData.dist)) then
+				nearestPlrData.aimPart = plrTPart
+				nearestPlrData.dist = fovDist
+			end
 		end
 	end
-	table.sort(nearPlrs, function(x, y)
-		return (x.dist < y.dist)
-	end)
-	return (nearPlrs and #nearPlrs ~= 0) and nearPlrs[1] or nil
+	return (if nearestPlrData.aimPart then nearestPlrData else nil)
 end
 -- main
-for _gunName, gunStatData in pairs(gunStats) do
+for _gunName, gunStatData in gunStats do
 	gunStatData.Spread = 0
 	gunStatData.prepTime = .01
 	gunStatData.equipTime = .01
@@ -66,5 +62,5 @@ gunLocalModule.shootBullet = function(weaponData, headObj, hitPos, isHeadshot)
 	return oldShootBullet(weaponData, headObj, hitPos, isHeadshot)
 end
 gunLocalModule.shakeCam = function(weaponData)
-	return (not config.noRecoil and oldShakeCam(weaponData) or nil)
+	return (not settings.noRecoil and oldShakeCam(weaponData) or nil)
 end
