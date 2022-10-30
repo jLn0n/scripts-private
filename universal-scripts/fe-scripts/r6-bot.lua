@@ -13,12 +13,11 @@ assert(humanoid.RigType == Enum.HumanoidRigType.R6, string.format([[["r6-bot.lua
 do -- config initialization
 	_G.Connections, _G.Settings = (_G.Connections or table.create(0)), (_G.Settings or table.create(0))
 	_G.Settings.HeadName = (if not _G.Settings.HeadName then "MediHood" else _G.Settings.HeadName)
-	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.xAxis * 45.05 else _G.Settings.Velocity)
-	_G.Settings.RotVelocity = (if not _G.Settings.RotVelocity then Vector3.zAxis * 3.05 else _G.Settings.RotVelocity)
+	_G.Settings.Velocity = (if not _G.Settings.Velocity then Vector3.xAxis * -30.05 else _G.Settings.Velocity)
 	_G.Settings.RemoveHeadMesh = (if typeof(_G.Settings.RemoveHeadMesh) ~= "boolean" then false else _G.Settings.RemoveHeadMesh)
 	_G.Settings.UseBodyMovers = (if typeof(_G.Settings.UseBodyMovers) ~= "boolean" then false else _G.Settings.UseBodyMovers)
 	_G.Settings.UseBuiltinNetless = (if typeof(_G.Settings.UseBuiltinNetless) ~= "boolean" then true else _G.Settings.UseBuiltinNetless)
-	_G.Settings.CollisionEnabled = (if typeof(_G.Settings.CollisionEnabled) ~= "boolean" then true else _G.Settings.CollisionEnabled)
+	_G.Settings.CollisionEnabled = (if typeof(_G.Settings.CollisionEnabled) ~= "boolean" then false else _G.Settings.CollisionEnabled)
 end
 for _, connection in ipairs(_G.Connections) do connection:Disconnect() end table.clear(_G.Connections)
 -- variables
@@ -115,7 +114,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 			cloneAcceHandle.Transparency = 1
 			cloneAcce.Parent = botChar
 			cloneAcceWeld.Part1 = botChar:FindFirstChild(object.Handle:FindFirstChildWhichIsA("Weld").Part1.Name) or botChar.HumanoidRootPart
-			object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
+			--object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 	end
 
@@ -125,6 +124,7 @@ task.defer(function() -- initializing reanimation after the code below ran
 		for _, object in humanoid:GetAccessories() do
 			if not object:FindFirstChild("Handle") then continue end
 			sethiddenproperty(object, "BackendAccoutrementState", 0)
+			--object.Handle:FindFirstChildWhichIsA("Weld"):Destroy()
 		end
 
 		_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
@@ -136,8 +136,8 @@ task.defer(function() -- initializing reanimation after the code below ran
 		end)
 	end
 
-	torso.Anchored = true
 	player.Character, botChar.Parent = botChar, workspace
+	--initWelder(torso, botChar.HumanoidRootPart, Vector3.yAxis * -25)
 	_G.Connections[#_G.Connections + 1] = botChar.Humanoid.Died:Connect(killReanimation)
 	_G.Connections[#_G.Connections + 1] = player.CharacterRemoving:Connect(killReanimation)
 	starterGui:SetCore("SendNotification", {
@@ -172,10 +172,25 @@ if _G.Settings.UseBuiltinNetless then
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 				object:ApplyImpulse(object:GetVelocityAtPosition(object.Position))
 				object.CanCollide, object.Massless = false, true
-				object.Velocity, object.RotVelocity = calcVel, _G.Settings.RotVelocity
+				object.Velocity, object.RotVelocity = calcVel, Vector3.zero
 			end
 		end
 	end)
+
+	for _, object in humanoid:GetAccessories() do
+		object = object:FindFirstChild("Handle")
+		if object then
+			object:FindFirstChildWhichIsA("Weld"):Destroy()
+
+			local mass, maxThing = object:GetMass(), Vector3.one * (math.pi * 1000000)
+			local bVel, bAngVel = Instance.new("BodyVelocity"), Instance.new("BodyAngularVelocity")
+			
+			bVel.P, bAngVel.P = mass, mass
+			bVel.MaxForce, bAngVel.MaxTorque = maxThing, maxThing
+			bVel.Velocity, bAngVel.AngularVelocity = _G.Settings.Velocity, Vector3.yAxis * -12.05
+			bVel.Parent, bAngVel.Parent = object, object
+		end
+	end
 end
 
 _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
@@ -196,6 +211,15 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 				bodyPos.Position, bodyGyro.CFrame = (botCharObj.Position + offsetAtt.Position), (botCharObj.CFrame * CFrame.Angles(unpackOrientation(offsetAtt.Orientation)))
 			end
 		end
+	end
+end)
+
+_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+	character.Head.CFrame = (botChar.HumanoidRootPart.CFrame * (CFrame.identity + (Vector3.yAxis * -25)))
+
+	for _, object in character:GetChildren() do
+		if not object:IsA("BasePart") then continue end
+		object.CanCollide = false
 	end
 end)
 
