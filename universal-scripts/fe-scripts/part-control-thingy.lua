@@ -37,7 +37,7 @@ local handlesInternals = {
 }
 local hitRayParams = RaycastParams.new()
 hitRayParams.FilterType = Enum.RaycastFilterType.Blacklist
-hitRayParams.FilterDescendantsInstances = {character.Head, weldHolder}
+hitRayParams.FilterDescendantsInstances = {head, weldHolder}
 -- functions
 local destroyFunc = character.Destroy
 local function createPartWeld(basePart)
@@ -55,8 +55,8 @@ local function createPartWeld(basePart)
 	alignPos.Parent, alignOrt.Parent = basePart, basePart
 	attachment.Parent, _attachment.Parent = weldHolder, basePart
 	partControllers[basePart] = {
-		attachment = attachment,
-		cframe = CFrame.identity,
+		attachment = _attachment,
+		cframe = basePart.CFrame,
 		_internal = {
 			prevRotAngleAxis = 0,
 			prevRotAxis = nil,
@@ -284,11 +284,12 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 			partControllers[basePart] = nil
 			continue
 		end
-		partData.attachment.CFrame = partData.cframe
-		basePart.CanCollide, basePart.Massless, basePart.RootPriority = false, true, 127
-		basePart.Velocity, basePart.RotVelocity = Vector3.yAxis * 30, Vector3.zero
+
 		sethiddenproperty(basePart, "NetworkIsSleeping", false)
 		sethiddenproperty(basePart, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
+		partData.attachment.CFrame = partData.cframe
+		basePart.CanCollide, basePart.Massless, basePart.RootPriority = false, true, 127
+		basePart.Velocity, basePart.RotVelocity = Vector3.xAxis * -30.05, Vector3.zero
 	end
 	partHandles.Visible = (controlMode == 1 and partHandles.Adornee) and true or false
 	partArcHandles.Visible = (controlMode == 2 and partArcHandles.Adornee) and true or false
@@ -314,6 +315,7 @@ _G.Connections[#_G.Connections + 1] = runService.Heartbeat:Connect(function()
 	end
 
 	head.CFrame = camera.CFrame
+	head.Velocity, head.RotVelocity = Vector3.yAxis * 5, Vector3.zero
 end)
 
 _G.Connections[#_G.Connections + 1] = inputService.InputBegan:Connect(function(input)
