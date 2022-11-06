@@ -7,7 +7,7 @@ options.netSettings = {
 }
 
 options.headName = "MediHood" -- the hatname accessory (look at dex)
-options.partsMode = 2 -- 1 = hats | 2 = character parts
+options.partsMode = 1 -- 1 = hats | 2 = character parts
 options.limbCollisions = true -- if true the partsMode should be set to 2 or it will not work
 options.headScale = 3
 options.rotationOffset = {
@@ -164,10 +164,9 @@ if options.netSettings.enable then
 			if object then
 				object:BreakJoints() -- unwelds the hat
 				local calcVelocity = (options.netSettings.velocity + (Vector3.yAxis * rootPart.Velocity.Y))
-				object.LocalTransparencyModifier = .5
-				object.Massless = false
 				object:ApplyImpulse(calcVelocity)
-				object.AssemblyLinearVelocity, object.RotVelocity = calcVelocity, Vector3.zero
+				object.Massless = true
+				object.AssemblyLinearVelocity, object.AssemblyAngularVelocity = calcVelocity, Vector3.zero
 				sethiddenproperty(object, "NetworkIsSleeping", false)
 				sethiddenproperty(object, "NetworkOwnershipRule", Enum.NetworkOwnership.Manual)
 			end
@@ -191,16 +190,6 @@ if options.limbCollisions and options.partsMode == 2 then
 
 		pcall(humanoid.SetStateEnabled, humanoid, enum.Value, false)
 	end
-
-	_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-
-		for _, object in pairs(bodyParts) do
-			if object and object:IsA("BasePart") then
-				object.CanCollide = false
-			end
-		end
-	end)
 end
 
 if VRService.VREnabled then
@@ -411,6 +400,17 @@ _G.Connections[#_G.Connections + 1] = userCFrameChanged.Event:Connect(function(t
 	local bodyPartObj = fakeBodyParts[type.Name]
 	if bodyPartObj then
 		bodyPartObj.CFrame = camera.CFrame * ((CFrame.identity + (value.Position * (camera.HeadScale - 1))) * value * CFrame.Angles(unpackOrientation(options.rotationOffset[type.Name] or Vector3.zero, true)))
+	end
+end)
+
+_G.Connections[#_G.Connections + 1] = runService.Stepped:Connect(function()
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+	for _, object in bodyParts do
+		object = ((object:IsA("Accessory") and object:FindFirstChild("Handle")) or (object:IsA("BasePart") and object) or nil)
+		if not object then continue end
+		object.CanCollide = false
+		object.LocalTransparencyModifier = .5
 	end
 end)
 
