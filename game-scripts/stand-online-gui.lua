@@ -13,7 +13,6 @@ local tpCompleted = Instance.new("BindableEvent")
 -- folders
 local events = gameUI.Events
 local quests = player.PlayerGui:FindFirstChild("Quest").Quest
-local plrData = player:FindFirstChild("Data")
 local plrStatus = character:FindFirstChild("Status")
 local espFolder
 -- variables
@@ -72,7 +71,7 @@ local function getCurrentLvl()
 	local lvl = string.gsub(gameUI.Frame.EXPBAR.TextLabel.Text, "%D", "")
 	return tonumber(lvl)
 end
-local function getFarmingMob(currentLvl)
+local function getFarmingMob()
 	return (
 		if currentLvl >= 80 then
 			"HamonGolem"
@@ -272,6 +271,7 @@ table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(functi
 	end
 end))
 table.insert(_G.standOnline_GUI.connections, player.CharacterAdded:Connect(function(spawnedChar)
+	task.wait(.5)
 	character = spawnedChar
 	humanoid = character:FindFirstChildWhichIsA("Humanoid")
 	rootPart = character:FindFirstChild("HumanoidRootPart")
@@ -309,8 +309,8 @@ table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function
 end))
 _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
-	if not (config.expUtil.expFarm and currentLvl) then continue end
-	local farmingMob = getFarmingMob(currentLvl)
+	if (not (config.expUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
+	local farmingMob = getFarmingMob()
 
 	if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, farmingMob)) then
 		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob) .. " Quest"
@@ -351,5 +351,5 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 		end
 		killingMobs = false
 	end
-	task.wait(3)
+	task.wait(1)
 end
