@@ -5,10 +5,21 @@ local runService = game:GetService("RunService")
 local tweenService = game:GetService("TweenService")
 -- objects
 local player = players.LocalPlayer
+local gameUI = player.PlayerGui:FindFirstChild("CoreGUI")
 local character = player.Character or player.CharacterAdded:Wait()
-local espFolder
+local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+local rootPart = character:FindFirstChild("HumanoidRootPart")
 local tpCompleted = Instance.new("BindableEvent")
+-- folders
+local events = gameUI.Events
+local quests = player.PlayerGui:FindFirstChild("Quest").Quest
+local plrData = player:FindFirstChild("Data")
+local plrStatus = character:FindFirstChild("Status")
+local espFolder
 -- variables
+local currentLvl
+local tpFarmingOffset
+local killingMobs = false
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 local itemsList = {
 	{"Rokakaka", "rokaFruit"},
@@ -35,9 +46,8 @@ local otherItemsList = {
 local config = {
 	["expUtil"] = {
 		["expFarm"] = false,
-		["plrDist"] = 3,
+		["plrDist"] = 5,
 		["autoPrestige"] = false,
-		["farmingMob"] = "Thug"
 	},
 	["itemUtil"] = {
 		["itemFarm"] = false,
@@ -48,6 +58,7 @@ local config = {
 	["configVer"] = 1
 }
 -- functions
+local invokeFunc = Instance.new("RemoteFunction").InvokeServer
 local function getTool(toolObj) -- returns the tool if it passes a certain condition
 	toolObj = (
 		(toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or
@@ -55,6 +66,34 @@ local function getTool(toolObj) -- returns the tool if it passes a certain condi
 		toolObj:IsA("Tool") and toolObj or nil
 	)
 	return (toolObj and ((toolObj:IsA("BasePart") or toolObj:FindFirstChild("Handle")) and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
+end
+local function getCurrentLvl()
+	if not (gameUI and gameUI:FindFirstChild("Frame")) then return end
+	local lvl = string.gsub(gameUI.Frame.EXPBAR.TextLabel.Text, "%D", "")
+	return tonumber(lvl)
+end
+local function getFarmingMob(currentLvl)
+	return (
+		if currentLvl >= 80 then
+			"HamonGolem"
+		elseif currentLvl >= 65 then
+			"Vampire"
+		elseif currentLvl >= 45 then
+			"Zombie"
+		elseif currentLvl >= 30 then
+			"Werewolf"
+		elseif currentLvl >= 20 then
+			"Gorilla" -- 🦍
+		elseif currentLvl >= 10 then
+			"Brute"
+		elseif currentLvl >= 1 then
+			"Thug"
+		else nil
+	)
+end
+local function spawnStand(spawn)
+	if not (plrStatus and plrStatus.StandOut.Value ~= spawn) then return end
+	task.spawn(events.SummonStand.InvokeServer, events.SummonStand)
 end
 local function gotAdornied(toolObj)
 	for _, espThingy in ipairs(espFolder:GetChildren()) do
@@ -77,23 +116,28 @@ local function itemFarmable(itemName)
 		end
 	end
 end
-local function tpPlayer(posCFrame, tpCompletedWait)
-	posCFrame = typeof(posCFrame) == "Vector3" and CFrame.new(posCFrame) or posCFrame
-	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(posCFrame.Position) / 150, Enum.EasingStyle.Linear)
-	local tweenObj = tweenService:Create(character.HumanoidRootPart, _tweenInfo, {
-		CFrame = posCFrame
+local function tpPlayer(position, tpCompletedWait)
+	if not rootPart then return end
+	position = (if typeof(position) == "CFrame" then position elseif typeof(position) == "Vector3" then CFrame.new(position) else nil)
+	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(position.Position) / 150, Enum.EasingStyle.Linear)
+	local tweenObj = tweenService:Create(rootPart, _tweenInfo, {
+		CFrame = position
 	})
 	tweenObj.Completed:Connect(function(playbackState)
 		if playbackState == Enum.PlaybackState.Completed then
-			tpCompleted:Fire()
+			tpCompleted:Fire(position)
 			tweenObj:Destroy()
 		end
 	end)
 	tweenObj:Play()
-	return tpCompletedWait and tpCompleted.Event:Wait() or nil
-end
-local function expFarmMob(mobObj)
-	-- TODO: figure out how to do the expFarm
+	if tpCompletedWait then
+		local tpCompletedValue do
+			task.spawn(function()
+				tpCompletedValue = tpCompleted.Event:Wait()
+			end)
+		end
+		repeat runService.Heartbeat:Wait() until tpCompletedValue == position
+	end
 end
 local function getItem(toolObj) -- TODO: make this cancellable in certain circumstances
 	toolObj = getTool(toolObj)
@@ -106,10 +150,12 @@ local function getItem(toolObj) -- TODO: make this cancellable in certain circum
 			tpPlayer(toolHandle.Position, true)
 			if toolObjThingy then
 				if toolObjThingy:IsA("TouchTransmitter") then
-					firetouchinterest(toolHandle, character.HumanoidRootPart, 0)
-					firetouchinterest(toolHandle, character.HumanoidRootPart, 1)
+					firetouchinterest(toolHandle, rootPart, 0)
+					firetouchinterest(toolHandle, rootPart, 1)
 				elseif toolObjThingy:IsA("ClickDetector") then
-					fireclickdetector(toolHandle:FindFirstChildWhichIsA("ClickDetector"), 10)
+					fireclickdetector(toolObjThingy)
+					task.wait(2)
+					fireclickdetector(toolObjThingy)
 				end
 			end
 		end
@@ -117,7 +163,7 @@ local function getItem(toolObj) -- TODO: make this cancellable in certain circum
 end
 local function getItems()
 	if not config.itemUtil.itemFarm then return end
-	for _, object in ipairs(workspace:GetChildren()) do
+	for _, object in workspace:GetChildren() do
 		if not config.itemUtil.itemFarm then break end
 		getItem(object)
 	end
@@ -161,7 +207,7 @@ local window = ui_library.new("Stands Online")
 
 local farming_page = window:addPage("Farming", 5012544693)
 
-local expFarm_sect = farming_page:addSection("EXP Utils (SOON!)")
+local expFarm_sect = farming_page:addSection("EXP Utils")
 local itemFarm_sect = farming_page:addSection("Item Utils")
 local itemFarm_items = farming_page:addSection("Item Whitelist")
 
@@ -170,20 +216,11 @@ local settings_section = settings_sect:addSection("Settings")
 
 expFarm_sect:addToggle("EXP Farm", config.expUtil.expFarm, function(value)
 	config.expUtil.expFarm = value
-end)
-expFarm_sect:addDropdown("Mob to Farm", {
-	"Thug",
-	"Brute",
-	"Gorilla",
-	"Werewolf",
-	"Zombie",
-	"Vampire",
-	"Hamon Golem"
-}, function(value)
-	config.expUtil.farmingMob = value
+	killingMobs = false
 end)
 expFarm_sect:addSlider("Distance", config.expUtil.plrDist, 0, 10, function(value)
 	config.expUtil.plrDist = value
+	tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * value)) * CFrame.Angles(math.rad(-90), 0, 0))
 end)
 expFarm_sect:addToggle("Auto Prestige", config.expUtil.autoPrestige, function(value)
 	config.expUtil.autoPrestige = value
@@ -224,19 +261,35 @@ if not _G.standOnline_GUI.executed then
 		espFolder.Name, espFolder.Parent = "espFolder", gethui()
 	end
 	_G.standOnline_GUI.executed = true
+	_G.standOnline_GUI.runFarmLoop = false
 end
 -- main
+tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * config.expUtil.plrDist)) * CFrame.Angles(math.rad(-90), 0, 0))
 table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(function()
 	task.spawn(getItems)
-	for _, object in ipairs(workspace:GetChildren()) do
+	for _, object in workspace:GetChildren() do
 		itemESP(object)
 	end
 end))
-table.insert(_G.standOnline_GUI.connections, player.CharacterRemoving:Connect(function()
-	character = player.CharacterAdded:Wait()
+table.insert(_G.standOnline_GUI.connections, player.CharacterAdded:Connect(function(spawnedChar)
+	character = spawnedChar
+	humanoid = character:FindFirstChildWhichIsA("Humanoid")
+	rootPart = character:FindFirstChild("HumanoidRootPart")
+	plrStatus = character:FindFirstChild("Status")
+	gameUI = player.PlayerGui:WaitForChild("CoreGUI")
+	events = gameUI.Events
 end))
 table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(function()
-	for _, guiEsp in ipairs(espFolder:GetChildren()) do
+	currentLvl = getCurrentLvl()
+
+	if config.expUtil.autoPrestige and currentLvl == 100 then
+		task.spawn(invokeFunc, events.Prestige)
+	end
+	if config.expUtil.expFarm then
+		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, Vector3.zero
+	end
+
+	for _, guiEsp in espFolder:GetChildren() do
 		if not config.itemUtil.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
 			guiEsp:Destroy()
 			continue
@@ -244,6 +297,59 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
 		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
-		guiEsp.Enabled = (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and true or false
+		guiEsp.Enabled = (if (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) then true else false)
 	end
 end))
+table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function()
+	if not config.expUtil.expFarm then return end
+	for _, object in character:GetChildren() do
+		if not object:IsA("BasePart") then continue end
+		object.CanCollide = false
+	end
+end))
+_G.standOnline_GUI.runFarmLoop = true
+while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
+	if not (config.expUtil.expFarm and currentLvl) then continue end
+	local farmingMob = getFarmingMob(currentLvl)
+
+	if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, farmingMob)) then
+		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob) .. " Quest"
+		for _, object in workspace:GetChildren() do
+			if string.find(object.Name, questName) and object:FindFirstChild("HumanoidRootPart") then
+				spawnStand(false)
+				tpPlayer(object.HumanoidRootPart.CFrame, true)
+				fireclickdetector(object:FindFirstChild("ClickDetector"))
+				task.wait(2)
+				fireclickdetector(object:FindFirstChild("ClickDetector"))
+				break
+			end
+		end
+	end
+
+	farmingMob = (if farmingMob == "Gorilla" then "🦍" else farmingMob)
+	if not killingMobs then
+		killingMobs = true
+		for _, object in workspace:GetChildren() do
+			if (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame")) then break end
+			if (object.Name == farmingMob and object:FindFirstChild("HumanoidRootPart") and (object:FindFirstChild("Humanoid") and object.Humanoid ~= 0)) then
+				local mobHumanoid, mobRootPart = object:FindFirstChild("Humanoid"), object:FindFirstChild("HumanoidRootPart")
+				local mobSize do
+					local sizeVect3 = object:GetExtentsSize()
+					mobSize = (Vector3.yAxis * sizeVect3.Y)
+				end
+				spawnStand(true)
+				tpPlayer(mobRootPart.CFrame, true)
+
+				repeat runService.Heartbeat:Wait()
+					humanoid:ChangeState(11)
+					rootPart.CFrame = (mobRootPart.CFrame * tpFarmingOffset) + mobSize
+					task.delay(10, invokeFunc, events.Barrage)
+					task.delay(10, invokeFunc, events.Heavy)
+					task.spawn(invokeFunc, events.Punch)
+				until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame"))
+			end
+		end
+		killingMobs = false
+	end
+	task.wait(3)
+end
