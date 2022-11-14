@@ -45,14 +45,19 @@ local otherItemsList = {
 local config = {
 	["expUtil"] = {
 		["expFarm"] = false,
-		["plrDist"] = 5,
+		["plrDist"] = 3,
 		["autoPrestige"] = false,
 	},
 	["itemUtil"] = {
 		["itemFarm"] = false,
 		["itemFarming"] = "default",
-		["itemWL"] = {},
+		["itemWL"] = table.create(0),
 		["itemEsp"] = false,
+	},
+	["miscUtil"] = {
+		["antiAfk"] = false,
+		["walkspeed"] = 16,
+		["jumppower"] = 50
 	},
 	["configVer"] = 1
 }
@@ -201,17 +206,25 @@ local function itemESP(toolObj)
 		guiEsp.Parent, itemName.Parent, itemDist.Parent = espFolder, guiEsp, guiEsp
 	end
 end
+local function toggleAntiAfk(value)
+	for _, connection in getconnections(player.Idled) do
+		local func = (if not value then connection.Enable else (connection.Disable or connection.Disconnect))
+		func(connection)
+	end
+end
 -- ui init
 local window = ui_library.new("Stands Online")
 
 local farming_page = window:addPage("Farming", 5012544693)
-
 local expFarm_sect = farming_page:addSection("EXP Utils")
 local itemFarm_sect = farming_page:addSection("Item Utils")
 local itemFarm_items = farming_page:addSection("Item Whitelist")
 
-local settings_sect = window:addPage("Settings")
-local settings_section = settings_sect:addSection("Settings")
+local misc_page = window:addPage("Misceleanous")
+local misc_sect = misc_page:addSection("Misceleanous")
+
+local settings_page = window:addPage("Settings")
+local settings_sect = settings_page:addSection("Settings")
 
 expFarm_sect:addToggle("EXP Farm", config.expUtil.expFarm, function(value)
 	config.expUtil.expFarm = value
@@ -243,7 +256,18 @@ for _, itemTable in ipairs(itemsList) do
 	end)
 end
 
-settings_section:addKeybind("UI Toggle", Enum.KeyCode.RightControl, function()
+misc_sect:addToggle("Anti-AFK", config.miscUtil.antiAfk, function(value)
+	config.miscUtil.antiAfk = value
+	toggleAntiAfk(value)
+end)
+misc_sect:addSlider("WalkSpeed", config.miscUtil.walkspeed, 0, 100, function(value)
+	config.miscUtil.walkspeed = value
+end)
+misc_sect:addSlider("JumpPower", config.miscUtil.jumppower, 0, 100, function(value)
+	config.miscUtil.jumppower = value
+end)
+
+settings_sect:addKeybind("UI Toggle", Enum.KeyCode.RightControl, function()
 	window:toggle()
 end)
 
@@ -262,8 +286,11 @@ if not _G.standOnline_GUI.executed then
 	_G.standOnline_GUI.executed = true
 	_G.standOnline_GUI.runFarmLoop = false
 end
+do
+	tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * config.expUtil.plrDist)) * CFrame.Angles(math.rad(-90), 0, 0))
+	toggleAntiAfk(config.miscUtil.antiAfk)
+end
 -- main
-tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * config.expUtil.plrDist)) * CFrame.Angles(math.rad(-90), 0, 0))
 table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(function()
 	task.spawn(getItems)
 	for _, object in workspace:GetChildren() do
@@ -288,6 +315,7 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 	if config.expUtil.expFarm then
 		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, Vector3.zero
 	end
+	humanoid.WalkSpeed, humanoid.JumpPower = config.miscUtil.walkspeed, config.miscUtil.jumppower
 
 	for _, guiEsp in espFolder:GetChildren() do
 		if not config.itemUtil.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
@@ -311,9 +339,9 @@ _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 	if (not (config.expUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
 	local farmingMob = getFarmingMob()
+	local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob).. " Quest"
 
-	if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, farmingMob)) then
-		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob) .. " Quest"
+	if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, "Quest")) then
 		for _, object in workspace:GetChildren() do
 			if string.find(object.Name, questName) and object:FindFirstChild("HumanoidRootPart") then
 				spawnStand(false)
@@ -333,16 +361,16 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 			if (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame")) then break end
 			if (object.Name == farmingMob and object:FindFirstChild("HumanoidRootPart") and (object:FindFirstChild("Humanoid") and object.Humanoid ~= 0)) then
 				local mobHumanoid, mobRootPart = object:FindFirstChild("Humanoid"), object:FindFirstChild("HumanoidRootPart")
-				local mobSize do
+				local mobSizeY do
 					local sizeVect3 = object:GetExtentsSize()
-					mobSize = (Vector3.yAxis * sizeVect3.Y)
+					mobSizeY = (Vector3.yAxis * sizeVect3.Y)
 				end
 				spawnStand(true)
 				tpPlayer(mobRootPart.CFrame, true)
 
 				repeat runService.Heartbeat:Wait()
 					humanoid:ChangeState(11)
-					rootPart.CFrame = (mobRootPart.CFrame * tpFarmingOffset) + mobSize
+					rootPart.CFrame = (mobRootPart.CFrame * tpFarmingOffset) + mobSizeY
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
 					task.spawn(invokeFunc, events.Punch)
