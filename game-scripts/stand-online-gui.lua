@@ -11,27 +11,28 @@ local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 local tpCompleted = Instance.new("BindableEvent")
 -- folders
-local events = gameUI.Events
+local eventsFolder = gameUI.Events
 local quests = player.PlayerGui:FindFirstChild("Quest").Quest
 local plrStatus = character:FindFirstChild("Status")
 local espFolder
 -- variables
 local currentLvl
 local tpFarmingOffset
-local killingMobs = false
+local killingMobs, killingSeaCreature = false, false
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
+local events = table.create(0)
 local itemsList = {
-	{"Rokakaka", "rokaFruit"},
-	{"Stand Arrow", "standArrow"},
-	--{"Gift", "giftArrow"},
-	{"Refined Arrow", "refArrow"},
-	{"Requiem Arrow", "reqArrow"},
-	{"Disc", "discItem"},
-	{"Heavenly Diary", "diaryBook"},
-	{"Hamon Headband", "hbHamon"},
-	{"Vampire Mask", "vampMask"},
-	{"Steel Ball", "steelBall"},
-	{"Other Items", "otherItems"}
+	["rokaFruit"] = "Rokakaka",
+	["standArrow"] = "Stand Arrow",
+	["refArrow"] = "Refined Arrow",
+	["reqArrow"] = "Requiem Arrow",
+	["discItem"] = "Disc",
+	["diaryItem"] = "Heavenly Diary",
+	["hamonItem"] = "Hamon Headband",
+	["maskItem"] = "Vampire Mask",
+	["ballItem"] = "Steel Ball",
+	["eventItems"] = "Event Items",
+	["otherItems"] = "Other Items"
 }
 local otherItemsList = {
 	"Roka-Cola",
@@ -40,6 +41,11 @@ local otherItemsList = {
 	"Idle Arrow",
 	"Sound Arrow",
 	"Face Arrow",
+}
+local eventItemsList = {
+	"Gift",
+	"Spooky Arrow",
+	"Scary Arrow"
 }
 -- config init
 local config = {
@@ -56,6 +62,7 @@ local config = {
 	},
 	["miscUtil"] = {
 		["antiAfk"] = false,
+		["seaCreatureFarm"] = false,
 		["walkspeed"] = 16,
 		["jumppower"] = 50
 	},
@@ -63,6 +70,13 @@ local config = {
 }
 -- functions
 local invokeFunc = Instance.new("RemoteFunction").InvokeServer
+local function updateEventsList()
+	repeat runService.Heartbeat:Wait() until #eventsFolder:GetChildren() ~= 0
+	table.clear(events)
+	for _, object in eventsFolder:GetChildren() do
+		events[object.Name] = object
+	end
+end
 local function getTool(toolObj) -- returns the tool if it passes a certain condition
 	toolObj = (
 		(toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or
@@ -87,7 +101,7 @@ local function getFarmingMob()
 		elseif currentLvl >= 30 then
 			"Werewolf"
 		elseif currentLvl >= 20 then
-			"Gorilla" -- 🦍
+			"Gorilla"
 		elseif currentLvl >= 10 then
 			"Brute"
 		elseif currentLvl >= 1 then
@@ -99,26 +113,35 @@ local function spawnStand(spawn)
 	if not (plrStatus and plrStatus.StandOut.Value ~= spawn) then return end
 	task.spawn(events.SummonStand.InvokeServer, events.SummonStand)
 end
+local function checkMob(mobEntity)
+	local mobHumanoid, mobRootPart = mobEntity:FindFirstChild("Humanoid"), mobEntity:FindFirstChild("HumanoidRootPart")
+	return (mobEntity:IsA("Model") and (mobRootPart and (mobHumanoid and mobHumanoid.Health ~= 0))), mobHumanoid, mobRootPart
+end
 local function gotAdornied(toolObj)
-	for _, espThingy in ipairs(espFolder:GetChildren()) do
+	for _, espThingy in espFolder:GetChildren() do
 		if espThingy.Adornee.Parent == toolObj then
 			return true
 		end
 	end
 end
-local function itemFarmable(itemName)
-	for _, itemTable in ipairs(itemsList) do
-		if string.find(itemName, itemTable[1]) then
-			return config.itemUtil.itemWL[itemTable[2]]
-		end
+local function itemFarmable(itemName_in)
+	for configId, itemName in itemsList do
+		if not string.find(itemName_in, itemName) then continue end
+		return config.itemUtil.itemWL[configId]
 	end
 	if config.itemUtil.itemWL.otherItems then
-		for _, _itemName in ipairs(otherItemsList) do
-			if string.find(itemName, _itemName) then
-				return true
-			end
+		for _, itemName in otherItemsList do
+			if not string.find(itemName_in, itemName) then continue end
+			return true
 		end
 	end
+	if config.itemUtil.itemWL.eventItems then
+		for _, itemName in eventItemsList do
+			if not string.find(itemName_in, itemName) then continue end
+			return true
+		end
+	end
+	return false
 end
 local function tpPlayer(position, tpCompletedWait)
 	if not rootPart then return end
@@ -127,20 +150,25 @@ local function tpPlayer(position, tpCompletedWait)
 	local tweenObj = tweenService:Create(rootPart, _tweenInfo, {
 		CFrame = position
 	})
+	local _anchorConnection = rootPart:GetPropertyChangedSignal("Anchored"):Connect(function()
+		local func = (if rootPart.Anchored then tweenObj.Pause else tweenObj.Play)
+		func(tweenObj)
+	end)
 	tweenObj.Completed:Connect(function(playbackState)
 		if playbackState == Enum.PlaybackState.Completed then
 			tpCompleted:Fire(position)
+			_anchorConnection:Disconnect()
 			tweenObj:Destroy()
 		end
 	end)
 	tweenObj:Play()
 	if tpCompletedWait then
-		local tpCompletedValue do
-			task.spawn(function()
-				tpCompletedValue = tpCompleted.Event:Wait()
-			end)
-		end
-		repeat runService.Heartbeat:Wait() until tpCompletedValue == position
+		local tpCompletedValue
+
+		task.spawn(function()
+			tpCompletedValue = tpCompleted.Event:Wait()
+		end)
+		repeat runService.Heartbeat:Wait() until (tpCompletedValue == position)
 	end
 end
 local function getItem(toolObj) -- TODO: make this cancellable in certain circumstances
@@ -249,16 +277,19 @@ end)
 itemFarm_sect:addToggle("Item ESP", config.itemUtil.itemEsp, function(value)
 	config.itemUtil.itemEsp = value
 end)
-for _, itemTable in ipairs(itemsList) do
-	config.itemUtil.itemWL[itemTable[2]] = true
-	itemFarm_items:addToggle(itemTable[1], config.itemUtil.itemWL[itemTable[2]], function(value)
-		config.itemUtil.itemWL[itemTable[2]] = value
+for configId, itemName in itemsList do
+	config.itemUtil.itemWL[configId] = true
+	itemFarm_items:addToggle(itemName, config.itemUtil.itemWL[configId], function(value)
+		config.itemUtil.itemWL[configId] = value
 	end)
 end
 
 misc_sect:addToggle("Anti-AFK", config.miscUtil.antiAfk, function(value)
 	config.miscUtil.antiAfk = value
 	toggleAntiAfk(value)
+end)
+misc_sect:addToggle("Sea Creature Farm", config.miscUtil.seaCreatureFarm, function(value)
+	config.miscUtil.seaCreatureFarm = value
 end)
 misc_sect:addSlider("WalkSpeed", config.miscUtil.walkspeed, 0, 100, function(value)
 	config.miscUtil.walkspeed = value
@@ -282,6 +313,7 @@ if not _G.standOnline_GUI.executed then
 		local protectGui = (syn and syn.protect_gui) or (fluxus and fluxus.protect_gui) or nil
 		if protectGui then protectGui(espFolder) end
 		espFolder.Name, espFolder.Parent = "espFolder", gethui()
+		_G.standOnline_GUI.espFolder = espFolder
 	end
 	_G.standOnline_GUI.executed = true
 	_G.standOnline_GUI.runFarmLoop = false
@@ -289,6 +321,7 @@ end
 do
 	tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * config.expUtil.plrDist)) * CFrame.Angles(math.rad(-90), 0, 0))
 	toggleAntiAfk(config.miscUtil.antiAfk)
+	task.spawn(updateEventsList)
 end
 -- main
 table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(function()
@@ -304,7 +337,8 @@ table.insert(_G.standOnline_GUI.connections, player.CharacterAdded:Connect(funct
 	rootPart = character:FindFirstChild("HumanoidRootPart")
 	plrStatus = character:FindFirstChild("Status")
 	gameUI = player.PlayerGui:WaitForChild("CoreGUI")
-	events = gameUI.Events
+	eventsFolder = gameUI:WaitForChild("Events")
+	task.spawn(updateEventsList)
 end))
 table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(function()
 	currentLvl = getCurrentLvl()
@@ -338,29 +372,11 @@ end))
 _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 	if (not (config.expUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
-	local farmingMob = getFarmingMob()
-	local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob).. " Quest"
-
-	if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, "Quest")) then
+	if config.miscUtil.seaCreatureFarm then
+		killingSeaCreature = true
 		for _, object in workspace:GetChildren() do
-			if string.find(object.Name, questName) and object:FindFirstChild("HumanoidRootPart") then
-				spawnStand(false)
-				tpPlayer(object.HumanoidRootPart.CFrame, true)
-				fireclickdetector(object:FindFirstChild("ClickDetector"))
-				task.wait(2)
-				fireclickdetector(object:FindFirstChild("ClickDetector"))
-				break
-			end
-		end
-	end
-
-	farmingMob = (if farmingMob == "Gorilla" then "🦍" else farmingMob)
-	if not killingMobs then
-		killingMobs = true
-		for _, object in workspace:GetChildren() do
-			if (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame")) then break end
-			if (object.Name == farmingMob and object:FindFirstChild("HumanoidRootPart") and (object:FindFirstChild("Humanoid") and object.Humanoid ~= 0)) then
-				local mobHumanoid, mobRootPart = object:FindFirstChild("Humanoid"), object:FindFirstChild("HumanoidRootPart")
+			local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
+			if object.Name == "Sea Creature" and (passedCheck and (mobRootPart and mobHumanoid)) then
 				local mobSizeY do
 					local sizeVect3 = object:GetExtentsSize()
 					mobSizeY = (Vector3.yAxis * sizeVect3.Y)
@@ -370,14 +386,59 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 
 				repeat runService.Heartbeat:Wait()
 					humanoid:ChangeState(11)
-					rootPart.CFrame = (mobRootPart.CFrame * tpFarmingOffset) + mobSizeY
+					rootPart.CFrame = ((mobRootPart.CFrame * tpFarmingOffset) + mobSizeY)
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
 					task.spawn(invokeFunc, events.Punch)
 				until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame"))
+				break
 			end
 		end
-		killingMobs = false
+		killingSeaCreature = false
+	end
+
+	if (config.expUtil.expFarm and currentLvl) and not killingSeaCreature then
+		local farmingMob = getFarmingMob()
+		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob).. " Quest"
+
+		if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, "Quest")) then
+			for _, object in workspace:GetChildren() do
+				if string.find(object.Name, questName) and object:FindFirstChild("HumanoidRootPart") then
+					spawnStand(false)
+					tpPlayer(object.HumanoidRootPart.CFrame, true)
+					fireclickdetector(object:FindFirstChild("ClickDetector"))
+					task.wait(2)
+					fireclickdetector(object:FindFirstChild("ClickDetector"))
+					break
+				end
+			end
+		end
+
+		farmingMob = (if farmingMob == "Gorilla" then "🦍" else farmingMob)
+		if not killingMobs then
+			killingMobs = true
+			for _, object in workspace:GetChildren() do
+				if (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame")) then break end
+				local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
+				if object.Name == farmingMob and (passedCheck and (mobRootPart and mobHumanoid)) then
+					local mobSizeY do
+						local sizeVect3 = object:GetExtentsSize()
+						mobSizeY = (Vector3.yAxis * sizeVect3.Y)
+					end
+					spawnStand(true)
+					tpPlayer(mobRootPart.CFrame, true)
+
+					repeat runService.Heartbeat:Wait()
+						humanoid:ChangeState(11)
+						rootPart.CFrame = ((mobRootPart.CFrame * tpFarmingOffset) + mobSizeY)
+						task.delay(10, invokeFunc, events.Barrage)
+						task.delay(10, invokeFunc, events.Heavy)
+						task.spawn(invokeFunc, events.Punch)
+					until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame"))
+				end
+			end
+			killingMobs = false
+		end
 	end
 	task.wait(1)
 end
