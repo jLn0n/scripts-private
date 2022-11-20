@@ -9,13 +9,15 @@ local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
 -- variables
+local currentCFrame
 local yStabilizer = (Vector3.yAxis * rootPart:GetMass())
 local flyObj = {
 	enabled = false,
 	flySpeed = 16,
 	keyInput = Enum.KeyCode.F1,
-	qeFly = false,
-	navigation = {
+	qeFly = true,
+
+	_navigation = {
 		upward = false,
 		downward = false,
 		forward = false,
@@ -28,14 +30,10 @@ local flyObj = {
 local function applyThingys()
 	if not (humanoid and rootPart) then return end
 
+	currentCFrame = rootPart.CFrame
 	humanoid.PlatformStand = (flyObj.enabled)
-	rootPart.Anchored, rootPart.AssemblyLinearVelocity = (flyObj.enabled), (not flyObj.enabled and Vector3.zero or rootPart.AssemblyLinearVelocity)
 end
 
-local function unpackOrientation(vectRot, dontUseRadians)
-	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
-	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
-end
 -- main
 player.CharacterAdded:Connect(function(newCharacter)
 	task.wait(.1)
@@ -56,12 +54,12 @@ end)
 
 runService.RenderStepped:Connect(function()
 	if not inputService:GetFocusedTextBox() and flyObj.enabled then
-		flyObj.navigation.upward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.Q) and true or false)
-		flyObj.navigation.downward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.E) and true or false)
-		flyObj.navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W) and true or false
-		flyObj.navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S) and true or false
-		flyObj.navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A) and true or false
-		flyObj.navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or false
+		flyObj._navigation.upward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.Q) and true or false)
+		flyObj._navigation.downward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.E) and true or false)
+		flyObj._navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W) and true or false
+		flyObj._navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S) and true or false
+		flyObj._navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A) and true or false
+		flyObj._navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or false
 	end
 end)
 
@@ -72,7 +70,7 @@ runService.Heartbeat:Connect(function(deltaTime)
 		local pressResult do
 			pressResult = Vector3.zero
 
-			for name, value in flyObj.navigation do
+			for name, value in flyObj._navigation do
 				pressResult += (
 					if not value then Vector3.zero
 					elseif (name == "upward") then calcTop
@@ -87,12 +85,11 @@ runService.Heartbeat:Connect(function(deltaTime)
 
 		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop() end
 		if pressResult.Magnitude > 0 then
-			rootPart.Anchored = false
-			rootPart.CFrame = (CFrame.new(rootPart.Position + pressResult) * cameraOrientation)
-			rootPart.AssemblyLinearVelocity, rootPart.AssemblyAngularVelocity = (pressResult * workspace.Gravity) + yStabilizer, Vector3.zero
+			rootPart.CFrame = ((CFrame.identity + (currentCFrame.Position + (pressResult * 2))) * cameraOrientation)
 		else
-			rootPart.Anchored = true
-			rootPart.CFrame = ((CFrame.identity + rootPart.Position) * cameraOrientation)
+			rootPart.CFrame = ((CFrame.identity + currentCFrame.Position) * cameraOrientation)
 		end
+		rootPart.AssemblyLinearVelocity, rootPart.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+		currentCFrame = rootPart.CFrame
 	end
 end)
