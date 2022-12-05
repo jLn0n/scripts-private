@@ -85,9 +85,10 @@ local function getTool(toolObj) -- returns the tool if it passes a certain condi
 	)
 	return (toolObj and ((toolObj:IsA("BasePart") or toolObj:FindFirstChild("Handle")) and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
 end
-local function getCurrentLvl()
+local function getCurrentLvl() -- maybe improve this
 	if not (gameUI and gameUI:FindFirstChild("Frame")) then return end
 	local lvl = string.gsub(gameUI.Frame.EXPBAR.TextLabel.Text, "%D", "")
+
 	return tonumber(lvl)
 end
 local function getFarmingMob()
@@ -111,10 +112,12 @@ local function getFarmingMob()
 end
 local function spawnStand(spawn)
 	if not (plrStatus and plrStatus.StandOut.Value ~= spawn) then return end
+
 	task.spawn(events.SummonStand.InvokeServer, events.SummonStand)
 end
 local function checkMob(mobEntity)
 	local mobHumanoid, mobRootPart = mobEntity:FindFirstChild("Humanoid"), mobEntity:FindFirstChild("HumanoidRootPart")
+
 	return (mobEntity:IsA("Model") and (mobRootPart and (mobHumanoid and mobHumanoid.Health ~= 0))), mobHumanoid, mobRootPart
 end
 local function gotAdornied(toolObj)
@@ -129,12 +132,14 @@ local function itemFarmable(itemName_in)
 		if not string.find(itemName_in, itemName) then continue end
 		return config.itemUtil.itemWL[configId]
 	end
+
 	if config.itemUtil.itemWL.otherItems then
 		for _, itemName in otherItemsList do
 			if not string.find(itemName_in, itemName) then continue end
 			return true
 		end
 	end
+
 	if config.itemUtil.itemWL.eventItems then
 		for _, itemName in eventItemsList do
 			if not string.find(itemName_in, itemName) then continue end
@@ -154,6 +159,7 @@ local function tpPlayer(position, tpCompletedWait)
 		local func = (if rootPart.Anchored then tweenObj.Pause else tweenObj.Play)
 		func(tweenObj)
 	end)
+
 	tweenObj.Completed:Connect(function(playbackState)
 		if playbackState == Enum.PlaybackState.Completed then
 			tpCompleted:Fire(position)
@@ -162,6 +168,7 @@ local function tpPlayer(position, tpCompletedWait)
 		end
 	end)
 	tweenObj:Play()
+
 	if tpCompletedWait then
 		local tpCompletedValue
 
@@ -171,15 +178,18 @@ local function tpPlayer(position, tpCompletedWait)
 		repeat runService.Heartbeat:Wait() until (tpCompletedValue == position)
 	end
 end
-local function getItem(toolObj) -- TODO: make this cancellable in certain circumstances
+local function getItem(toolObj)
 	toolObj = getTool(toolObj)
+
 	if (toolObj and character.Humanoid.Health ~= 0 and itemFarmable(toolObj.Name)) then
 		if toolObj.Parent:IsA("Workspace") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "dropped") then
 			character.Humanoid:EquipTool(toolObj)
 		elseif toolObj.Parent:IsA("Model") and (config.itemUtil.itemFarming == "default" or config.itemUtil.itemFarming == "spawned") then
 			local toolHandle = toolObj:FindFirstChild("Handle")
 			local toolObjThingy = toolHandle:FindFirstChildWhichIsA("TouchTransmitter") or toolHandle:FindFirstChildWhichIsA("ClickDetector", true)
+
 			tpPlayer(toolHandle.Position, true)
+
 			if toolObjThingy then
 				if toolObjThingy:IsA("TouchTransmitter") then
 					firetouchinterest(toolHandle, rootPart, 0)
@@ -195,6 +205,7 @@ local function getItem(toolObj) -- TODO: make this cancellable in certain circum
 end
 local function getItems()
 	if not config.itemUtil.itemFarm then return end
+
 	for _, object in workspace:GetChildren() do
 		if not config.itemUtil.itemFarm then break end
 		getItem(object)
@@ -202,6 +213,7 @@ local function getItems()
 end
 local function itemESP(toolObj)
 	toolObj = getTool(toolObj)
+
 	if config.itemUtil.itemEsp and (toolObj and not gotAdornied(toolObj)) then
 		local guiEsp, itemName, itemDist = Instance.new("BillboardGui"), Instance.new("TextLabel"), Instance.new("TextLabel")
 		guiEsp.Name, itemName.Name, itemDist.Name = "itemGui", "itemName", "itemDist"
@@ -326,6 +338,7 @@ end
 -- main
 table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(function()
 	task.spawn(getItems)
+
 	for _, object in workspace:GetChildren() do
 		itemESP(object)
 	end
@@ -346,9 +359,11 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 	if config.expUtil.autoPrestige and currentLvl == 100 then
 		task.spawn(invokeFunc, events.Prestige)
 	end
+
 	if config.expUtil.expFarm then
 		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, Vector3.zero
 	end
+
 	humanoid.WalkSpeed, humanoid.JumpPower = config.miscUtil.walkspeed, config.miscUtil.jumppower
 
 	for _, guiEsp in espFolder:GetChildren() do
@@ -356,23 +371,27 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 			guiEsp:Destroy()
 			continue
 		end
+
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
+
 		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
 		guiEsp.Enabled = (if (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) then true else false)
 	end
 end))
 table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function()
-	if not config.expUtil.expFarm then return end
-	for _, object in character:GetChildren() do
-		if not object:IsA("BasePart") then continue end
-		object.CanCollide = false
+	if config.expUtil.expFarm then
+		for _, object in character:GetChildren() do
+			if not object:IsA("BasePart") then continue end
+			object.CanCollide = false
+		end
 	end
 end))
 _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 	if (not (config.expUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
-	if config.miscUtil.seaCreatureFarm then
+
+	if config.miscUtil.seaCreatureFarm and not killingSeaCreature then
 		killingSeaCreature = true
 		for _, object in workspace:GetChildren() do
 			local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
@@ -390,7 +409,7 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
 					task.spawn(invokeFunc, events.Punch)
-				until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame"))
+				until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0)
 				break
 			end
 		end
