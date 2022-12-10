@@ -17,7 +17,7 @@ local plrStatus = character:FindFirstChild("Status")
 local espFolder
 -- variables
 local currentLvl
-local tpFarmingOffset
+local tpOffset, tpAxis, tpOrientation = CFrame.identity, Vector3.yAxis, (Vector3.xAxis * -90)
 local killingMobs, killingSeaCreature = false, false
 local ui_library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 local events = table.create(0)
@@ -49,9 +49,13 @@ local eventItemsList = {
 }
 -- config init
 local config = {
-	["expUtil"] = {
+	["tpUtil"] = {
+		["offset"] = 5,
+		["tpMethod"] = "top",
+	},
+	["farmingUtil"] = {
 		["expFarm"] = false,
-		["plrDist"] = 3,
+		["seaCreatureFarm"] = false,
 		["autoPrestige"] = false,
 	},
 	["itemUtil"] = {
@@ -62,7 +66,6 @@ local config = {
 	},
 	["miscUtil"] = {
 		["antiAfk"] = false,
-		["seaCreatureFarm"] = false,
 		["walkspeed"] = 16,
 		["jumppower"] = 50
 	},
@@ -70,6 +73,10 @@ local config = {
 }
 -- functions
 local invokeFunc = Instance.new("RemoteFunction").InvokeServer
+local function unpackOrientation(vectRot, dontUseRadians)
+	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
+	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
+end
 local function updateEventsList()
 	repeat runService.Heartbeat:Wait() until #eventsFolder:GetChildren() ~= 0
 	table.clear(events)
@@ -149,7 +156,7 @@ local function itemFarmable(itemName_in)
 	return false
 end
 local function tpPlayer(position, tpCompletedWait)
-	if not rootPart then return end
+	if (not rootPart) or (not rootPart:IsDescendantOf(workspace)) then return end
 	position = (if typeof(position) == "CFrame" then position elseif typeof(position) == "Vector3" then CFrame.new(position) else nil)
 	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(position.Position) / 150, Enum.EasingStyle.Linear)
 	local tweenObj = tweenService:Create(rootPart, _tweenInfo, {
@@ -256,7 +263,8 @@ end
 local window = ui_library.new("Stands Online")
 
 local farming_page = window:addPage("Farming", 5012544693)
-local expFarm_sect = farming_page:addSection("EXP Utils")
+local tpConfig_sect = farming_page:addSection("TP Utils")
+local farming_sect = farming_page:addSection("Farming Utils")
 local itemFarm_sect = farming_page:addSection("Item Utils")
 local itemFarm_items = farming_page:addSection("Item Whitelist")
 
@@ -266,16 +274,44 @@ local misc_sect = misc_page:addSection("Misceleanous")
 local settings_page = window:addPage("Settings")
 local settings_sect = settings_page:addSection("Settings")
 
-expFarm_sect:addToggle("EXP Farm", config.expUtil.expFarm, function(value)
-	config.expUtil.expFarm = value
+tpConfig_sect:addSlider("Distance Offset", config.tpUtil.offset, 0, 15, function(value)
+	config.tpUtil.offset = value
+
+	tpOffset = ((CFrame.identity + (tpAxis * value)) * CFrame.Angles(unpackOrientation(tpOrientation)))
+end)
+tpConfig_sect:addDropdown("Method", {"Top", "Bottom", "Back"}, function(value)
+	value = string.lower(value)
+	config.tpUtil.tpMethod = value
+
+	tpAxis, tpOrientation = (
+		if value == "top" then
+			Vector3.yAxis
+		elseif value == "bottom" then
+			-Vector3.yAxis
+		elseif value == "back" then
+			Vector3.zAxis
+		else tpAxis
+	), (
+		if value == "top" then
+			Vector3.xAxis * -90
+		elseif value == "bottom" then
+			Vector3.xAxis * 90
+		elseif value == "back" then
+			Vector3.zero
+		else tpOrientation
+	)
+	tpOffset = ((CFrame.identity + (tpAxis * config.tpUtil.offset)) * CFrame.Angles(unpackOrientation(tpOrientation)))
+end)
+
+farming_sect:addToggle("EXP Farm", config.farmingUtil.expFarm, function(value)
+	config.farmingUtil.expFarm = value
 	killingMobs = false
 end)
-expFarm_sect:addSlider("Distance", config.expUtil.plrDist, 0, 10, function(value)
-	config.expUtil.plrDist = value
-	tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * value)) * CFrame.Angles(math.rad(-90), 0, 0))
+farming_sect:addToggle("Sea Creature Farm", config.farmingUtil.seaCreatureFarm, function(value)
+	config.farmingUtil.seaCreatureFarm = value
 end)
-expFarm_sect:addToggle("Auto Prestige", config.expUtil.autoPrestige, function(value)
-	config.expUtil.autoPrestige = value
+farming_sect:addToggle("Auto Prestige", config.farmingUtil.autoPrestige, function(value)
+	config.farmingUtil.autoPrestige = value
 end)
 
 itemFarm_sect:addToggle("Item Farm", config.itemUtil.itemFarm, function(value)
@@ -299,9 +335,6 @@ end
 misc_sect:addToggle("Anti-AFK", config.miscUtil.antiAfk, function(value)
 	config.miscUtil.antiAfk = value
 	toggleAntiAfk(value)
-end)
-misc_sect:addToggle("Sea Creature Farm", config.miscUtil.seaCreatureFarm, function(value)
-	config.miscUtil.seaCreatureFarm = value
 end)
 misc_sect:addSlider("WalkSpeed", config.miscUtil.walkspeed, 0, 100, function(value)
 	config.miscUtil.walkspeed = value
@@ -331,7 +364,7 @@ if not _G.standOnline_GUI.executed then
 	_G.standOnline_GUI.runFarmLoop = false
 end
 do
-	tpFarmingOffset = ((CFrame.identity + (Vector3.yAxis * config.expUtil.plrDist)) * CFrame.Angles(math.rad(-90), 0, 0))
+	tpOffset = ((CFrame.identity + (tpAxis * config.tpUtil.offset)) * CFrame.Angles(unpackOrientation(tpOrientation)))
 	toggleAntiAfk(config.miscUtil.antiAfk)
 	task.spawn(updateEventsList)
 end
@@ -356,11 +389,11 @@ end))
 table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(function()
 	currentLvl = getCurrentLvl()
 
-	if config.expUtil.autoPrestige and currentLvl == 100 then
+	if config.farmingUtil.autoPrestige and currentLvl == 100 then
 		task.spawn(invokeFunc, events.Prestige)
 	end
 
-	if config.expUtil.expFarm then
+	if config.farmingUtil.expFarm then
 		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, Vector3.zero
 	end
 
@@ -375,12 +408,12 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 		local toolObj = guiEsp.Adornee.Parent
 		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
 
-		guiEsp.itemDist.Text = string.format("%sm", distFromChar)
+		guiEsp.itemDist.Text = string.format("%dm", distFromChar)
 		guiEsp.Enabled = (if (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) then true else false)
 	end
 end))
 table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function()
-	if config.expUtil.expFarm then
+	if config.farmingUtil.expFarm then
 		for _, object in character:GetChildren() do
 			if not object:IsA("BasePart") then continue end
 			object.CanCollide = false
@@ -389,23 +422,19 @@ table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function
 end))
 _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
-	if (not (config.expUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
+	if (not (config.farmingUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
 
-	if config.miscUtil.seaCreatureFarm and not killingSeaCreature then
+	if config.farmingUtil.seaCreatureFarm and not killingSeaCreature then
 		killingSeaCreature = true
 		for _, object in workspace:GetChildren() do
 			local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
 			if object.Name == "Sea Creature" and (passedCheck and (mobRootPart and mobHumanoid)) then
-				local mobSizeY do
-					local sizeVect3 = object:GetExtentsSize()
-					mobSizeY = (Vector3.yAxis * sizeVect3.Y)
-				end
+				tpPlayer(mobRootPart.CFrame * tpOffset, true)
 				spawnStand(true)
-				tpPlayer(mobRootPart.CFrame, true)
 
 				repeat runService.Heartbeat:Wait()
 					humanoid:ChangeState(11)
-					rootPart.CFrame = ((mobRootPart.CFrame * tpFarmingOffset) + mobSizeY)
+					rootPart.CFrame = (mobRootPart.CFrame * tpOffset)
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
 					task.spawn(invokeFunc, events.Punch)
@@ -416,7 +445,7 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 		killingSeaCreature = false
 	end
 
-	if (config.expUtil.expFarm and currentLvl) and not killingSeaCreature then
+	if (config.farmingUtil.expFarm and currentLvl) and not killingSeaCreature then
 		local farmingMob = getFarmingMob()
 		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob).. " Quest"
 
@@ -424,9 +453,9 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 			for _, object in workspace:GetChildren() do
 				if string.find(object.Name, questName) and object:FindFirstChild("HumanoidRootPart") then
 					spawnStand(false)
-					tpPlayer(object.HumanoidRootPart.CFrame, true)
+					tpPlayer(object.HumanoidRootPart.CFrame * tpOffset, true)
 					fireclickdetector(object:FindFirstChild("ClickDetector"))
-					task.wait(2)
+					task.wait()
 					fireclickdetector(object:FindFirstChild("ClickDetector"))
 					break
 				end
@@ -437,23 +466,20 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 		if not killingMobs then
 			killingMobs = true
 			for _, object in workspace:GetChildren() do
-				if (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame")) then break end
+				if (not config.farmingUtil.expFarm) or (not quests:FindFirstChildWhichIsA("Frame")) or humanoid.Health == 0 then break end
 				local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
 				if object.Name == farmingMob and (passedCheck and (mobRootPart and mobHumanoid)) then
-					local mobSizeY do
-						local sizeVect3 = object:GetExtentsSize()
-						mobSizeY = (Vector3.yAxis * sizeVect3.Y)
-					end
 					spawnStand(true)
-					tpPlayer(mobRootPart.CFrame, true)
+					tpPlayer(mobRootPart.CFrame * tpOffset, true)
 
 					repeat runService.Heartbeat:Wait()
 						humanoid:ChangeState(11)
-						rootPart.CFrame = ((mobRootPart.CFrame * tpFarmingOffset) + mobSizeY)
+						mobRootPart.Velocity, mobRootPart.RotVelocity = (Vector3.yAxis * -10e5), Vector3.zero
+						rootPart.CFrame = (mobRootPart.CFrame * tpOffset)
 						task.delay(10, invokeFunc, events.Barrage)
 						task.delay(10, invokeFunc, events.Heavy)
 						task.spawn(invokeFunc, events.Punch)
-					until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.expUtil.expFarm or not quests:FindFirstChildWhichIsA("Frame"))
+					until (not (humanoid and rootPart)) or (humanoid.Health == 0 or mobHumanoid.Health == 0) or (not config.farmingUtil.expFarm) or (not quests:FindFirstChildWhichIsA("Frame"))
 				end
 			end
 			killingMobs = false
