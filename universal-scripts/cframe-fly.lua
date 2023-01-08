@@ -4,17 +4,16 @@ local runService = game:GetService("RunService")
 local inputService = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
-local character = player.Character
+local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:FindFirstChildWhichIsA("Humanoid")
 local rootPart = character:FindFirstChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
 -- variables
-local currentCFrame
-local yStabilizer = (Vector3.yAxis * rootPart:GetMass())
+local rootPartCFrame
 local flyObj = {
 	enabled = false,
-	flySpeed = 16,
 	keyInput = Enum.KeyCode.F1,
+	flySpeed = 1,
 	qeFly = true,
 
 	_navigation = {
@@ -26,70 +25,58 @@ local flyObj = {
 		leftward = false,
 	}
 }
--- functions
-local function applyThingys()
-	if not (humanoid and rootPart) then return end
-
-	currentCFrame = rootPart.CFrame
-	humanoid.PlatformStand = (flyObj.enabled)
-end
-
 -- main
 player.CharacterAdded:Connect(function(newCharacter)
-	task.wait(.1)
 	character = newCharacter
-	humanoid, rootPart = newCharacter:FindFirstChildWhichIsA("Humanoid"), newCharacter:FindFirstChild("HumanoidRootPart")
-
-	task.spawn(applyThingys)
+	humanoid, rootPart = character:FindFirstChildWhichIsA("Humanoid"), character:WaitForChild("HumanoidRootPart")
 end)
 
 inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
 		if input.KeyCode == flyObj.keyInput then
 			flyObj.enabled = not flyObj.enabled
-			applyThingys()
 		end
 	end
 end)
 
 runService.RenderStepped:Connect(function()
 	if not inputService:GetFocusedTextBox() and flyObj.enabled then
-		flyObj._navigation.upward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.Q) and true or false)
-		flyObj._navigation.downward = flyObj.qeFly and (inputService:IsKeyDown(Enum.KeyCode.E) and true or false)
-		flyObj._navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W) and true or false
-		flyObj._navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S) and true or false
-		flyObj._navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A) and true or false
-		flyObj._navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D) and true or false
+		flyObj._navigation.upward = flyObj.qeFly and inputService:IsKeyDown(Enum.KeyCode.Q)
+		flyObj._navigation.downward = flyObj.qeFly and inputService:IsKeyDown(Enum.KeyCode.E)
+		flyObj._navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W)
+		flyObj._navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S)
+		flyObj._navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A)
+		flyObj._navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D)
 	end
 end)
 
 runService.Heartbeat:Connect(function(deltaTime)
 	if flyObj.enabled and (humanoid and rootPart) then
+		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop(-1) end
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
-		local calcFront, calcRight, calcTop = (cameraOrientation.LookVector * (deltaTime * flyObj.flySpeed)), (cameraOrientation.RightVector * (deltaTime * flyObj.flySpeed)), (cameraOrientation.UpVector * (deltaTime * flyObj.flySpeed))
-		local pressResult do
-			pressResult = Vector3.zero
-
+		local calcFront, calcRight, calcTop = (cameraOrientation.LookVector), (cameraOrientation.RightVector), (cameraOrientation.UpVector)
+		local pressedDirection do
+			pressedDirection = Vector3.zero
 			for name, value in flyObj._navigation do
-				pressResult += (
+				pressedDirection += (
 					if not value then Vector3.zero
 					elseif (name == "upward") then calcTop
 					elseif (name == "downward") then -calcTop
 					elseif (name == "forward") then calcFront
 					elseif (name == "backward") then -calcFront
 					elseif (name == "rightward") then calcRight
-					elseif (name == "leftward") then -calcRight else nil
+					elseif (name == "leftward") then -calcRight
+					else Vector3.zero
 				)
 			end
+			pressedDirection *= ((flyObj.flySpeed * 16) * deltaTime)
 		end
+		local difference = (rootPartCFrame.Position - rootPart.Position)
 
-		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop() end
-		if pressResult.Magnitude > 0 then
-			rootPart.CFrame = ((CFrame.identity + (currentCFrame.Position + (pressResult * 2))) * cameraOrientation)
-		else
-			rootPart.CFrame = ((CFrame.identity + currentCFrame.Position) * cameraOrientation)
-		end
+		rootPart.Anchored = false
+		character:TranslateBy(pressedDirection)
+		rootPart.CFrame = ((CFrame.identity + (rootPart.Position + difference)) * cameraOrientation)
+		rootPartCFrame = rootPart.CFrame
 		rootPart.AssemblyLinearVelocity, rootPart.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
-		currentCFrame = rootPart.CFrame
 	end
 end)
