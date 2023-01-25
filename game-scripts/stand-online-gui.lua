@@ -73,6 +73,10 @@ local config = {
 }
 -- functions
 local invokeFunc = Instance.new("RemoteFunction").InvokeServer
+local function bindFunc(func, ...)
+	local args = table.pack(...)
+	return function() return task.spawn(func, unpack(args)) end
+end
 local function unpackOrientation(vectRot, dontUseRadians)
 	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
@@ -83,6 +87,11 @@ local function updateEventsList()
 	for _, object in eventsFolder:GetChildren() do
 		events[object.Name] = object
 	end
+end
+local function onCharacterAnchoredTweening(tweenObj)
+	if not tweenObj then return end
+	local func = (if rootPart.Anchored then tweenObj.Pause else tweenObj.Play)
+	func(tweenObj)
 end
 local function getTool(toolObj) -- returns the tool if it passes a certain condition
 	toolObj = (
@@ -162,10 +171,7 @@ local function tpPlayer(position, tpCompletedWait)
 	local tweenObj = tweenService:Create(rootPart, _tweenInfo, {
 		CFrame = position
 	})
-	local _anchorConnection = rootPart:GetPropertyChangedSignal("Anchored"):Connect(function()
-		local func = (if rootPart.Anchored then tweenObj.Pause else tweenObj.Play)
-		func(tweenObj)
-	end)
+	local _anchorConnection = rootPart:GetPropertyChangedSignal("Anchored"):Connect(bindFunc(onCharacterAnchoredTweening, tweenObj))
 
 	tweenObj.Completed:Connect(function(playbackState)
 		if playbackState == Enum.PlaybackState.Completed then
@@ -175,6 +181,7 @@ local function tpPlayer(position, tpCompletedWait)
 		end
 	end)
 	tweenObj:Play()
+	onCharacterAnchoredTweening(tweenObj)
 
 	if tpCompletedWait then
 		local tpCompletedValue
@@ -438,7 +445,7 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
 					task.spawn(invokeFunc, events.Punch)
-				until not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0)
+				until not config.farmingUtil.seaCreatureFarm or (not (humanoid and rootPart) or (humanoid.Health == 0 or mobHumanoid.Health == 0))
 				break
 			end
 		end
@@ -463,7 +470,7 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 		end
 
 		farmingMob = (if farmingMob == "Gorilla" then "🦍" else farmingMob)
-		if not killingMobs then
+		if not killingMobs and quests:FindFirstChildWhichIsA("Frame") then
 			killingMobs = true
 			for _, object in workspace:GetChildren() do
 				if (not config.farmingUtil.expFarm) or (not quests:FindFirstChildWhichIsA("Frame")) or humanoid.Health == 0 then break end
