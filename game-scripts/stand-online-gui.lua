@@ -45,7 +45,9 @@ local otherItemsList = {
 local eventItemsList = {
 	"Gift",
 	"Spooky Arrow",
-	"Scary Arrow"
+	"Scary Arrow",
+	"Easter Egg",
+	"Golden Egg"
 }
 -- config init
 local config = {
@@ -73,14 +75,28 @@ local config = {
 }
 -- functions
 local invokeFunc = Instance.new("RemoteFunction").InvokeServer
+
+local isnetworkowner = isnetworkowner or function(partObj)
+	local currentNetTick = os.clock()
+	local success, value = pcall(gethiddenproperty, partObj, "NetworkOwnershipRule")
+
+	if success and (value == Enum.NetworkOwnership.Manual) then
+		sethiddenproperty(partObj, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
+		currentNetTick = os.clock() + 8
+	end
+	return currentNetTick <= os.clock()
+end
+
 local function bindFunc(func, ...)
 	local args = table.pack(...)
 	return function() return task.spawn(func, unpack(args)) end
 end
+
 local function unpackOrientation(vectRot, dontUseRadians)
 	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
 end
+
 local function updateEventsList()
 	repeat runService.Heartbeat:Wait() until #eventsFolder:GetChildren() ~= 0
 	table.clear(events)
@@ -88,11 +104,13 @@ local function updateEventsList()
 		events[object.Name] = object
 	end
 end
+
 local function onCharacterAnchoredTweening(tweenObj)
 	if not tweenObj then return end
 	local func = (if rootPart.Anchored then tweenObj.Pause else tweenObj.Play)
 	func(tweenObj)
 end
+
 local function getTool(toolObj) -- returns the tool if it passes a certain condition
 	toolObj = (
 		(toolObj:IsA("Model") and toolObj:FindFirstChildWhichIsA("Tool")) and toolObj:FindFirstChildWhichIsA("Tool") or
@@ -101,12 +119,14 @@ local function getTool(toolObj) -- returns the tool if it passes a certain condi
 	)
 	return (toolObj and ((toolObj:IsA("BasePart") or toolObj:FindFirstChild("Handle")) and toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) and toolObj or nil
 end
+
 local function getCurrentLvl() -- maybe improve this
 	if not (gameUI and gameUI:FindFirstChild("Frame")) then return end
 	local lvl = string.gsub(gameUI.Frame.EXPBAR.TextLabel.Text, "%D", "")
 
 	return tonumber(lvl)
 end
+
 local function getFarmingMob()
 	return (
 		if currentLvl >= 80 then
@@ -126,16 +146,19 @@ local function getFarmingMob()
 		else nil
 	)
 end
-local function spawnStand(spawn)
-	if not (plrStatus and plrStatus.StandOut.Value ~= spawn) then return end
 
-	task.spawn(events.SummonStand.InvokeServer, events.SummonStand)
+local function spawnStand(spawnValue)
+	if not (plrStatus and plrStatus.StandOut.Value ~= spawnValue) then return end
+
+	task.spawn(invokeFunc, events.SummonStand)
 end
+
 local function checkMob(mobEntity)
 	local mobHumanoid, mobRootPart = mobEntity:FindFirstChild("Humanoid"), mobEntity:FindFirstChild("HumanoidRootPart")
 
 	return (mobEntity:IsA("Model") and (mobRootPart and (mobHumanoid and mobHumanoid.Health ~= 0))), mobHumanoid, mobRootPart
 end
+
 local function gotAdornied(toolObj)
 	for _, espThingy in espFolder:GetChildren() do
 		if espThingy.Adornee.Parent == toolObj then
@@ -143,6 +166,7 @@ local function gotAdornied(toolObj)
 		end
 	end
 end
+
 local function itemFarmable(itemName_in)
 	for configId, itemName in itemsList do
 		if not string.find(itemName_in, itemName) then continue end
@@ -164,15 +188,17 @@ local function itemFarmable(itemName_in)
 	end
 	return false
 end
-local function tpPlayer(position, tpCompletedWait)
+
+local function tpPlayer(position, yieldUntilCompleted)
 	if (not rootPart) or (not rootPart:IsDescendantOf(workspace)) then return end
-	position = (if typeof(position) == "CFrame" then position elseif typeof(position) == "Vector3" then CFrame.new(position) else nil)
-	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(position.Position) / 150, Enum.EasingStyle.Linear)
+	position = (if typeof(position) == "CFrame" then position elseif typeof(position) == "Vector3" then (CFrame.identity + position) else nil)
+	local _tweenInfo = TweenInfo.new(player:DistanceFromCharacter(position.Position) / 200, Enum.EasingStyle.Linear)
 	local tweenObj = tweenService:Create(rootPart, _tweenInfo, {
 		CFrame = position
 	})
 	local _anchorConnection = rootPart:GetPropertyChangedSignal("Anchored"):Connect(bindFunc(onCharacterAnchoredTweening, tweenObj))
 
+	task.spawn(onCharacterAnchoredTweening, tweenObj)
 	tweenObj.Completed:Connect(function(playbackState)
 		if playbackState == Enum.PlaybackState.Completed then
 			tpCompleted:Fire(position)
@@ -180,10 +206,8 @@ local function tpPlayer(position, tpCompletedWait)
 			tweenObj:Destroy()
 		end
 	end)
-	tweenObj:Play()
-	onCharacterAnchoredTweening(tweenObj)
 
-	if tpCompletedWait then
+	if yieldUntilCompleted then
 		local tpCompletedValue
 
 		task.spawn(function()
@@ -192,6 +216,7 @@ local function tpPlayer(position, tpCompletedWait)
 		repeat runService.Heartbeat:Wait() until (tpCompletedValue == position)
 	end
 end
+
 local function getItem(toolObj)
 	toolObj = getTool(toolObj)
 
@@ -217,6 +242,7 @@ local function getItem(toolObj)
 		end
 	end
 end
+
 local function getItems()
 	if not config.itemUtil.itemFarm then return end
 
@@ -225,6 +251,7 @@ local function getItems()
 		getItem(object)
 	end
 end
+
 local function itemESP(toolObj)
 	toolObj = getTool(toolObj)
 
@@ -260,12 +287,14 @@ local function itemESP(toolObj)
 		guiEsp.Parent, itemName.Parent, itemDist.Parent = espFolder, guiEsp, guiEsp
 	end
 end
+
 local function toggleAntiAfk(value)
 	for _, connection in getconnections(player.Idled) do
 		local func = (if not value then connection.Enable else (connection.Disable or connection.Disconnect))
 		func(connection)
 	end
 end
+
 -- ui init
 local window = ui_library.new("Stands Online")
 
@@ -383,6 +412,7 @@ table.insert(_G.standOnline_GUI.connections, workspace.ChildAdded:Connect(functi
 		itemESP(object)
 	end
 end))
+
 table.insert(_G.standOnline_GUI.connections, player.CharacterAdded:Connect(function(spawnedChar)
 	task.wait(.5)
 	character = spawnedChar
@@ -393,6 +423,7 @@ table.insert(_G.standOnline_GUI.connections, player.CharacterAdded:Connect(funct
 	eventsFolder = gameUI:WaitForChild("Events")
 	task.spawn(updateEventsList)
 end))
+
 table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(function()
 	currentLvl = getCurrentLvl()
 
@@ -404,21 +435,20 @@ table.insert(_G.standOnline_GUI.connections, runService.Heartbeat:Connect(functi
 		rootPart.Velocity, rootPart.RotVelocity = Vector3.zero, Vector3.zero
 	end
 
-	humanoid.WalkSpeed, humanoid.JumpPower = config.miscUtil.walkspeed, config.miscUtil.jumppower
-
 	for _, guiEsp in espFolder:GetChildren() do
-		if not config.itemUtil.itemEsp or not (guiEsp.Adornee or guiEsp:FindFirstChild("itemDist")) or not guiEsp.Adornee:IsDescendantOf(game) then
+		if not config.itemUtil.itemEsp or not (guiEsp.Adornee and guiEsp.Adornee:IsDescendantOf(game)) then
 			guiEsp:Destroy()
 			continue
 		end
 
 		local toolObj = guiEsp.Adornee.Parent
-		local distFromChar = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
+		local toolDistance = math.floor(player:DistanceFromCharacter(toolObj.Handle.Position))
 
-		guiEsp.itemDist.Text = string.format("%dm", distFromChar)
-		guiEsp.Enabled = (if (distFromChar >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) then true else false)
+		guiEsp.itemDist.Text = `{toolDistance}m`
+		guiEsp.Enabled = (if (toolDistance >= 10 and (toolObj:IsDescendantOf(workspace)) and not toolObj.Parent:FindFirstChildWhichIsA("Humanoid")) then true else false)
 	end
 end))
+
 table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function()
 	if config.farmingUtil.expFarm then
 		for _, object in character:GetChildren() do
@@ -426,7 +456,10 @@ table.insert(_G.standOnline_GUI.connections, runService.Stepped:Connect(function
 			object.CanCollide = false
 		end
 	end
+
+	humanoid.WalkSpeed, humanoid.JumpPower = config.miscUtil.walkspeed, config.miscUtil.jumppower
 end))
+
 _G.standOnline_GUI.runFarmLoop = true
 while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 	if (not (config.farmingUtil.expFarm and currentLvl)) or not (humanoid and rootPart) then continue end
@@ -436,11 +469,11 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 		for _, object in workspace:GetChildren() do
 			local passedCheck, mobHumanoid, mobRootPart = checkMob(object)
 			if object.Name == "Sea Creature" and (passedCheck and (mobRootPart and mobHumanoid)) then
-				tpPlayer(mobRootPart.CFrame * tpOffset, true)
 				spawnStand(true)
+				tpPlayer(mobRootPart.CFrame * tpOffset, true)
 
 				repeat runService.Heartbeat:Wait()
-					humanoid:ChangeState(11)
+					humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
 					rootPart.CFrame = (mobRootPart.CFrame * tpOffset)
 					task.delay(10, invokeFunc, events.Barrage)
 					task.delay(10, invokeFunc, events.Heavy)
@@ -454,7 +487,7 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 
 	if (config.farmingUtil.expFarm and currentLvl) and not killingSeaCreature then
 		local farmingMob = getFarmingMob()
-		local questName = (if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob).. " Quest"
+		local questName = `{(if farmingMob == "Gorilla" then "🦍😡💢" elseif farmingMob == "HamonGolem" then "Golem" else farmingMob)} Quest`
 
 		if not (quests:FindFirstChildWhichIsA("Frame") and string.find(quests:FindFirstChildWhichIsA("Frame").Name, "Quest")) then
 			for _, object in workspace:GetChildren() do
@@ -480,8 +513,9 @@ while _G.standOnline_GUI.runFarmLoop do runService.Heartbeat:Wait()
 					tpPlayer(mobRootPart.CFrame * tpOffset, true)
 
 					repeat runService.Heartbeat:Wait()
-						humanoid:ChangeState(11)
+						humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
 						mobRootPart.Velocity, mobRootPart.RotVelocity = (Vector3.yAxis * -10e5), Vector3.zero
+						mobRootPart.Anchored = not isnetworkowner(mobRootPart)
 						rootPart.CFrame = (mobRootPart.CFrame * tpOffset)
 						task.delay(10, invokeFunc, events.Barrage)
 						task.delay(10, invokeFunc, events.Heavy)
