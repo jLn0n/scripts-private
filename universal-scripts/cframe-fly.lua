@@ -4,19 +4,20 @@ local runService = game:GetService("RunService")
 local inputService = game:GetService("UserInputService")
 -- objects
 local player = players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-local rootPart = character:FindFirstChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid, rootPart
 -- variables
-local rootPartCFrame
-local flyObj = {
+local flyConfig = {
 	enabled = false,
+	noclip = true,
 	keyInput = Enum.KeyCode.F1,
-	flySpeed = 1,
+	flySpeed = 2,
 	qeFly = true,
-
-	_navigation = {
+}
+local flyData = {
+	currentCFrame = CFrame.identity,
+	navigation = {
 		upward = false,
 		downward = false,
 		forward = false,
@@ -25,39 +26,44 @@ local flyObj = {
 		leftward = false,
 	}
 }
--- main
-player.CharacterAdded:Connect(function(newCharacter)
+-- functions
+local function onCharacterAdded(newCharacter)
+	task.wait(.5)
 	character = newCharacter
 	humanoid, rootPart = character:FindFirstChildWhichIsA("Humanoid"), character:WaitForChild("HumanoidRootPart")
-end)
+end
+-- main
+onCharacterAdded(character)
+player.CharacterAdded:Connect(onCharacterAdded)
 
 inputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.Keyboard and not (inputService:GetFocusedTextBox() and gameProcessedEvent) then
-		if input.KeyCode == flyObj.keyInput then
-			flyObj.enabled = not flyObj.enabled
+		if input.KeyCode == flyConfig.keyInput then
+			flyConfig.enabled = not flyConfig.enabled
+			flyData.currentCFrame = rootPart.CFrame
 		end
 	end
 end)
 
 runService.RenderStepped:Connect(function()
-	if not inputService:GetFocusedTextBox() and flyObj.enabled then
-		flyObj._navigation.upward = flyObj.qeFly and inputService:IsKeyDown(Enum.KeyCode.Q)
-		flyObj._navigation.downward = flyObj.qeFly and inputService:IsKeyDown(Enum.KeyCode.E)
-		flyObj._navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W)
-		flyObj._navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S)
-		flyObj._navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A)
-		flyObj._navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D)
+	if not inputService:GetFocusedTextBox() and flyConfig.enabled then
+		flyData.navigation.upward = flyConfig.qeFly and inputService:IsKeyDown(Enum.KeyCode.Q)
+		flyData.navigation.downward = flyConfig.qeFly and inputService:IsKeyDown(Enum.KeyCode.E)
+		flyData.navigation.forward = inputService:IsKeyDown(Enum.KeyCode.W)
+		flyData.navigation.backward = inputService:IsKeyDown(Enum.KeyCode.S)
+		flyData.navigation.leftward = inputService:IsKeyDown(Enum.KeyCode.A)
+		flyData.navigation.rightward = inputService:IsKeyDown(Enum.KeyCode.D)
 	end
 end)
 
 runService.Heartbeat:Connect(function(deltaTime)
-	if flyObj.enabled and (humanoid and rootPart) then
-		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop(-1) end
+	if flyConfig.enabled and (humanoid and rootPart) then
+		for _, animObj in humanoid:GetPlayingAnimationTracks() do animObj:Stop(0) end
 		local cameraOrientation = CFrame.fromOrientation(camera.CFrame:ToOrientation())
 		local calcFront, calcRight, calcTop = (cameraOrientation.LookVector), (cameraOrientation.RightVector), (cameraOrientation.UpVector)
 		local pressedDirection do
 			pressedDirection = Vector3.zero
-			for name, value in flyObj._navigation do
+			for name, value in flyData.navigation do
 				pressedDirection += (
 					if not value then Vector3.zero
 					elseif (name == "upward") then calcTop
@@ -69,14 +75,24 @@ runService.Heartbeat:Connect(function(deltaTime)
 					else Vector3.zero
 				)
 			end
-			pressedDirection *= ((flyObj.flySpeed * 16) * deltaTime)
+			pressedDirection *= ((flyConfig.flySpeed / 0.0305) * deltaTime)
 		end
-		local difference = (rootPartCFrame.Position - rootPart.Position)
 
 		rootPart.Anchored = false
-		character:TranslateBy(pressedDirection)
-		rootPart.CFrame = ((CFrame.identity + (rootPart.Position + difference)) * cameraOrientation)
-		rootPartCFrame = rootPart.CFrame
+		humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
+		if flyConfig.noclip then
+			local difference = (flyData.currentCFrame.Position - rootPart.Position)
+
+			character:TranslateBy(pressedDirection)
+			--rootPart.CFrame = ((CFrame.identity + (rootPart.Position + difference)) * cameraOrientation)
+		else
+			rootPart.CFrame = (
+				if pressedDirection.Magnitude > 0 then
+					((CFrame.identity + (rootPart.Position + pressedDirection)) * cameraOrientation)
+				else ((CFrame.identity + flyData.currentCFrame.Position) * cameraOrientation)
+			)
+		end
+		flyData.currentCFrame = rootPart.CFrame
 		rootPart.AssemblyLinearVelocity, rootPart.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
 	end
 end)
