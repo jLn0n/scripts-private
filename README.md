@@ -1,2 +1,6 @@
 # scripts-private
-what do i put in here?
+
+previously private scripts that have been for myself
+look at the mess that i have for the past years
+
+archived because yes
